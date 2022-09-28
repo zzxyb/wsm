@@ -16,6 +16,8 @@ protocols = [
         [wl_protocol_dir, 'unstable/pointer-constraints/pointer-constraints-unstable-v1.xml'],
         [wl_protocol_dir, 'unstable/tablet/tablet-unstable-v2.xml'],
         [wl_protocol_dir, 'unstable/linux-dmabuf/linux-dmabuf-unstable-v1.xml'],
+        ['wsm-effects.xml'],
+        ['wsm-fake-input.xml']
 ]
 
 client_protocols = [
