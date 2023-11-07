@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="wsm_effects">
+  <interface name="effects_manager" version="1">
+      <description summary="effects manager">
+        This interface allows other processes to manager effects.
+        Purpose is on the one hand side to provide effects control.
+      </description>
+
+      <request name="create" since="1">
+          <arg name="id" type="new_id" interface="surface_effect"/>
+          <arg name="surface" type="object" interface="wl_surface"/>
+      </request>
+      <request name="unset" since="1">
+          <arg name="surface" type="object" interface="wl_surface"/>
+      </request>
+  </interface>
+  <interface name="surface_effect" version="1">
+      <enum name="rounded_corners_flag">
+      <description summary="rounded cornors attachment attributes"/>
+      <entry name="up" value="1" summary="only the top of the window has rounded corner"/>
+      <entry name="down" value="2" summary="only the down of the window has rounded corner"/>
+      <entry name="rounded" value="4" summary="There are rounded corners around the window"/>
+      </enum>
+
+      <description summary="effects interface">
+        This interface allows other processes to provide effects settings.
+      </description>
+
+      <request name="commit" since="1">
+        <description summary="commit to wayland server"/>
+      </request>
+
+      <!-- window blur -->
+      <request name="set_region" since="1">
+        <description summary="set blur effect region in window"/>
+        <arg name="region" type="object" interface="wl_region" allow-null="true"/>
+      </request>
+      <request name="set_fullwindowblur" since="1">
+        <description summary="set blur effect in window fullregion"/>
+      </request>
+
+      <!-- window corners -->
+      <request name="set_window_rounded_corner" since="1">
+        <description summary="set window rounded corners"/>
+        <arg name="raduis" type="fixed"/>
+        <arg name="flag" type="uint" summary="rounded cornors flag"/>
+      </request>
+
+      <!-- window rounded shaodw -->
+      <request name="set_shadow_color" since="1">
+        <description summary="set shadow color,for uniform style,shadow other parameters are controlled by the compositor."/>
+        <arg name="r" type="int"/>
+        <arg name="g" type="int"/>
+        <arg name="b" type="int"/>
+      </request>
+
+      <!-- window rounded border -->
+      <request name="set_border_color" since="1">
+        <description summary="set border color,control window stroke color."/>
+        <arg name="r" type="int"/>
+        <arg name="g" type="int"/>
+        <arg name="b" type="int"/>
+        <arg name="a" type="int"/>
+      </request>
+      <request name="set_border_width" since="1">
+        <description summary="set border width,control window stroke width."/>
+        <arg name="width" type="fixed"/>
+      </request>
+
+      <!-- window clip like mask -->
+      <request name="set_clip_region" since="1">
+        <description summary="only display the window content in this area, other areas are transparent."/>
+        <arg name="region" type="object" interface="wl_region" allow-null="true"/>
+      </request>
+
+      <request name="release" type="destructor" since="1">
+        <description summary="release the blur object"/>
+      </request>
+  </interface>
+</protocol>

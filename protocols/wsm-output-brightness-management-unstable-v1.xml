@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="wsm_output_brightness_management_unstable_v1">
+  <copyright>
+    Copyright (c) 2024 YaoBing Xiao
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+  </copyright>
+
+  <description summary="Control brightness management of outputs">
+    This protocol allows clients to control brightness management
+    of outputs that are currently part of the compositor space. The
+    intent is to allow special clients like desktop shells to set
+    brightness.
+
+    To modify outputs not currently part of the compositor space see
+    wlr-output-management.
+
+    Warning! The protocol described in this file is experimental and
+    backward incompatible changes may be made. Backward compatible changes
+    may be added together with the corresponding interface version bump.
+    Backward incompatible changes are done by bumping the version number in
+    the protocol and interface names and resetting the interface version.
+    Once the protocol is to be declared stable, the 'z' prefix and the
+    version number in the protocol and interface names are removed and the
+    interface version number is reset.
+  </description>
+
+  <interface name="zwsm_output_brightness_manager_v1" version="1">
+    <description summary="manager to create per-output brightness management">
+      This interface is a manager that allows creating per-output brightness
+      management controls.
+    </description>
+
+    <request name="get_output_brightness">
+      <description summary="get a brightness management for an output">
+        Create a output brightness management control that can be used to
+        adjust the brightness management for a given output.
+      </description>
+      <arg name="id" type="new_id" interface="zwsm_output_brightness_v1"/>
+      <arg name="output" type="object" interface="wl_output"/>
+    </request>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        All objects created by the manager will still remain valid, until their
+        appropriate destroy request has been called.
+      </description>
+    </request>
+  </interface>
+
+  <interface name="zwsm_output_brightness_v1" version="1">
+    <description summary="adjust brightness management for an output">
+      This object offers requests to set the brightness management value of
+      an output.
+    </description>
+
+    <request name="set_brightness">
+      <description summary="Set an outputs brightness">
+        Set an output's brightnessvalue save. If the output does not support the given
+        value a failed event is sent.
+      </description>
+      <arg name="value" type="uint" summary="the brightness value to set"/>
+    </request>
+
+    <event name="brightness">
+      <description summary="Report a brightness management value change">
+        Report the brightness management value change of an output.
+      </description>
+      <arg name="value" type="uint"
+           summary="the output's new brightness management"/>
+    </event>
+
+    <event name="failed">
+      <description summary="object no longer valid">
+        This event indicates that the output brightness management
+        is no longer valid. This can happen for a number of reasons,
+        including:
+        - The output doesn't support brightness management
+        - Another client already has exclusive brightness management control
+          for this output
+        - The output disappeared
+
+        Upon receiving this event, the client should destroy this object.
+      </description>
+    </event>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy this brightness management">
+        Destroys the output brightness management control object.
+      </description>
+    </request>
+  </interface>
+</protocol>
