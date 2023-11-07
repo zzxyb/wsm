@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OutPutConfig primaryuuid="0">
+    <!-- there is no following configuration for non-drm_output -->
+    <OutPutDevice name="HDMI-1" uuid="0">
+    <!-- Record the coordinate data of the current output arrangement -->
+    <pos>
+        <x>0</x>
+        <y>0</y>
+    </pos>
+    <!-- if mode is preferred_mode, confirm according to the EDID report
+    information, otherwise use the preset width and height values below. -->
+    <resolution mode="preferred_mode">
+        <width>1920</width>
+        <height>1080</height>
+    </resolution>
+    <!-- if mode is preferred_mode, confirm according to the EDID report
+    information, otherwise use the preset refresh_rate values below. -->
+    <refresh_rate mode="preferred_mode">60</refresh_rate>
+    <!-- if mode is preferred_mode, confirm according to the drm report
+    information, otherwise use the preset rotation values below. -->
+    <rotation mode="preferred_mode">0</rotation>
+    <scale>1</scale>
+    <!-- if mode is preferred_mode, confirm according to the backlight
+    report information, otherwise use the preset brightness values below. -->
+    <brightness mode="preferred_mode">1</brightness>
+    <!-- if mode is preferred_mode, confirm according to the drm report
+    information, otherwise use the preset gamma values below. -->
+    <gamma mode="preferred_mode">
+        <red>1920</red>
+        <green>1080</green>
+        <blue>1080</blue>
+    </gamma>
+    </OutPutDevice>
+</OutPutConfig>
