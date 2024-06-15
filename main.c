@@ -178,6 +178,9 @@ int main(int argc, char **argv) {
         goto shutdown;
     }
 
+#ifdef HAVE_XWAYLAND
+    global_server.xwayland_enabled = xwayland;
+#endif
     wsm_server_init(&global_server);
 
     const char *socket = wl_display_add_socket_auto(global_server.wl_display);

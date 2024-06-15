@@ -110,7 +110,6 @@ void wsm_output_damage_surface(struct wsm_output *output, double ox, double oy,
                            struct wlr_surface *surface, bool whole);
 void wsm_output_damage_box(struct wsm_output *output, struct wlr_box *box);
 struct wsm_workspace *wsm_output_get_active_workspace(struct wsm_output *output);
-bool wsm_scene_output_commit(struct wlr_scene_output *scene_output);
 struct wlr_box wsm_output_usable_area_in_layout_coords(struct wsm_output *output);
 struct wlr_box wsm_output_usable_area_scaled(struct wsm_output *output);
 void wsm_output_set_enable_adaptive_sync(struct wlr_output *output, bool enabled);

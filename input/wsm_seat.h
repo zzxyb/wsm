@@ -38,6 +38,8 @@ THE SOFTWARE.
 #include <wlr/types/wlr_input_device.h>
 
 struct wlr_seat;
+struct wlr_drag;
+struct wlr_surface;
 struct wlr_layer_surface_v1;
 struct wlr_pointer_axis_event;
 struct wlr_pointer_hold_end_event;
@@ -67,12 +69,16 @@ struct wsm_seat {
     struct wlr_seat *wlr_seat;
     struct wsm_cursor *wsm_cursor;
 
+    struct wlr_scene_tree *scene_tree;
+    struct wlr_scene_tree *drag_icons;
+
     bool has_focus;
     struct wl_list focus_stack;
 
     struct wlr_layer_surface_v1 *focused_layer;
 
     struct wl_client *exclusive_client;
+    bool has_exclusive_layer;
 
     // Last touch point
     int32_t touch_id;
@@ -156,6 +162,12 @@ struct wsm_seat_device {
     struct wl_list link;
 };
 
+struct wsm_drag {
+    struct wsm_seat *seat;
+    struct wlr_drag *wlr_drag;
+    struct wl_listener destroy;
+};
+
 struct wsm_seat *seat_create(const char *seat_name);
 void seat_destroy(struct wsm_seat *seat);
 void seat_add_device(struct wsm_seat *seat,
@@ -198,10 +210,17 @@ void seatop_touch_down(struct wsm_seat *seat,
                        struct wlr_touch_down_event *event, double lx, double ly);
 void seatop_touch_cancel(struct wsm_seat *seat,
                          struct wlr_touch_cancel_event *event);
+void seatop_rebase(struct wsm_seat *seat, uint32_t time_msec);
+void seatop_end(struct wsm_seat *seat);
 void seatop_tablet_tool_motion(struct wsm_seat *seat,
                                struct wsm_tablet_tool *tool, uint32_t time_msec);
 bool seatop_allows_set_cursor(struct wsm_seat *seat);
 void seat_add_device(struct wsm_seat *seat,
                      struct wsm_input_device *device);
+void seat_set_focus_surface(struct wsm_seat *seat,
+                            struct wlr_surface *surface, bool unfocus);
+void seat_set_focus_layer(struct wsm_seat *seat,
+                          struct wlr_layer_surface_v1 *layer);
+void drag_icons_update_position(struct wsm_seat *seat);
 
 #endif

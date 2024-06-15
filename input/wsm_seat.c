@@ -25,20 +25,141 @@ THE SOFTWARE.
 #define _POSIX_C_SOURCE 200809L
 #include "wsm_seat.h"
 #include "wsm_server.h"
+#include "wsm_scene.h"
 #include "wsm_log.h"
 #include "wsm_switch.h"
 #include "wsm_cursor.h"
 #include "wsm_keyboard.h"
 #include "wsm_tablet.h"
 #include "wsm_input_manager.h"
+#include "wsm_seatop.h"
+#include "wsm_node_descriptor.h"
 
 #include <stdlib.h>
+#include <assert.h>
 
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_touch.h>
+#include <wlr/types/wlr_scene.h>
+#include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_idle_notify_v1.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
+#include <wlr/types/wlr_primary_selection.h>
+
+static void handle_request_start_drag(struct wl_listener *listener,
+                                      void *data) {
+    struct wsm_seat *seat = wl_container_of(listener, seat, request_start_drag);
+    struct wlr_seat_request_start_drag_event *event = data;
+
+    if (wlr_seat_validate_pointer_grab_serial(seat->wlr_seat,
+                                              event->origin, event->serial)) {
+        wlr_seat_start_pointer_drag(seat->wlr_seat, event->drag, event->serial);
+        return;
+    }
+
+    struct wlr_touch_point *point;
+    if (wlr_seat_validate_touch_grab_serial(seat->wlr_seat,
+                                            event->origin, event->serial, &point)) {
+        wlr_seat_start_touch_drag(seat->wlr_seat,
+                                  event->drag, event->serial, point);
+        return;
+    }
+
+    wsm_log(WSM_DEBUG, "Ignoring start_drag request: "
+                         "could not validate pointer or touch serial %" PRIu32, event->serial);
+    wlr_data_source_destroy(event->drag->source);
+}
+
+static void drag_handle_destroy(struct wl_listener *listener, void *data) {
+    struct wsm_drag *drag = wl_container_of(listener, drag, destroy);
+
+    struct wsm_seat *seat = drag->seat;
+    if (seat->focused_layer) {
+        struct wlr_layer_surface_v1 *layer = seat->focused_layer;
+        seat_set_focus_layer(seat, NULL);
+        seat_set_focus_layer(seat, layer);
+    } else {
+        struct wlr_surface *surface = seat->wlr_seat->keyboard_state.focused_surface;
+        seat_set_focus_surface(seat, NULL, false);
+        seat_set_focus_surface(seat, surface, false);
+    }
+
+    drag->wlr_drag->data = NULL;
+    wl_list_remove(&drag->destroy.link);
+    free(drag);
+}
+
+static void drag_icon_update_position(struct wsm_seat *seat, struct wlr_scene_node *node) {
+    struct wlr_drag_icon *wlr_icon = wsm_scene_descriptor_try_get(node, WSM_SCENE_DESC_DRAG_ICON);
+    struct wlr_cursor *cursor = seat->wsm_cursor->wlr_cursor;
+
+    switch (wlr_icon->drag->grab_type) {
+    case WLR_DRAG_GRAB_KEYBOARD:
+        return;
+    case WLR_DRAG_GRAB_KEYBOARD_POINTER:
+        wlr_scene_node_set_position(node, cursor->x, cursor->y);
+        break;
+    case WLR_DRAG_GRAB_KEYBOARD_TOUCH:;
+        struct wlr_touch_point *point =
+            wlr_seat_touch_get_point(seat->wlr_seat, wlr_icon->drag->touch_id);
+        if (point == NULL) {
+            return;
+        }
+        wlr_scene_node_set_position(node, seat->touch_x, seat->touch_y);
+    }
+}
+
+static void handle_start_drag(struct wl_listener *listener, void *data) {
+    struct wsm_seat *seat = wl_container_of(listener, seat, start_drag);
+    struct wlr_drag *wlr_drag = data;
+
+    struct wsm_drag *drag = calloc(1, sizeof(struct wsm_drag));
+    if (!wsm_assert(drag, "Could not create wsm_drag: allocation failed!")) {
+        return;
+    }
+    drag->seat = seat;
+    drag->wlr_drag = wlr_drag;
+    wlr_drag->data = drag;
+
+    drag->destroy.notify = drag_handle_destroy;
+    wl_signal_add(&wlr_drag->events.destroy, &drag->destroy);
+
+    struct wlr_drag_icon *wlr_drag_icon = wlr_drag->icon;
+    if (wlr_drag_icon != NULL) {
+        struct wlr_scene_tree *tree = wlr_scene_drag_icon_create(seat->drag_icons, wlr_drag_icon);
+        if (!tree) {
+            wsm_log(WSM_ERROR, "Failed to allocate a drag icon scene tree");
+            return;
+        }
+
+        if (!wsm_scene_descriptor_assign(&tree->node, WSM_SCENE_DESC_DRAG_ICON,
+                                        wlr_drag_icon)) {
+            wsm_log(WSM_ERROR, "Failed to allocate a drag icon scene descriptor");
+            wlr_scene_node_destroy(&tree->node);
+            return;
+        }
+
+        drag_icon_update_position(seat, &tree->node);
+    }
+    wsm_seatop_begin(seat);
+}
+
+static void handle_request_set_selection(struct wl_listener *listener,
+                                         void *data) {
+    struct wsm_seat *seat =
+        wl_container_of(listener, seat, request_set_selection);
+    struct wlr_seat_request_set_selection_event *event = data;
+    wlr_seat_set_selection(seat->wlr_seat, event->source, event->serial);
+}
+
+static void handle_request_set_primary_selection(struct wl_listener *listener,
+                                                 void *data) {
+    struct wsm_seat *seat =
+        wl_container_of(listener, seat, request_set_primary_selection);
+    struct wlr_seat_request_set_primary_selection_event *event = data;
+    wlr_seat_set_primary_selection(seat->wlr_seat, event->source, event->serial);
+}
 
 struct wsm_seat *seat_create(const char *seat_name) {
     struct wsm_seat *seat = calloc(1, sizeof(struct wsm_seat));
@@ -47,6 +168,7 @@ struct wsm_seat *seat_create(const char *seat_name) {
     }
 
     seat->wlr_seat = wlr_seat_create(global_server.wl_display, seat_name);
+    seat->drag_icons = wlr_scene_tree_create(&global_server.wsm_scene->wlr_scene->tree);
 
     if (!wsm_assert(seat->wlr_seat, "Could not create wlr_seat: create failed!")) {
         return NULL;
@@ -63,6 +185,31 @@ struct wsm_seat *seat_create(const char *seat_name) {
     }
 
     wl_list_insert(&global_server.wsm_input_manager->seats, &seat->link);
+
+    wl_list_init(&seat->focus_stack);
+    wl_list_init(&seat->devices);
+
+    seat->request_start_drag.notify = handle_request_start_drag;
+    wl_signal_add(&seat->wlr_seat->events.request_start_drag,
+                  &seat->request_start_drag);
+
+    seat->start_drag.notify = handle_start_drag;
+    wl_signal_add(&seat->wlr_seat->events.start_drag, &seat->start_drag);
+
+    seat->request_set_selection.notify = handle_request_set_selection;
+    wl_signal_add(&seat->wlr_seat->events.request_set_selection,
+                  &seat->request_set_selection);
+
+    seat->request_set_primary_selection.notify =
+        handle_request_set_primary_selection;
+    wl_signal_add(&seat->wlr_seat->events.request_set_primary_selection,
+                  &seat->request_set_primary_selection);
+
+    wl_list_init(&seat->keyboard_groups);
+    wl_list_init(&seat->keyboard_shortcuts_inhibitors);
+
+    wsm_seatop_begin(seat);
+
     return seat;
 }
 
@@ -263,6 +410,21 @@ void seatop_touch_cancel(struct wsm_seat *seat, struct wlr_touch_cancel_event *e
     }
 }
 
+void seatop_rebase(struct wsm_seat *seat, uint32_t time_msec) {
+    if (seat->seatop_impl->rebase) {
+        seat->seatop_impl->rebase(seat, time_msec);
+    }
+}
+
+void seatop_end(struct wsm_seat *seat) {
+    if (seat->seatop_impl && seat->seatop_impl->end) {
+        seat->seatop_impl->end(seat);
+    }
+    free(seat->seatop_data);
+    seat->seatop_data = NULL;
+    seat->seatop_impl = NULL;
+}
+
 void seatop_tablet_tool_motion(struct wsm_seat *seat,
                                struct wsm_tablet_tool *tool, uint32_t time_msec) {
     if (seat->seatop_impl->tablet_tool_motion) {
@@ -411,5 +573,55 @@ void seat_configure_device(struct wsm_seat *seat, struct wsm_input_device *devic
     case WLR_INPUT_DEVICE_TABLET_PAD:
         seat_configure_tablet_pad(seat, seat_device);
         break;
+    }
+}
+
+static void seat_tablet_pads_set_focus(struct wsm_seat *seat,
+                                       struct wlr_surface *surface) {
+    struct wsm_seat_device *seat_device;
+    wl_list_for_each(seat_device, &seat->devices, link) {
+        wsm_tablet_pad_set_focus(seat_device->tablet_pad, surface);
+    }
+}
+
+void seat_set_focus_surface(struct wsm_seat *seat,
+                            struct wlr_surface *surface, bool unfocus) {
+    if (seat->has_focus && unfocus) {
+        seat->has_focus = false;
+    }
+
+    if (surface) {
+        seat_keyboard_notify_enter(seat, surface);
+    } else {
+        wlr_seat_keyboard_notify_clear_focus(seat->wlr_seat);
+    }
+
+    seat_tablet_pads_set_focus(seat, surface);
+}
+
+void seat_set_focus_layer(struct wsm_seat *seat,
+                          struct wlr_layer_surface_v1 *layer) {
+    if (!layer && seat->focused_layer) {
+        return;
+    } else if (!layer) {
+        return;
+    }
+    assert(layer->surface->mapped);
+    if (layer->current.layer >= ZWLR_LAYER_SHELL_V1_LAYER_TOP &&
+        layer->current.keyboard_interactive
+            == ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE) {
+        seat->has_exclusive_layer = true;
+    }
+    if (seat->focused_layer == layer) {
+        return;
+    }
+    seat_set_focus_surface(seat, layer->surface, true);
+    seat->focused_layer = layer;
+}
+
+void drag_icons_update_position(struct wsm_seat *seat) {
+    struct wlr_scene_node *node;
+    wl_list_for_each(node, &seat->drag_icons->children, link) {
+        drag_icon_update_position(seat, node);
     }
 }

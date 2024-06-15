@@ -71,6 +71,7 @@ THE SOFTWARE.
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_export_dmabuf_v1.h>
+#include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_presentation_time.h>
 #include <wlr/types/wlr_xdg_foreign_registry.h>
 #include <wlr/types/wlr_single_pixel_buffer_v1.h>
@@ -135,9 +136,11 @@ static bool filter_global(const struct wl_client *client,
                           const struct wl_global *global, void *data) {
     struct wsm_server *server = data;
 #ifdef HAVE_XWAYLAND
-    struct wlr_xwayland *xwayland = server->xwayland.wlr_xwayland;
-    if (xwayland && global == xwayland->shell_v1->global) {
-        return xwayland->server != NULL && client == xwayland->server->client;
+    if (global_server.xwayland_enabled) {
+        struct wlr_xwayland *xwayland = server->xwayland.wlr_xwayland;
+        if (xwayland && global == xwayland->shell_v1->global) {
+            return xwayland->server != NULL && client == xwayland->server->client;
+        }
     }
 #endif
 
@@ -232,7 +235,11 @@ bool wsm_server_init(struct wsm_server *server)
     server->wlr_compositor = wlr_compositor_create(server->wl_display, 6,
                                                server->wlr_renderer);
     wlr_subcompositor_create(server->wl_display);
-
+#ifdef HAVE_XWAYLAND
+    if (server->xwayland_enabled) {
+        server->xcursor_manager = wlr_xcursor_manager_create(NULL, 24);
+    }
+#endif
     server->data_device_manager = wlr_data_device_manager_create(server->wl_display);
     server->wsm_output_manager = wsm_output_manager_create(server);
 

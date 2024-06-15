@@ -27,9 +27,14 @@ THE SOFTWARE.
 
 #include "../config.h"
 
+#include <stdbool.h>
+
 struct wlr_scene;
 struct wlr_scene_tree;
+struct wlr_scene_output;
+struct wlr_output_state;
 struct wlr_scene_output_layout;
+struct wlr_scene_output_state_options;
 
 struct wsm_server;
 
@@ -43,6 +48,7 @@ struct wsm_server;
  * | ----------------- | ----------------- | ---------------- | ---------- | -------------------------------
  * | server-node       | No(display node)  | black-screen     | Yes        | black screen transition
  * | server-node       | No(display node)  | screen-water-mark| Yes        | show employee number information
+ * | server-node       | No(display node)  | drag display node| No         | show drag icon
  * | layer-shell       | No(display node)  | osd_overlay_layer| No         | screenshot preview window
  * | xdg-popups        | Yes               | xdg-popups(layer)| Yes        | server decides layer surface popup(wlr_xdg_popup)
  * | layer-shell       | Yes               | notify-osd       | Yes        | notify bubble or osd
@@ -71,5 +77,9 @@ struct wsm_scene {
 };
 
 struct wsm_scene *wsm_scene_create(const struct wsm_server* server);
+bool wsm_scene_output_commit(struct wlr_scene_output *scene_output,
+                             const struct wlr_scene_output_state_options *options);
+bool wsm_scene_output_build_state(struct wlr_scene_output *scene_output,
+                                  struct wlr_output_state *state, const struct wlr_scene_output_state_options *options);
 
 #endif

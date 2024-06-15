@@ -62,10 +62,12 @@ struct wsm_xwayland {
 };
 
 bool xwayland_start(struct wsm_server *server);
-void xwayland_view_create(struct wlr_xwayland_surface *xsurface, bool mapped);
+struct wsm_xwayland_view *xwayland_view_create(struct wlr_xwayland_surface *xsurface);
 struct wsm_xwayland_view *xwayland_view_from_view(struct wsm_view *view);
 struct wlr_xwayland_surface *xwayland_surface_from_view(struct wsm_view *view);
-
+struct wsm_xwayland_view *create_xwayland_view(struct wlr_xwayland_surface *xsurface);
+void xsurface_associate(struct wl_listener *listener, void *data);
+void xsurface_map(struct wl_listener *listener, void *data);
 #endif
 
 #endif

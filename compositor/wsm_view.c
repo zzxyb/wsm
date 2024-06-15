@@ -26,6 +26,7 @@ THE SOFTWARE.
 #include "wsm_log.h"
 #include "wsm_view.h"
 #include "wsm_output.h"
+#include "wsm_server.h"
 #include "wsm_container.h"
 #include "wsm_workspace.h"
 
@@ -42,12 +43,14 @@ THE SOFTWARE.
 static void view_populate_pid(struct wsm_view *view) {
     pid_t pid;
 #ifdef HAVE_XWAYLAND
-    if (view->type == WSM_VIEW_XWAYLAND) {
-        struct wlr_xwayland_surface *surf =
-            wlr_xwayland_surface_try_from_wlr_surface(view->surface);
-        pid = surf->pid;
-        view->pid = pid;
-        return;
+    if (global_server.xwayland_enabled) {
+        if (view->type == WSM_VIEW_XWAYLAND) {
+            struct wlr_xwayland_surface *surf =
+                wlr_xwayland_surface_try_from_wlr_surface(view->surface);
+            pid = surf->pid;
+            view->pid = pid;
+            return;
+        }
     }
 #endif
     struct wl_client *client =

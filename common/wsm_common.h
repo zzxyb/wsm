@@ -83,6 +83,12 @@ THE SOFTWARE.
 #endif
 
 /**
+ * @brief Avoid "unused parameter" warnings.
+ *
+ */
+#define W_UNUSED(x) (void)x;
+
+/**
  * @brief safe_strtoint Convert string to integer
  * Parses a base-10 number from the given string.  Checks that the
  * string is not blank, contains only numerical characters, and is

@@ -49,6 +49,7 @@ struct wlr_compositor;
 struct wlr_presentation;
 struct wlr_output_layout;
 struct wlr_linux_dmabuf_v1;
+struct wlr_xcursor_manager;
 struct wlr_idle_notifier_v1;
 struct wlr_output_manager_v1;
 struct wlr_data_device_manager;
@@ -108,6 +109,7 @@ struct wsm_server {
     struct wsm_xwayland xwayland;
     struct wl_listener xwayland_surface;
     struct wl_listener xwayland_ready;
+    struct wlr_xcursor_manager *xcursor_manager;
 #endif
 
     struct wsm_font *wsm_font;
@@ -125,6 +127,8 @@ struct wsm_server {
     // The timeout for transactions, after which a transaction is applied
     // regardless of readiness.
     size_t txn_timeout_ms;
+
+    bool xwayland_enabled;
 };
 
 bool wsm_server_init(struct wsm_server *server);
