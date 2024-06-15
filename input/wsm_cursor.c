@@ -68,7 +68,7 @@ static void handle_pointer_hold_begin(struct wl_listener *listener, void *data) 
         listener, cursor, hold_begin);
     struct wlr_pointer_hold_begin_event *event = data;
     cursor_handle_activity_from_device(cursor, &event->pointer->base);
-    // seatop_hold_begin(cursor->wsm_seat, event);
+    seatop_hold_begin(cursor->wsm_seat, event);
 }
 
 static void handle_pointer_hold_end(struct wl_listener *listener, void *data) {
@@ -76,7 +76,7 @@ static void handle_pointer_hold_end(struct wl_listener *listener, void *data) {
         listener, cursor, hold_end);
     struct wlr_pointer_hold_end_event *event = data;
     cursor_handle_activity_from_device(cursor, &event->pointer->base);
-    // seatop_hold_end(cursor->wsm_seat, event);
+    seatop_hold_end(cursor->wsm_seat, event);
 }
 
 static void handle_pointer_pinch_begin(struct wl_listener *listener, void *data) {
@@ -84,7 +84,7 @@ static void handle_pointer_pinch_begin(struct wl_listener *listener, void *data)
         listener, cursor, pinch_begin);
     struct wlr_pointer_pinch_begin_event *event = data;
     cursor_handle_activity_from_device(cursor, &event->pointer->base);
-    // seatop_pinch_begin(cursor->wsm_seat, event);
+    seatop_pinch_begin(cursor->wsm_seat, event);
 }
 
 static void handle_pointer_pinch_update(struct wl_listener *listener, void *data) {
@@ -92,7 +92,7 @@ static void handle_pointer_pinch_update(struct wl_listener *listener, void *data
         listener, cursor, pinch_update);
     struct wlr_pointer_pinch_update_event *event = data;
     cursor_handle_activity_from_device(cursor, &event->pointer->base);
-    // seatop_pinch_update(cursor->wsm_seat, event);
+    seatop_pinch_update(cursor->wsm_seat, event);
 }
 
 static void handle_pointer_pinch_end(struct wl_listener *listener, void *data) {
@@ -100,7 +100,7 @@ static void handle_pointer_pinch_end(struct wl_listener *listener, void *data) {
         listener, cursor, pinch_end);
     struct wlr_pointer_pinch_end_event *event = data;
     cursor_handle_activity_from_device(cursor, &event->pointer->base);
-    // seatop_pinch_end(cursor->wsm_seat, event);
+    seatop_pinch_end(cursor->wsm_seat, event);
 }
 
 static void handle_pointer_swipe_begin(struct wl_listener *listener, void *data) {
@@ -108,7 +108,7 @@ static void handle_pointer_swipe_begin(struct wl_listener *listener, void *data)
         listener, cursor, swipe_begin);
     struct wlr_pointer_swipe_begin_event *event = data;
     cursor_handle_activity_from_device(cursor, &event->pointer->base);
-    // seatop_swipe_begin(cursor->wsm_seat, event);
+    seatop_swipe_begin(cursor->wsm_seat, event);
 }
 
 static void handle_pointer_swipe_update(struct wl_listener *listener, void *data) {
@@ -116,7 +116,7 @@ static void handle_pointer_swipe_update(struct wl_listener *listener, void *data
         listener, cursor, swipe_update);
     struct wlr_pointer_swipe_update_event *event = data;
     cursor_handle_activity_from_device(cursor, &event->pointer->base);
-    // seatop_swipe_update(cursor->wsm_seat, event);
+    seatop_swipe_update(cursor->wsm_seat, event);
 }
 
 static void handle_pointer_swipe_end(struct wl_listener *listener, void *data) {
@@ -124,7 +124,7 @@ static void handle_pointer_swipe_end(struct wl_listener *listener, void *data) {
         listener, cursor, swipe_end);
     struct wlr_pointer_swipe_end_event *event = data;
     cursor_handle_activity_from_device(cursor, &event->pointer->base);
-    // seatop_swipe_end(cursor->wsm_seat, event);
+    seatop_swipe_end(cursor->wsm_seat, event);
 }
 
 void pointer_motion(struct wsm_cursor *cursor, uint32_t time_msec,
@@ -136,7 +136,7 @@ void pointer_motion(struct wsm_cursor *cursor, uint32_t time_msec,
         dx, dy, dx_unaccel, dy_unaccel);
 
     wlr_cursor_move(cursor->wlr_cursor, device, dx, dy);
-    // seatop_pointer_motion(cursor->wsm_seat, time_msec);
+    seatop_pointer_motion(cursor->wsm_seat, time_msec);
 }
 
 static void handle_pointer_motion_relative(
@@ -169,17 +169,21 @@ static void handle_pointer_motion_absolute(
 
 static void handle_pointer_button(struct wl_listener *listener, void *data) {
     struct wsm_cursor *cursor = wl_container_of(listener, cursor, button);
-    // struct wlr_pointer_button_event *event = data;
-    seat_idle_notify_activity(cursor->wsm_seat, WLR_INPUT_DEVICE_POINTER);
+    struct wlr_pointer_button_event *event = data;
 
-    // switch (event->state) {
-    // case WLR_BUTTON_PRESSED:
-    //     cursor_button_press(seat, event->button, event->state, event->time_msec);
-    //     break;
-    // case WLR_BUTTON_RELEASED:
-    //     cursor_button_release(seat, event->button, event->state, event->time_msec);
-    //     break;
-    // }
+    if (event->state == WLR_BUTTON_PRESSED) {
+        cursor->pressed_button_count++;
+    } else {
+        if (cursor->pressed_button_count > 0) {
+            cursor->pressed_button_count--;
+        } else {
+            wsm_log(WSM_ERROR, "Pressed button count was wrong");
+        }
+    }
+
+    cursor_handle_activity_from_device(cursor, &event->pointer->base);
+    dispatch_cursor_button(cursor, &event->pointer->base,
+                           event->time_msec, event->button, event->state);
 }
 
 static void handle_pointer_axis(struct wl_listener *listener, void *data) {
@@ -210,7 +214,7 @@ static void handle_touch_down(struct wl_listener *listener, void *data) {
     seat->touch_x = lx;
     seat->touch_y = ly;
 
-    // seatop_touch_down(seat, event, lx, ly);
+    seatop_touch_down(seat, event, lx, ly);
 }
 
 static void handle_touch_motion(struct wl_listener *listener, void *data) {
@@ -228,12 +232,7 @@ static void handle_touch_motion(struct wl_listener *listener, void *data) {
     if (seat->touch_id == event->touch_id) {
         seat->touch_x = lx;
         seat->touch_y = ly;
-        // struct wsm_drag_icon *drag_icon;
-        // wl_list_for_each(drag_icon, &root->drag_icons, link) {
-        //     if (drag_icon->seat == seat) {
-        //         drag_icon_update_position(drag_icon);
-        //     }
-        // }
+        drag_icons_update_position(seat);
     }
 
     if (cursor->simulating_pointer_from_touch) {
@@ -245,7 +244,7 @@ static void handle_touch_motion(struct wl_listener *listener, void *data) {
                            dx, dy, dx, dy);
         }
     } else {
-        // seatop_touch_motion(seat, event, lx, ly);
+        seatop_touch_motion(seat, event, lx, ly);
     }
 }
 
@@ -254,8 +253,6 @@ static void handle_touch_up(struct wl_listener *listener, void *data) {
     struct wlr_touch_up_event *event = data;
     cursor_handle_activity_from_device(cursor, &event->touch->base);
 
-    // struct wsm_seat *seat = cursor->wsm_seat;
-
     if (cursor->simulating_pointer_from_touch) {
         if (cursor->pointer_touch_id == cursor->wsm_seat->touch_id) {
             cursor->pointer_touch_up = true;
@@ -263,7 +260,8 @@ static void handle_touch_up(struct wl_listener *listener, void *data) {
                                    event->time_msec, BTN_LEFT, WLR_BUTTON_RELEASED);
         }
     } else {
-        // seatop_touch_up(seat, event);
+        struct wsm_seat *seat = cursor->wsm_seat;
+        seatop_touch_up(seat, event);
     }
 }
 
@@ -493,9 +491,9 @@ static void handle_request_pointer_set_cursor(struct wl_listener *listener,
                                               void *data) {
     struct wsm_cursor *cursor =
         wl_container_of(listener, cursor, request_set_cursor);
-    if (!seatop_allows_set_cursor(cursor->wsm_seat)) {
-        return;
-    }
+    // if (!seatop_allows_set_cursor(cursor->wsm_seat)) {
+    //     return;
+    // }
     struct wlr_seat_pointer_request_set_cursor_event *event = data;
 
     struct wl_client *focused_client = NULL;
@@ -533,8 +531,9 @@ struct wsm_cursor *wsm_cursor_create(const struct wsm_server* server, struct wsm
     wlr_cursor_attach_output_layout(wlr_cursor, server->wsm_output_manager->wlr_output_layout);
 
 #ifdef HAVE_XWAYLAND
-    cursor->xcursor_manager = wlr_xcursor_manager_create(NULL, 24);
-    wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->xcursor_manager, "default");
+    if (global_server.xwayland_enabled) {
+        wlr_cursor_set_xcursor(cursor->wlr_cursor, global_server.xcursor_manager, "default");
+    }
 #endif
 
     cursor->hide_source = wl_event_loop_add_timer(server->wl_event_loop,
@@ -654,7 +653,12 @@ void wsm_cursor_destroy(struct wsm_cursor *cursor) {
     wl_list_remove(&cursor->tool_button.link);
     wl_list_remove(&cursor->request_set_cursor.link);
 
-    wlr_xcursor_manager_destroy(cursor->xcursor_manager);
+#ifdef HAVE_XWAYLAND
+    if (global_server.xwayland_enabled) {
+        wlr_xcursor_manager_destroy(global_server.xcursor_manager);
+        global_server.xcursor_manager = NULL;
+    }
+#endif
     wlr_cursor_destroy(cursor->wlr_cursor);
     free(cursor);
 }
@@ -689,7 +693,11 @@ void cursor_set_image(struct wsm_cursor *cursor, const char *image,
     if (!image) {
         wlr_cursor_unset_image(cursor->wlr_cursor);
     } else if (!current_image || strcmp(current_image, image) != 0) {
-        wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->xcursor_manager, image);
+#ifdef HAVE_XWAYLAND
+        if (global_server.xwayland_enabled) {
+            wlr_cursor_set_xcursor(cursor->wlr_cursor, global_server.xcursor_manager, image);
+        }
+#endif
     }
 }
 
@@ -714,14 +722,8 @@ void cursor_set_image_surface(struct wsm_cursor *cursor,
 }
 
 void cursor_rebase(struct wsm_cursor *cursor) {
-    // uint32_t time_msec = get_current_time_msec();
-    // seatop_rebase(cursor->wsm_seat, time_msec);
-}
-
-void seatop_rebase(struct wsm_seat *seat, uint32_t time_msec) {
-    if (seat->seatop_impl->rebase) {
-        seat->seatop_impl->rebase(seat, time_msec);
-    }
+    uint32_t time_msec = get_current_time_msec();
+    seatop_rebase(cursor->wsm_seat, time_msec);
 }
 
 void cursor_handle_activity_from_device(struct wsm_cursor *cursor,
@@ -768,12 +770,12 @@ void dispatch_cursor_button(struct wsm_cursor *cursor,
         time_msec = get_current_time_msec();
     }
 
-    // seatop_button(cursor->wsm_seat, time_msec, device, button, state);
+    seatop_button(cursor->wsm_seat, time_msec, device, button, state);
 }
 
 void dispatch_cursor_axis(struct wsm_cursor *cursor,
                           struct wlr_pointer_axis_event *event) {
-    // seatop_pointer_axis(cursor->wsm_seat, event);
+    seatop_pointer_axis(cursor->wsm_seat, event);
 }
 
 void

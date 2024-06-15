@@ -84,9 +84,7 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 
 static void handle_frame(struct wl_listener *listener, void *user_data) {
     struct wsm_output *output = wl_container_of(listener, output, frame);
-    // wsm_scene_output_commit(output->wlr_scene_output);
-
-    wlr_scene_output_commit(output->wlr_scene_output, NULL);
+    wsm_scene_output_commit(output->wlr_scene_output, NULL);
 
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -220,30 +218,6 @@ struct wsm_output *wsm_output_from_wlr_output(struct wlr_output *wlr_output) {
         }
     }
     return NULL;
-}
-
-bool wsm_scene_output_commit(struct wlr_scene_output *scene_output) {
-    assert(scene_output);
-    struct wlr_output *wlr_output = scene_output->output;
-    struct wlr_output_state *state = &wlr_output->pending;
-
-    if (!wlr_output->needs_frame && !pixman_region32_not_empty(
-            &scene_output->damage_ring.current)) {
-        return false;
-    }
-    if (!wlr_scene_output_build_state(scene_output, state, NULL)) {
-        wsm_log(WSM_ERROR, "Failed to build output state for %s",
-                wlr_output->name);
-        return false;
-    }
-    if (!wlr_output_commit(wlr_output)) {
-        wsm_log(WSM_ERROR, "Failed to commit output %s",
-                wlr_output->name);
-        return false;
-    }
-
-    wlr_damage_ring_rotate(&scene_output->damage_ring);
-    return true;
 }
 
 struct wlr_box

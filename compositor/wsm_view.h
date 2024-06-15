@@ -131,6 +131,13 @@ struct wsm_view {
     uint32_t pending_configure_serial;
     struct wl_event_source *pending_configure_timeout;
 
+    union {
+        struct wlr_xdg_toplevel *wlr_xdg_toplevel;
+#ifdef HAVE_XWAYLAND
+        struct wlr_xwayland_surface *wlr_xwayland_surface;
+#endif
+    };
+
     struct {
         struct wl_signal unmap;
     } events;
@@ -241,7 +248,7 @@ struct wsm_xdg_toplevel_view {
 
 #ifdef HAVE_XWAYLAND
 struct wsm_xwayland_view {
-    struct wsm_view base;
+    struct wsm_view view;
     struct wlr_xwayland_surface *xwayland_surface;
 
     struct wl_listener commit;

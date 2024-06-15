@@ -64,7 +64,6 @@ struct wsm_cursor {
         double x, y;
         // node
     } previous;
-    struct wlr_xcursor_manager *xcursor_manager;
     struct wl_list tablets;
     struct wl_list tablet_pads;
 
@@ -129,7 +128,6 @@ void cursor_set_image(struct wsm_cursor *cursor, const char *image,
 void cursor_set_image_surface(struct wsm_cursor *cursor, struct wlr_surface *surface,
                               int32_t hotspot_x, int32_t hotspot_y, struct wl_client *client);
 void cursor_rebase(struct wsm_cursor *cursor);
-void seatop_rebase(struct wsm_seat *seat, uint32_t time_msec);
 void cursor_handle_activity_from_device(struct wsm_cursor *cursor,
                                         struct wlr_input_device *device);
 void cursor_handle_activity_from_idle_source(struct wsm_cursor *cursor,

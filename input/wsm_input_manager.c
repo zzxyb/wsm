@@ -138,6 +138,10 @@ struct wsm_seat *input_manager_get_default_seat() {
     return input_manager_get_seat(DEFAULT_SEAT, true);
 }
 
+struct wsm_seat *input_manager_current_seat(void) {
+    return input_manager_get_default_seat();
+}
+
 struct wsm_seat *input_manager_get_seat(const char *seat_name, bool create) {
     struct wsm_seat *seat = NULL;
     wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {

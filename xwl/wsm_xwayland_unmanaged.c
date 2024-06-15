@@ -27,192 +27,182 @@ THE SOFTWARE.
 
 #ifdef HAVE_XWAYLAND
 #include "wsm_log.h"
+#include "wsm_server.h"
+#include "wsm_scene.h"
+#include "wsm_seat.h"
+#include "wsm_view.h"
+#include "wsm_input_manager.h"
 
 #include <stdlib.h>
 #include <assert.h>
 
+#include <wlr/types/wlr_compositor.h>
 #include <wlr/xwayland/xwayland.h>
 #include <wlr/types/wlr_scene.h>
 
 static void
-handle_request_configure(struct wl_listener *listener, void *data)
+unmanaged_handle_request_configure(struct wl_listener *listener, void *data)
 {
     struct wsm_xwayland_unmanaged *unmanaged =
         wl_container_of(listener, unmanaged, request_configure);
-    struct wlr_xwayland_surface *xsurface = unmanaged->xwayland_surface;
+    struct wlr_xwayland_surface *xsurface = unmanaged->wlr_xwayland_surface;
     struct wlr_xwayland_surface_configure_event *ev = data;
     wlr_xwayland_surface_configure(xsurface, ev->x, ev->y, ev->width, ev->height);
-    if (unmanaged->node) {
-        wlr_scene_node_set_position(unmanaged->node, ev->x, ev->y);
+    if (unmanaged->surface_scene) {
+        wlr_scene_node_set_position(unmanaged->surface_scene, ev->x, ev->y);
         // cursor_update_focus(unmanaged->server);
     }
 }
 
-// static void
-// handle_set_geometry(struct wl_listener *listener, void *data)
-// {
-//     struct xwayland_unmanaged *unmanaged =
-//         wl_container_of(listener, unmanaged, set_geometry);
-//     struct wlr_xwayland_surface *xsurface = unmanaged->xwayland_surface;
-//     if (unmanaged->node) {
-//         wlr_scene_node_set_position(unmanaged->node, xsurface->x, xsurface->y);
-//         cursor_update_focus(unmanaged->server);
-//     }
-// }
+static void
+unmanaged_handle_set_geometry(struct wl_listener *listener, void *data)
+{
+    struct wsm_xwayland_unmanaged *unmanaged =
+        wl_container_of(listener, unmanaged, set_geometry);
+    struct wlr_xwayland_surface *xsurface = unmanaged->wlr_xwayland_surface;
+    if (unmanaged->surface_scene) {
+        wlr_scene_node_set_position(unmanaged->surface_scene, xsurface->x, xsurface->y);
+        // cursor_update_focus(unmanaged->server);
+    }
+}
 
-// static void
-// handle_map(struct wl_listener *listener, void *data)
-// {
-//     struct xwayland_unmanaged *unmanaged =
-//         wl_container_of(listener, unmanaged, mappable.map);
-//     struct wlr_xwayland_surface *xsurface = unmanaged->xwayland_surface;
-//     assert(!unmanaged->node);
+static void
+unmanaged_handle_map(struct wl_listener *listener, void *data)
+{
+    struct wsm_xwayland_unmanaged *unmanaged =
+        wl_container_of(listener, unmanaged, map);
+    struct wlr_xwayland_surface *xsurface = unmanaged->wlr_xwayland_surface;
+    assert(!unmanaged->surface_scene);
 
-//     /* Stack new surface on top */
-//     wlr_xwayland_surface_restack(xsurface, NULL, XCB_STACK_MODE_ABOVE);
-//     wl_list_append(&unmanaged->server->unmanaged_surfaces, &unmanaged->link);
+    unmanaged->surface_scene = &wlr_scene_surface_create(
+                           global_server.wsm_scene->unmanaged_tree,
+                           xsurface->surface)->buffer->node;
+    if (unmanaged->surface_scene) {
+        wlr_scene_node_set_position(unmanaged->surface_scene, xsurface->x, xsurface->y);
 
-//     CONNECT_SIGNAL(xsurface, unmanaged, set_geometry);
+        wl_signal_add(&xsurface->events.set_geometry, &unmanaged->set_geometry);
+        unmanaged->set_geometry.notify = unmanaged_handle_set_geometry;
+    }
 
-//     if (wlr_xwayland_or_surface_wants_focus(xsurface)) {
-//         seat_focus_surface(&unmanaged->server->seat, xsurface->surface);
-//     }
+    if (wlr_xwayland_or_surface_wants_focus(xsurface)) {
+        struct wsm_seat *seat = input_manager_current_seat();
+        struct wlr_xwayland *xwayland = global_server.xwayland.wlr_xwayland;
+        wlr_xwayland_set_seat(xwayland, seat->wlr_seat);
+        seat_set_focus_surface(seat, xsurface->surface, false);
+    }
+}
 
-//     /* node will be destroyed automatically once surface is destroyed */
-//     unmanaged->node = &wlr_scene_surface_create(
-//                            unmanaged->server->unmanaged_tree,
-//                            xsurface->surface)->buffer->node;
-//     wlr_scene_node_set_position(unmanaged->node, xsurface->x, xsurface->y);
-//     cursor_update_focus(unmanaged->server);
-// }
+static void
+focus_next_surface(struct wlr_xwayland_surface *xsurface)
+{
 
-// static void
-// focus_next_surface(struct server *server, struct wlr_xwayland_surface *xsurface)
-// {
-//     /* Try to focus on last created unmanaged xwayland surface */
-//     struct xwayland_unmanaged *u;
-//     struct wl_list *list = &server->unmanaged_surfaces;
-//     wl_list_for_each_reverse(u, list, link) {
-//         struct wlr_xwayland_surface *prev = u->xwayland_surface;
-//         if (wlr_xwayland_or_surface_wants_focus(prev)) {
-//             seat_focus_surface(&server->seat, prev->surface);
-//             return;
-//         }
-//     }
+}
 
-//     /*
-//      * If we don't find a surface to focus fall back
-//      * to the topmost mapped view. This fixes dmenu
-//      * not giving focus back when closed with ESC.
-//      */
-//     desktop_focus_topmost_view(server);
-// }
+static void
+unmanaged_handle_unmap(struct wl_listener *listener, void *data)
+{
+    struct wsm_xwayland_unmanaged *unmanaged =
+        wl_container_of(listener, unmanaged, unmap);
+    struct wlr_xwayland_surface *xsurface = unmanaged->wlr_xwayland_surface;
+    struct wsm_seat *seat = input_manager_current_seat();
+    assert(unmanaged->surface_scene);
 
-// static void
-// handle_unmap(struct wl_listener *listener, void *data)
-// {
-//     struct xwayland_unmanaged *unmanaged =
-//         wl_container_of(listener, unmanaged, mappable.unmap);
-//     struct wlr_xwayland_surface *xsurface = unmanaged->xwayland_surface;
-//     struct seat *seat = &unmanaged->server->seat;
-//     assert(unmanaged->node);
+    wl_list_remove(&unmanaged->link);
+    wl_list_remove(&unmanaged->set_geometry.link);
+    wlr_scene_node_set_enabled(unmanaged->surface_scene, false);
 
-//     wl_list_remove(&unmanaged->link);
-//     wl_list_remove(&unmanaged->set_geometry.link);
-//     wlr_scene_node_set_enabled(unmanaged->node, false);
+    unmanaged->surface_scene = NULL;
+    // cursor_update_focus(unmanaged->server);
 
-//     /*
-//      * Mark the node as gone so a racing configure event
-//      * won't try to reposition the node while unmapped.
-//      */
-//     unmanaged->node = NULL;
-//     cursor_update_focus(unmanaged->server);
+    if (seat->wlr_seat->keyboard_state.focused_surface == xsurface->surface) {
+        focus_next_surface(xsurface);
+    }
+}
 
-//     if (seat->seat->keyboard_state.focused_surface == xsurface->surface) {
-//         focus_next_surface(unmanaged->server, xsurface);
-//     }
-// }
+static void
+unmanaged_handle_associate(struct wl_listener *listener, void *data)
+{
+    struct wsm_xwayland_unmanaged *unmanaged =
+        wl_container_of(listener, unmanaged, associate);
+    assert(unmanaged->wlr_xwayland_surface &&
+           unmanaged->wlr_xwayland_surface->surface);
 
-// static void
-// handle_associate(struct wl_listener *listener, void *data)
-// {
-//     struct wsm_xwayland_unmanaged *unmanaged =
-//         wl_container_of(listener, unmanaged, associate);
-//     assert(unmanaged->xwayland_surface &&
-//            unmanaged->xwayland_surface->surface);
+    struct wlr_xwayland_surface *xsurface = unmanaged->wlr_xwayland_surface;
+    unmanaged->map.notify = unmanaged_handle_map;
+    wl_signal_add(&xsurface->surface->events.map, &unmanaged->map);
+        unmanaged->unmap.notify = unmanaged_handle_unmap;
+    wl_signal_add(&xsurface->surface->events.unmap, &unmanaged->unmap);
+}
 
-//     // mappable_connect(&unmanaged->mappable,
-//     //                  unmanaged->xwayland_surface->surface,
-//     //                  handle_map, handle_unmap);
-// }
+static void
+unmanaged_handle_dissociate(struct wl_listener *listener, void *data)
+{
+    struct wsm_xwayland_unmanaged *surface =
+        wl_container_of(listener, surface, dissociate);
+    wl_list_remove(&surface->map.link);
+    wl_list_remove(&surface->unmap.link);
+}
 
-// static void
-// handle_dissociate(struct wl_listener *listener, void *data)
-// {
-//     struct xwayland_unmanaged *unmanaged =
-//         wl_container_of(listener, unmanaged, dissociate);
+static void
+unmanaged_handle_destroy(struct wl_listener *listener, void *data)
+{
+    struct wsm_xwayland_unmanaged *surface =
+        wl_container_of(listener, surface, destroy);
+    wl_list_remove(&surface->request_configure.link);
+    wl_list_remove(&surface->associate.link);
+    wl_list_remove(&surface->dissociate.link);
+    wl_list_remove(&surface->destroy.link);
+    wl_list_remove(&surface->override_redirect.link);
+    wl_list_remove(&surface->request_activate.link);
+    free(surface);
+}
 
-//     if (!unmanaged->mappable.connected) {
-//         wlr_log(WLR_ERROR, "dissociate received before associate");
-//         return;
-//     }
-//     mappable_disconnect(&unmanaged->mappable);
-// }
+static void
+unmanaged_handle_override_redirect(struct wl_listener *listener, void *data)
+{
+    struct wsm_xwayland_unmanaged *surface =
+        wl_container_of(listener, surface, override_redirect);
+    struct wlr_xwayland_surface *xsurface = surface->wlr_xwayland_surface;
 
-// static void
-// handle_destroy(struct wl_listener *listener, void *data)
-// {
-//     struct xwayland_unmanaged *unmanaged =
-//         wl_container_of(listener, unmanaged, destroy);
+    bool associated = xsurface->surface != NULL;
+    bool mapped = associated && xsurface->surface->mapped;
+    if (mapped) {
+        unmanaged_handle_unmap(&surface->unmap, NULL);
+    }
+    if (associated) {
+        unmanaged_handle_dissociate(&surface->dissociate, NULL);
+    }
 
-//     if (unmanaged->mappable.connected) {
-//         mappable_disconnect(&unmanaged->mappable);
-//     }
+    unmanaged_handle_destroy(&surface->destroy, NULL);
+    xsurface->data = NULL;
 
-//     wl_list_remove(&unmanaged->associate.link);
-//     wl_list_remove(&unmanaged->dissociate.link);
-//     wl_list_remove(&unmanaged->request_configure.link);
-//     wl_list_remove(&unmanaged->set_override_redirect.link);
-//     wl_list_remove(&unmanaged->request_activate.link);
-//     wl_list_remove(&unmanaged->destroy.link);
-//     free(unmanaged);
-// }
+    struct wsm_xwayland_view *xwayland_view = xwayland_view_create(xsurface);
+    if (associated) {
+        xsurface_associate(&xwayland_view->associate, NULL);
+    }
+    if (mapped) {
+        xsurface_map(&xwayland_view->map, xsurface);
+    }
+}
 
-// static void
-// handle_set_override_redirect(struct wl_listener *listener, void *data)
-// {
-//     wlr_log(WLR_DEBUG, "handle unmanaged override_redirect");
-//     struct xwayland_unmanaged *unmanaged =
-//         wl_container_of(listener, unmanaged, set_override_redirect);
-//     struct wlr_xwayland_surface *xsurface = unmanaged->xwayland_surface;
-//     struct server *server = unmanaged->server;
+static void
+handle_request_activate(struct wl_listener *listener, void *data) {
+    struct wsm_xwayland_unmanaged *surface =
+        wl_container_of(listener, surface, request_activate);
+    struct wlr_xwayland_surface *xsurface = surface->wlr_xwayland_surface;
+    if (xsurface->surface == NULL || !xsurface->surface->mapped) {
+        return;
+    }
+    struct wsm_seat *seat = input_manager_current_seat();
+    // struct wsm_container *focus = seat_get_focused_container(seat);
+    // if (focus && focus->view && focus->view->pid != xsurface->pid) {
+    //     return;
+    // }
 
-//     bool mapped = xsurface->surface && xsurface->surface->mapped;
-//     if (mapped) {
-//         handle_unmap(&unmanaged->mappable.unmap, NULL);
-//     }
-//     handle_destroy(&unmanaged->destroy, NULL);
+    seat_set_focus_surface(seat, xsurface->surface, false);
+}
 
-//     xwayland_view_create(server, xsurface, mapped);
-// }
-
-// static void
-// handle_request_activate(struct wl_listener *listener, void *data)
-// {
-//     wlr_log(WLR_DEBUG, "handle unmanaged request_activate");
-//     struct xwayland_unmanaged *unmanaged =
-//         wl_container_of(listener, unmanaged, request_activate);
-//     struct wlr_xwayland_surface *xsurface = unmanaged->xwayland_surface;
-//     if (!xsurface->surface || !xsurface->surface->mapped) {
-//         return;
-//     }
-//     struct server *server = unmanaged->server;
-//     struct seat *seat = &server->seat;
-
-//     seat_focus_surface(seat, xsurface->surface);
-// }
-
-struct wsm_xwayland_unmanaged *wsm_xwayland_unmanaged_create(struct wlr_xwayland_surface *xsurface, bool mapped) {
+struct wsm_xwayland_unmanaged *wsm_xwayland_unmanaged_create(struct wlr_xwayland_surface *xsurface) {
     struct wsm_xwayland_unmanaged *unmanaged =
         calloc(1, sizeof(struct wsm_xwayland_unmanaged));
     if (unmanaged == NULL) {
@@ -220,21 +210,20 @@ struct wsm_xwayland_unmanaged *wsm_xwayland_unmanaged_create(struct wlr_xwayland
         return NULL;
     }
 
-    unmanaged->xwayland_surface = xsurface;
+    unmanaged->wlr_xwayland_surface = xsurface;
 
-    unmanaged->request_configure.notify = handle_request_configure;
-    wl_signal_add(&xsurface->events.request_configure,
-                  &unmanaged->request_configure);
-    // unmanaged->associate.notify = unmanaged_handle_associate;
-    // wl_signal_add(&xsurface->events.associate, &unmanaged->associate);
-    // unmanaged->dissociate.notify = unmanaged_handle_dissociate;
-    // wl_signal_add(&xsurface->events.dissociate, &unmanaged->dissociate);
-    // unmanaged->destroy.notify = unmanaged_handle_destroy;
-    // wl_signal_add(&xsurface->events.destroy, &unmanaged->destroy);
-    // unmanaged->override_redirect.notify = unmanaged_handle_override_redirect;
-    // wl_signal_add(&xsurface->events.set_override_redirect, &unmanaged->override_redirect);
-    // unmanaged->request_activate.notify = unmanaged_handle_request_activate;
-    // wl_signal_add(&xsurface->events.request_activate, &unmanaged->request_activate);
+    unmanaged->associate.notify = unmanaged_handle_associate;
+    wl_signal_add(&xsurface->events.associate, &unmanaged->associate);
+    unmanaged->dissociate.notify = unmanaged_handle_dissociate;
+    wl_signal_add(&xsurface->events.dissociate, &unmanaged->dissociate);
+    unmanaged->destroy.notify = unmanaged_handle_destroy;
+    wl_signal_add(&xsurface->events.destroy, &unmanaged->destroy);
+    unmanaged->override_redirect.notify = unmanaged_handle_override_redirect;
+    wl_signal_add(&xsurface->events.set_override_redirect, &unmanaged->override_redirect);
+    unmanaged->request_activate.notify = handle_request_activate;
+    wl_signal_add(&xsurface->events.request_activate, &unmanaged->request_activate);
+    unmanaged->request_configure.notify = unmanaged_handle_request_configure;
+    wl_signal_add(&xsurface->events.request_configure, &unmanaged->request_configure);
 
     return unmanaged;
 }
@@ -245,6 +234,13 @@ void destory_wsm_xwayland_unmanaged(struct wsm_xwayland_unmanaged *xwayland_unma
     wl_list_remove(&xwayland_unmanaged->override_redirect.link);
     wl_list_remove(&xwayland_unmanaged->request_activate.link);
     free(xwayland_unmanaged);
+}
+
+void unmanaged_xsurface_associate(struct wl_listener *listener, void *data) {
+    unmanaged_handle_associate(listener, data);
+}
+void unmanaged_xsurface_map(struct wl_listener *listener, void *data) {
+    unmanaged_handle_map(listener, data);
 }
 
 #endif

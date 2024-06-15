@@ -22,45 +22,30 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef WSM_XWAYLAND_UNMANAGED_H
-#define WSM_XWAYLAND_UNMANAGED_H
-
-#include "../config.h"
+#ifndef WSM_NODE_DESCRIPTOR_H
+#define WSM_NODE_DESCRIPTOR_H
 
 #include <wayland-server-core.h>
 
-#ifdef HAVE_XWAYLAND
-
 struct wlr_scene_node;
-struct wlr_xwayland_surface;
 
-struct wsm_xwayland_view;
+struct wsm_view;
 
-struct wsm_xwayland_unmanaged {
-    struct wlr_xwayland_surface *wlr_xwayland_surface;
-    struct wlr_scene_node *surface_scene;
-    struct wl_list link;
-
-    int lx, ly;
-
-    struct wl_listener request_activate;
-    struct wl_listener request_configure;
-    struct wl_listener request_fullscreen;
-    struct wl_listener commit;
-    struct wl_listener set_geometry;
-    struct wl_listener associate;
-    struct wl_listener dissociate;
-    struct wl_listener map;
-    struct wl_listener unmap;
-    struct wl_listener destroy;
-    struct wl_listener override_redirect;
+enum wsm_scene_descriptor_type {
+    WSM_SCENE_DESC_VIEW,
+    WSM_SCENE_DESC_LAYER_SHELL,
+    WSM_SCENE_DESC_XWAYLAND_UNMANAGED,
+    WSM_SCENE_DESC_POPUP,
+    WSM_SCENE_DESC_DRAG_ICON,
 };
 
-struct wsm_xwayland_unmanaged *wsm_xwayland_unmanaged_create(struct wlr_xwayland_surface *xsurface);
-void destory_wsm_xwayland_unmanaged(struct wsm_xwayland_unmanaged *xwayland_unmanaged);
-void unmanaged_xsurface_associate(struct wl_listener *listener, void *data);
-void unmanaged_xsurface_map(struct wl_listener *listener, void *data);
+bool wsm_scene_descriptor_assign(struct wlr_scene_node *node,
+                             enum wsm_scene_descriptor_type type, void *data);
 
-#endif
+void *wsm_scene_descriptor_try_get(struct wlr_scene_node *node,
+                               enum wsm_scene_descriptor_type type);
+
+void wsm_scene_descriptor_destroy(struct wlr_scene_node *node,
+                              enum wsm_scene_descriptor_type type);
 
 #endif

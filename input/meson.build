@@ -14,6 +14,7 @@ wsm_input = static_library(
         'wsm_switch.c',
         'wsm_input.c',
         'wsm_text_input.c',
+        'wsm_seatop.c'
 	),
 	dependencies: [
         wlroots,
@@ -21,5 +22,5 @@ wsm_input = static_library(
         libinput,
         xkbcommon,
         ],
-        include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc]
+        include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc, node_inc]
 )
