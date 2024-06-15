@@ -33,6 +33,7 @@ struct wlr_xdg_toplevel;
 struct wlr_xdg_activation_v1;
 
 struct wsm_view;
+struct wsm_server;
 struct wsm_xdg_shell_view;
 
 struct wsm_xdg_shell {
@@ -43,7 +44,7 @@ struct wsm_xdg_shell {
 };
 
 void wsm_xdg_shell_destroy(struct wsm_xdg_shell *shell);
-struct wsm_xdg_shell *wsm_xdg_shell_create();
+struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server);
 struct wsm_xdg_shell_view *xdg_shell_view_from_view(
     struct wsm_view *view);
 struct wlr_xdg_toplevel *top_parent_of(struct wsm_view *view);

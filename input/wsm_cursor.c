@@ -131,7 +131,7 @@ void pointer_motion(struct wsm_cursor *cursor, uint32_t time_msec,
                     struct wlr_input_device *device, double dx, double dy,
                     double dx_unaccel, double dy_unaccel) {
     wlr_relative_pointer_manager_v1_send_relative_motion(
-        server.wlr_relative_pointer_manager,
+        global_server.wlr_relative_pointer_manager,
         cursor->wsm_seat->wlr_seat, (uint64_t)time_msec * 1000,
         dx, dy, dx_unaccel, dy_unaccel);
 
@@ -515,7 +515,7 @@ static void handle_request_pointer_set_cursor(struct wl_listener *listener,
                              event->hotspot_y, focused_client);
 }
 
-struct wsm_cursor *wsm_cursor_create(struct wsm_seat *seat) {
+struct wsm_cursor *wsm_cursor_create(const struct wsm_server* server, struct wsm_seat *seat) {
     struct wsm_cursor *cursor = calloc(1, sizeof(struct wsm_cursor));
     if (!wsm_assert(cursor, "Could not create wsm_cursor: allocation failed!")) {
         return NULL;
@@ -530,14 +530,14 @@ struct wsm_cursor *wsm_cursor_create(struct wsm_seat *seat) {
     cursor->previous.y = wlr_cursor->y;
 
     cursor->wsm_seat = seat;
-    wlr_cursor_attach_output_layout(wlr_cursor, server.wsm_output_manager->wlr_output_layout);
+    wlr_cursor_attach_output_layout(wlr_cursor, server->wsm_output_manager->wlr_output_layout);
 
 #ifdef HAVE_XWAYLAND
     cursor->xcursor_manager = wlr_xcursor_manager_create(NULL, 24);
     wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->xcursor_manager, "default");
 #endif
 
-    cursor->hide_source = wl_event_loop_add_timer(server.wl_event_loop,
+    cursor->hide_source = wl_event_loop_add_timer(server->wl_event_loop,
                                                   hide_notify, cursor);
 
     wl_list_init(&cursor->image_surface_destroy.link);

@@ -46,7 +46,7 @@ struct wsm_seat *seat_create(const char *seat_name) {
         return NULL;
     }
 
-    seat->wlr_seat = wlr_seat_create(server.wl_display, seat_name);
+    seat->wlr_seat = wlr_seat_create(global_server.wl_display, seat_name);
 
     if (!wsm_assert(seat->wlr_seat, "Could not create wlr_seat: create failed!")) {
         return NULL;
@@ -55,14 +55,14 @@ struct wsm_seat *seat_create(const char *seat_name) {
     wl_list_init(&seat->keyboard_groups);
     seat->wlr_seat->data = seat;
 
-    seat->wsm_cursor = wsm_cursor_create(seat);
+    seat->wsm_cursor = wsm_cursor_create(&global_server, seat);
     if (!wsm_assert(seat->wsm_cursor, "wsm_cursor is NULL!")) {
         wlr_seat_destroy(seat->wlr_seat);
         free(seat);
         return NULL;
     }
 
-    wl_list_insert(&server.wsm_input_manager->seats, &seat->link);
+    wl_list_insert(&global_server.wsm_input_manager->seats, &seat->link);
     return seat;
 }
 
@@ -157,7 +157,7 @@ void seat_idle_notify_activity(struct wsm_seat *seat,
     if ((source & seat->idle_inhibit_sources) == 0) {
         return;
     }
-    wlr_idle_notifier_v1_notify_activity(server.idle_notifier_v1, seat->wlr_seat);
+    wlr_idle_notifier_v1_notify_activity(global_server.idle_notifier_v1, seat->wlr_seat);
 }
 
 void seatop_hold_begin(struct wsm_seat *seat,

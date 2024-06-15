@@ -33,7 +33,7 @@ THE SOFTWARE.
 struct wsm_server_decoration *decoration_from_surface(
     struct wlr_surface *surface) {
     struct wsm_server_decoration *deco;
-    wl_list_for_each(deco, &server.wsm_server_decoration_manager->decorations, link) {
+    wl_list_for_each(deco, &global_server.wsm_server_decoration_manager->decorations, link) {
         if (deco->wlr_server_decoration->surface == surface) {
             return deco;
         }

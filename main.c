@@ -40,7 +40,7 @@ THE SOFTWARE.
 
 #include <wlr/util/log.h>
 
-struct wsm_server server = {0};
+struct wsm_server global_server = {0};
 
 /**
  * @brief registerDbusComponent call dbus to notify other components that wsm is ready,
@@ -178,11 +178,11 @@ int main(int argc, char **argv) {
         goto shutdown;
     }
 
-    wsm_server_init(&server);
+    wsm_server_init(&global_server);
 
-    const char *socket = wl_display_add_socket_auto(server.wl_display);
+    const char *socket = wl_display_add_socket_auto(global_server.wl_display);
     if (!socket) {
-        wl_display_destroy(server.wl_display);
+        wl_display_destroy(global_server.wl_display);
         goto shutdown;
     }
 
@@ -192,15 +192,15 @@ int main(int argc, char **argv) {
 
 #ifdef HAVE_XWAYLAND
     if (xwayland ) {
-        if (!xwayland_start(&server)) {
+        if (!xwayland_start(&global_server)) {
             wsm_log(WSM_ERROR, "xwayland start failed!");
             goto shutdown;
         }
     }
 #endif
 
-    if (!wlr_backend_start(server.backend)) {
-        wl_display_destroy(server.wl_display);
+    if (!wlr_backend_start(global_server.backend)) {
+        wl_display_destroy(global_server.wl_display);
         wsm_log(WSM_ERROR, "backend start failed!");
         goto shutdown;
     }
@@ -216,15 +216,15 @@ int main(int argc, char **argv) {
 
     registerDbusComponent();
 
-    wl_display_run(server.wl_display);
-    wl_display_destroy_clients(server.wl_display);
-    wl_display_destroy(server.wl_display);
+    wl_display_run(global_server.wl_display);
+    wl_display_destroy_clients(global_server.wl_display);
+    wl_display_destroy(global_server.wl_display);
     return EXIT_SUCCESS;
 
 shutdown:
     wsm_log(WSM_ERROR, "Shutting down wsm");
-    if (server.wl_display)
-        wl_display_terminate(server.wl_display);
+    if (global_server.wl_display)
+        wl_display_terminate(global_server.wl_display);
 
     return EXIT_FAILURE;
 }

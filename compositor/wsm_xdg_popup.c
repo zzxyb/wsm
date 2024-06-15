@@ -121,8 +121,8 @@ xdg_popup_create(struct wsm_view *view, struct wlr_xdg_popup *wlr_popup) {
     if (parent->role == WLR_XDG_SURFACE_ROLE_POPUP) {
         parent_tree = parent->surface->data;
     } else {
-        parent_tree = server.wsm_scene->xdg_popup_tree;
-        wlr_scene_node_set_position(&server.wsm_scene->xdg_popup_tree->node,
+        parent_tree = global_server.wsm_scene->xdg_popup_tree;
+        wlr_scene_node_set_position(&global_server.wsm_scene->xdg_popup_tree->node,
                                     view->current.x, view->current.y);
     }
     wlr_popup->base->surface->data =

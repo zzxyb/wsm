@@ -108,7 +108,7 @@ static void handle_drm_lease_request(struct wl_listener *listener, void *data) {
         wlr_output_enable(output->wlr_output, false);
         wlr_output_commit(output->wlr_output);
 
-        wlr_output_layout_remove(server.wsm_output_manager->wlr_output_layout,
+        wlr_output_layout_remove(global_server.wsm_output_manager->wlr_output_layout,
                                  output->wlr_output);
         output->wlr_scene_output = NULL;
         output->leased = true;
@@ -234,14 +234,14 @@ bool wsm_server_init(struct wsm_server *server)
     wlr_subcompositor_create(server->wl_display);
 
     server->data_device_manager = wlr_data_device_manager_create(server->wl_display);
-    server->wsm_output_manager = wsm_output_manager_create();
+    server->wsm_output_manager = wsm_output_manager_create(server);
 
-    server->wsm_scene = wsm_scene_create();
-    server->wsm_layer_shell = wsm_layer_shell_create();
-    server->wsm_xdg_shell = wsm_xdg_shell_create();
+    server->wsm_scene = wsm_scene_create(server);
+    server->wsm_layer_shell = wsm_layer_shell_create(server);
+    server->wsm_xdg_shell = wsm_xdg_shell_create(server);
     server->idle_notifier_v1 = wlr_idle_notifier_v1_create(server->wl_display);
-    server->wsm_server_decoration_manager = wsm_server_decoration_manager_create();
-    server->wsm_xdg_decoration_manager = xdg_decoration_manager_create();
+    server->wsm_server_decoration_manager = wsm_server_decoration_manager_create(server);
+    server->wsm_xdg_decoration_manager = xdg_decoration_manager_create(server);
     server->wlr_relative_pointer_manager =
         wlr_relative_pointer_manager_v1_create(server->wl_display);
     server->presentation = wlr_presentation_create(server->wl_display, server->backend);
@@ -310,7 +310,7 @@ bool wsm_server_init(struct wsm_server *server)
         server->txn_timeout_ms = 200;
     }
 
-    server->wsm_input_manager = wsm_input_manager_create();
+    server->wsm_input_manager = wsm_input_manager_create(server);
     input_manager_get_default_seat();
 
     return true;

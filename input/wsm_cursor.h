@@ -43,6 +43,8 @@ struct wlr_pointer_constraint_v1;
 struct wlr_pointer_gestures_v1;
 struct wlr_pointer_axis_event;
 
+struct wsm_server;
+
 enum wsm_cursor_mode {
     WSM_CURSOR_PASSTHROUGH,
     WSM_CURSOR_MOVE,
@@ -120,7 +122,7 @@ struct wsm_cursor {
     size_t pressed_button_count;
 };
 
-struct wsm_cursor *wsm_cursor_create(struct wsm_seat *seat);
+struct wsm_cursor *wsm_cursor_create(const struct wsm_server* server, struct wsm_seat *seat);
 void wsm_cursor_destroy(struct wsm_cursor *cursor);
 void cursor_set_image(struct wsm_cursor *cursor, const char *image,
                       struct wl_client *client);

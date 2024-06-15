@@ -287,7 +287,7 @@ struct wsm_input_device *wsm_input_device_create() {
 struct wsm_input_device *input_wsm_device_from_wlr(
     struct wlr_input_device *device) {
     struct wsm_input_device *input_device = NULL;
-    wl_list_for_each(input_device, &server.wsm_input_manager->devices, link) {
+    wl_list_for_each(input_device, &global_server.wsm_input_manager->devices, link) {
         if (input_device->wlr_device == device) {
             return input_device;
         }
@@ -306,7 +306,7 @@ void wsm_input_device_destroy(struct wlr_input_device *wlr_device) {
             input_device->identifier);
 
     struct wsm_seat *seat = NULL;
-    wl_list_for_each(seat, &server.wsm_input_manager->seats, link) {
+    wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
         seat_remove_device(seat, input_device);
     }
 

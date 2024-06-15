@@ -70,7 +70,7 @@ struct wsm_tablet *wsm_tablet_create(struct wsm_seat *seat,
         return NULL;
     }
 
-    tablet->tablet_manager_v2 = wlr_tablet_v2_create(server.wl_display);
+    tablet->tablet_manager_v2 = wlr_tablet_v2_create(global_server.wl_display);
     wl_list_insert(&seat->wsm_cursor->tablets, &tablet->link);
 
     device->tablet = tablet;

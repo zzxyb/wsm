@@ -457,18 +457,18 @@ handle_xdg_activation_request(struct wl_listener *listener, void *data)
 
 }
 
-struct wsm_xdg_shell *wsm_xdg_shell_create() {
+struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server) {
     struct wsm_xdg_shell *shell = calloc(1, sizeof(struct wsm_xdg_shell));
     if (!wsm_assert(shell, "Could not create wsm_xdg_shell: allocation failed!")) {
         return NULL;
     }
 
-    shell->wlr_xdg_shell = wlr_xdg_shell_create(server.wl_display, WSM_XDG_SHELL_VERSION);
+    shell->wlr_xdg_shell = wlr_xdg_shell_create(server->wl_display, WSM_XDG_SHELL_VERSION);
     shell->xdg_shell_surface.notify = handle_new_xdg_shell_surface;
     wl_signal_add(&shell->wlr_xdg_shell->events.new_surface,
                   &shell->xdg_shell_surface);
 
-    shell->xdg_activation = wlr_xdg_activation_v1_create(server.wl_display);
+    shell->xdg_activation = wlr_xdg_activation_v1_create(server->wl_display);
     if (!wsm_assert(shell->xdg_activation, "unable to create wlr_xdg_activation_v1 interface")) {
         return NULL;
     }

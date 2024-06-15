@@ -75,7 +75,7 @@ struct wsm_idle_inhibit_manager_v1;
 /**
  * @brief server global server object
  */
-extern struct wsm_server server;
+extern struct wsm_server global_server;
 
 struct wsm_server {
     const char *socket;

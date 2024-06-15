@@ -37,13 +37,13 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 
 }
 
-struct wsm_layer_shell *wsm_layer_shell_create() {
+struct wsm_layer_shell *wsm_layer_shell_create(const struct wsm_server *server) {
     struct wsm_layer_shell *layer_shell = calloc(1, sizeof(struct wsm_layer_shell));
     if (!wsm_assert(layer_shell, "Could not create wsm_layer_shell: allocation failed!")) {
         return NULL;
     }
 
-    layer_shell->wlr_layer_shell = wlr_layer_shell_v1_create(server.wl_display,
+    layer_shell->wlr_layer_shell = wlr_layer_shell_v1_create(server->wl_display,
                                                     WSM_LAYER_SHELL_VERSION);
     layer_shell->layer_shell_surface.notify = handle_layer_shell_surface;
     wl_signal_add(&layer_shell->wlr_layer_shell->events.new_surface,

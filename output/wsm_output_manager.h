@@ -48,6 +48,7 @@ struct wlr_output_manager_v1;
 struct wlr_gamma_control_manager_v1;
 struct wlr_output_power_manager_v1;
 
+struct wsm_server;
 struct wsm_output_manager_config;
 
 struct wsm_output_manager {
@@ -71,7 +72,7 @@ struct wsm_output_manager {
     int pending_output_layout_change;
 };
 
-struct wsm_output_manager *wsm_output_manager_create();
+struct wsm_output_manager *wsm_output_manager_create(const struct wsm_server *server);
 void wsm_output_manager_destory(struct wsm_output_manager *manager);
 
 #endif

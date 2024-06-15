@@ -237,7 +237,7 @@ xwayland_view_configure(struct wsm_view *view, struct wlr_box geo)
                                    geo.x, geo.y, geo.width, geo.height);
 
     bool is_offscreen = !wlr_box_empty(&view->current) &&
-                        !wlr_output_layout_intersects(server.wsm_output_manager->wlr_output_layout, NULL,
+                        !wlr_output_layout_intersects(global_server.wsm_output_manager->wlr_output_layout, NULL,
                                                       &view->current);
 
     if (is_offscreen || (view->current.width == geo.width

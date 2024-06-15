@@ -126,8 +126,8 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
         wlr_wl_output_set_title(wlr_output, title);
     }
 
-    if (server.drm_lease_manager && wlr_output_is_drm(wlr_output)) {
-        wlr_drm_lease_v1_manager_offer_output(server.drm_lease_manager,
+    if (global_server.drm_lease_manager && wlr_output_is_drm(wlr_output)) {
+        wlr_drm_lease_v1_manager_offer_output(global_server.drm_lease_manager,
                                               wlr_output);
     }
     wlr_output_enable(wlr_output, true);
@@ -136,42 +136,42 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
     wlr_output->data = output;
     output->detected_subpixel = wlr_output->subpixel;
     output->scale_filter = SCALE_FILTER_NEAREST;
-    output->workspace_manager = wsm_workspace_manager_create(output);
+    output->workspace_manager = wsm_workspace_manager_create(&global_server, output);
 
     wl_signal_init(&output->events.disable);
 
-    output->background_layers_tree = wlr_scene_tree_create(&server.wsm_scene->wlr_scene->tree);
+    output->background_layers_tree = wlr_scene_tree_create(&global_server.wsm_scene->wlr_scene->tree);
     assert(output->background_layers_tree);
 
-    output->bottom_layers_tree = wlr_scene_tree_create(&server.wsm_scene->wlr_scene->tree);
+    output->bottom_layers_tree = wlr_scene_tree_create(&global_server.wsm_scene->wlr_scene->tree);
     assert(output->bottom_layers_tree);
 
-    output->top_layers_tree = wlr_scene_tree_create(&server.wsm_scene->wlr_scene->tree);
+    output->top_layers_tree = wlr_scene_tree_create(&global_server.wsm_scene->wlr_scene->tree);
     assert(output->top_layers_tree);
 
-    output->overlay_layers_tree = wlr_scene_tree_create(&server.wsm_scene->wlr_scene->tree);
+    output->overlay_layers_tree = wlr_scene_tree_create(&global_server.wsm_scene->wlr_scene->tree);
     assert(output->overlay_layers_tree);
 
-    output->shell_layer_popups = wlr_scene_tree_create(&server.wsm_scene->wlr_scene->tree);
+    output->shell_layer_popups = wlr_scene_tree_create(&global_server.wsm_scene->wlr_scene->tree);
     assert(output->shell_layer_popups);
 
-    output->osd_layers_tree = wlr_scene_tree_create(&server.wsm_scene->wlr_scene->tree);
+    output->osd_layers_tree = wlr_scene_tree_create(&global_server.wsm_scene->wlr_scene->tree);
     assert(output->osd_layers_tree);
 
-    output->water_mark_tree = wlr_scene_tree_create(&server.wsm_scene->wlr_scene->tree);
+    output->water_mark_tree = wlr_scene_tree_create(&global_server.wsm_scene->wlr_scene->tree);
     assert(output->water_mark_tree);
 
-    output->black_screen_tree = wlr_scene_tree_create(&server.wsm_scene->wlr_scene->tree);
+    output->black_screen_tree = wlr_scene_tree_create(&global_server.wsm_scene->wlr_scene->tree);
     assert(output->black_screen_tree);
 
     wlr_scene_node_lower_to_bottom(&output->bottom_layers_tree->node);
     wlr_scene_node_lower_to_bottom(&output->background_layers_tree->node);
     wlr_scene_node_raise_to_top(&output->top_layers_tree->node);
-    wlr_scene_node_raise_to_top(&server.wsm_scene->xdg_popup_tree->node);
+    wlr_scene_node_raise_to_top(&global_server.wsm_scene->xdg_popup_tree->node);
     wlr_scene_node_raise_to_top(&output->overlay_layers_tree->node);
     wlr_scene_node_raise_to_top(&output->osd_layers_tree->node);
     wlr_scene_node_raise_to_top(&output->shell_layer_popups->node);
-    wlr_scene_node_raise_to_top(&server.wsm_scene->osd_overlay_layers_tree->node);
+    wlr_scene_node_raise_to_top(&global_server.wsm_scene->osd_overlay_layers_tree->node);
     wlr_scene_node_raise_to_top(&output->water_mark_tree->node);
     wlr_scene_node_raise_to_top(&output->black_screen_tree->node);
 
@@ -205,16 +205,16 @@ struct wsm_output *wsm_wsm_output_nearest_to_cursor() {
 
 struct wsm_output *wsm_output_nearest_to(int lx, int ly) {
     double closest_x, closest_y;
-    wlr_output_layout_closest_point(server.wsm_output_manager->wlr_output_layout, NULL, lx, ly,
+    wlr_output_layout_closest_point(global_server.wsm_output_manager->wlr_output_layout, NULL, lx, ly,
                                     &closest_x, &closest_y);
 
-    return wsm_output_from_wlr_output(wlr_output_layout_output_at(server.wsm_output_manager->wlr_output_layout,
+    return wsm_output_from_wlr_output(wlr_output_layout_output_at(global_server.wsm_output_manager->wlr_output_layout,
                                                               closest_x, closest_y));
 }
 
 struct wsm_output *wsm_output_from_wlr_output(struct wlr_output *wlr_output) {
     struct wsm_output *wsm_output;
-    wl_list_for_each(wsm_output, &server.wsm_output_manager->outputs, link) {
+    wl_list_for_each(wsm_output, &global_server.wsm_output_manager->outputs, link) {
         if (wsm_output->wlr_output == wlr_output) {
             return wsm_output;
         }
@@ -254,7 +254,7 @@ wsm_output_usable_area_in_layout_coords(struct wsm_output *output)
     }
     struct wlr_box box = output->usable_area;
     double ox = 0, oy = 0;
-    wlr_output_layout_output_coords(server.wsm_output_manager->wlr_output_layout,
+    wlr_output_layout_output_coords(global_server.wsm_output_manager->wlr_output_layout,
                                     output->wlr_output, &ox, &oy);
     box.x -= ox;
     box.y -= oy;

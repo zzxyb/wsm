@@ -35,7 +35,7 @@ THE SOFTWARE.
 
 #include <wlr/types/wlr_scene.h>
 
-struct wsm_scene *wsm_scene_create() {
+struct wsm_scene *wsm_scene_create(const struct wsm_server* server) {
     struct wsm_scene *scene = calloc(1, sizeof(struct wsm_scene));
     if (!wsm_assert(scene, "Could not create wsm_scene: allocation failed!")) {
         return NULL;
@@ -82,6 +82,6 @@ struct wsm_scene *wsm_scene_create() {
     // wlr_scene_node_set_position(image->node, 0, 0);
     // wsm_image_node_set_size(image, 271, 101);
 
-    scene->wlr_scene_output_layout = wlr_scene_attach_output_layout(scene->wlr_scene, server.wsm_output_manager->wlr_output_layout);
+    scene->wlr_scene_output_layout = wlr_scene_attach_output_layout(scene->wlr_scene, server->wsm_output_manager->wlr_output_layout);
     return scene;
 }

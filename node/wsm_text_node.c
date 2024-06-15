@@ -164,9 +164,9 @@ static void render_backing_buffer(struct text_buffer *buffer) {
     cairo_fill(cairo);
 
     cairo_set_source_rgba(cairo, color[0], color[1], color[2], color[3]);
-    cairo_move_to(cairo, 0, (server.wsm_font->font_baseline - buffer->props.baseline) * scale);
+    cairo_move_to(cairo, 0, (global_server.wsm_font->font_baseline - buffer->props.baseline) * scale);
 
-    render_text(cairo, server.wsm_font->font_description, scale, buffer->props.pango_markup,
+    render_text(cairo, global_server.wsm_font->font_description, scale, buffer->props.pango_markup,
                 "%s", buffer->text);
 
     cairo_surface_flush(surface);
@@ -248,7 +248,7 @@ static void text_calc_size(struct text_buffer *buffer) {
     }
 
     cairo_set_antialias(c, CAIRO_ANTIALIAS_BEST);
-    get_text_size(c, server.wsm_font->font_description, &props->width, NULL,
+    get_text_size(c, global_server.wsm_font->font_description, &props->width, NULL,
                   &props->baseline, 1, props->pango_markup, "%s", buffer->text);
     cairo_destroy(c);
 
@@ -256,7 +256,7 @@ static void text_calc_size(struct text_buffer *buffer) {
                                    get_text_width(props), props->height);
 }
 
-struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent,
+struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent, const struct wsm_font *font,
                                              char *text, float color[4], bool pango_markup) {
     struct text_buffer *buffer = calloc(1, sizeof(*buffer));
     if (!buffer) {
@@ -279,7 +279,7 @@ struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent,
         return NULL;
     }
 
-    buffer->props.height = server.wsm_font->font_height;
+    buffer->props.height = font->font_height;
     buffer->props.pango_markup = pango_markup;
     memcpy(&buffer->props.color, color, sizeof(*color) * 4);
 

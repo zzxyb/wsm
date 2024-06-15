@@ -29,12 +29,14 @@ THE SOFTWARE.
 
 struct wlr_xdg_decoration_manager_v1;
 
+struct wsm_server;
+
 struct wsm_xdg_decoration_manager {
     struct wlr_xdg_decoration_manager_v1 *wlr_xdg_decoration_manager;
     struct wl_listener xdg_decoration;
     struct wl_list xdg_decorations;
 };
 
-struct wsm_xdg_decoration_manager *xdg_decoration_manager_create();
+struct wsm_xdg_decoration_manager *xdg_decoration_manager_create(const struct wsm_server* server);
 
 #endif
