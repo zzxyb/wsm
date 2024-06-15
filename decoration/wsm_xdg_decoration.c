@@ -85,14 +85,14 @@ void handle_xdg_decoration(struct wl_listener *listener, void *data) {
     deco->request_mode.notify = xdg_decoration_handle_request_mode;
     wl_signal_add(&wlr_xdg_decoration->events.request_mode, &deco->request_mode);
 
-    wl_list_insert(&server.wsm_xdg_decoration_manager->xdg_decorations, &deco->link);
+    wl_list_insert(&global_server.wsm_xdg_decoration_manager->xdg_decorations, &deco->link);
     xdg_decoration_handle_request_mode(&deco->request_mode, wlr_xdg_decoration);
 }
 
 struct wsm_xdg_decoration *xdg_decoration_from_surface(
     struct wlr_surface *surface) {
     struct wsm_xdg_decoration *deco;
-    wl_list_for_each(deco, &server.wsm_xdg_decoration_manager->xdg_decorations, link) {
+    wl_list_for_each(deco, &global_server.wsm_xdg_decoration_manager->xdg_decorations, link) {
         if (deco->wlr_xdg_decoration->toplevel->base->surface == surface) {
             return deco;
         }

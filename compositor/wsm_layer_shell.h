@@ -36,6 +36,7 @@ struct wlr_layer_shell_v1;
 
 struct wsm_seat;
 struct wsm_output;
+struct wsm_server;
 
 enum layer_parent_type {
     LAYER_PARENT_LAYER,
@@ -93,7 +94,7 @@ struct wsm_layer_shell {
 };
 
 void wsm_layer_shell_destroy(struct wsm_layer_shell *shell);
-struct wsm_layer_shell *wsm_layer_shell_create();
+struct wsm_layer_shell *wsm_layer_shell_create(const struct wsm_server *server);
 void layers_arrange(struct wsm_output *output);
 void layer_try_set_focus(struct wsm_seat *seat,
                          struct wlr_layer_surface_v1 *layer_surface);

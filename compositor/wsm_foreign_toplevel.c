@@ -90,7 +90,7 @@ handle_destroy(struct wl_listener *listener, void *data)
 void foreign_toplevel_handle_create(struct wsm_view *view) {
     struct foreign_toplevel *toplevel = &view->toplevel;
 
-    toplevel->handle = wlr_foreign_toplevel_handle_v1_create(server.foreign_toplevel_manager);
+    toplevel->handle = wlr_foreign_toplevel_handle_v1_create(global_server.foreign_toplevel_manager);
     if (!wsm_assert(toplevel->handle, "Could not create foreign toplevel handle for (%s)",
                     wsm_view_get_string_prop(view, VIEW_PROP_TITLE))) {
         return;
@@ -124,7 +124,7 @@ void foreign_toplevel_update_outputs(struct wsm_view *view) {
     assert(view->toplevel.handle);
 
     struct wsm_output *output;
-    wl_list_for_each(output, &server.wsm_output_manager->outputs, link) {
+    wl_list_for_each(output, &global_server.wsm_output_manager->outputs, link) {
         if (wsm_view_on_output(view, output)) {
             wlr_foreign_toplevel_handle_v1_output_enter(
                 view->toplevel.handle, output->wlr_output);

@@ -27,7 +27,7 @@ THE SOFTWARE.
 
 #include <wayland-server-core.h>
 
-struct wl_listener;
+struct wsm_server;
 
 struct wsm_server_decoration_manager {
     struct wlr_server_decoration_manager *server_decoration_manager;
@@ -36,6 +36,6 @@ struct wsm_server_decoration_manager {
 };
 
 void decoration_manager_init();
-struct wsm_server_decoration_manager *wsm_server_decoration_manager_create();
+struct wsm_server_decoration_manager *wsm_server_decoration_manager_create(const struct wsm_server* server);
 
 #endif

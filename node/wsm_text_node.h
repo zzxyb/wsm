@@ -30,6 +30,8 @@ THE SOFTWARE.
 struct wlr_scene_node;
 struct wlr_scene_tree;
 
+struct wsm_font;
+
 struct wsm_text_node {
     int width;
     int max_width;
@@ -42,7 +44,7 @@ struct wsm_text_node {
     struct wlr_scene_node *node;
 };
 
-struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent,
+struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent, const struct wsm_font *font,
                                              char *text, float color[4], bool pango_markup);
 void wsm_text_node_destroy(struct wsm_text_node *node);
 void wsm_text_node_set_color(struct wsm_text_node *node, float color[4]);

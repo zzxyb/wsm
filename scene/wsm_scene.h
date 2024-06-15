@@ -31,6 +31,7 @@ struct wlr_scene;
 struct wlr_scene_tree;
 struct wlr_scene_output_layout;
 
+struct wsm_server;
 
 /**
  * @brief scene render control.
@@ -69,6 +70,6 @@ struct wsm_scene {
     struct wlr_scene_output_layout *wlr_scene_output_layout;
 };
 
-struct wsm_scene *wsm_scene_create();
+struct wsm_scene *wsm_scene_create(const struct wsm_server* server);
 
 #endif

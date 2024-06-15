@@ -91,7 +91,7 @@ static void handle_keyboard_shortcuts_inhibit_new_inhibitor(
 }
 
 
-struct wsm_input_manager *wsm_input_manager_create() {
+struct wsm_input_manager *wsm_input_manager_create(const struct wsm_server* server) {
     struct wsm_input_manager *input_manager = calloc(1, sizeof(struct wsm_input_manager));
     if (!wsm_assert(input_manager, "Could not create wsm_input_manager: allocation failed!")) {
         return NULL;
@@ -101,22 +101,22 @@ struct wsm_input_manager *wsm_input_manager_create() {
     wl_list_init(&input_manager->seats);
 
     input_manager->new_input.notify = handle_new_input;
-    wl_signal_add(&server.backend->events.new_input, &input_manager->new_input);
+    wl_signal_add(&server->backend->events.new_input, &input_manager->new_input);
 
     input_manager->virtual_keyboard =
-        wlr_virtual_keyboard_manager_v1_create(server.wl_display);
+        wlr_virtual_keyboard_manager_v1_create(server->wl_display);
     input_manager->virtual_keyboard_new.notify = handle_new_virtual_keyboard;
     wl_signal_add(&input_manager->virtual_keyboard->events.new_virtual_keyboard,
                   &input_manager->virtual_keyboard_new);
 
     input_manager->virtual_pointer =
-        wlr_virtual_pointer_manager_v1_create(server.wl_display);
+        wlr_virtual_pointer_manager_v1_create(server->wl_display);
     input_manager->virtual_pointer_new.notify = handle_new_virtual_pointer;
     wl_signal_add(&input_manager->virtual_pointer->events.new_virtual_pointer,
                   &input_manager->virtual_pointer_new);
 
     input_manager->inhibit =
-        wlr_input_inhibit_manager_create(server.wl_display);
+        wlr_input_inhibit_manager_create(server->wl_display);
     input_manager->inhibit_activate.notify = handle_inhibit_activate;
     wl_signal_add(&input_manager->inhibit->events.activate,
                   &input_manager->inhibit_activate);
@@ -125,7 +125,7 @@ struct wsm_input_manager *wsm_input_manager_create() {
                   &input_manager->inhibit_deactivate);
 
     input_manager->keyboard_shortcuts_inhibit =
-        wlr_keyboard_shortcuts_inhibit_v1_create(server.wl_display);
+        wlr_keyboard_shortcuts_inhibit_v1_create(server->wl_display);
     input_manager->keyboard_shortcuts_inhibit_new_inhibitor.notify =
         handle_keyboard_shortcuts_inhibit_new_inhibitor;
     wl_signal_add(&input_manager->keyboard_shortcuts_inhibit->events.new_inhibitor,
@@ -140,7 +140,7 @@ struct wsm_seat *input_manager_get_default_seat() {
 
 struct wsm_seat *input_manager_get_seat(const char *seat_name, bool create) {
     struct wsm_seat *seat = NULL;
-    wl_list_for_each(seat, &server.wsm_input_manager->seats, link) {
+    wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
         if (strcmp(seat->wlr_seat->name, seat_name) == 0) {
             return seat;
         }
@@ -152,7 +152,7 @@ struct wsm_seat *input_manager_get_seat(const char *seat_name, bool create) {
 struct wsm_seat *input_manager_seat_from_wlr_seat(struct wlr_seat *wlr_seat) {
     struct wsm_seat *seat = NULL;
 
-    wl_list_for_each(seat, &server.wsm_input_manager->seats, link) {
+    wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
         if (seat->wlr_seat == wlr_seat) {
             return seat;
         }

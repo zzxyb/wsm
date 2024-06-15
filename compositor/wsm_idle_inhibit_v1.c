@@ -37,7 +37,7 @@ static void handle_idle_inhibit_destroy(struct wl_listener *listener, void *data
         wl_container_of(listener, inhibitor, destroy);
     wl_list_remove(&inhibitor->link);
     wl_list_remove(&inhibitor->destroy.link);
-    wsm_idle_inhibit_v1_check_active();
+    wsm_idle_inhibit_v1_check_active(&global_server);
     free(inhibitor);
 }
 
@@ -58,18 +58,18 @@ static void handle_new_idle_inhibit_v1(struct wl_listener *listener, void *data)
     wl_signal_add(&wlr_idle_inhibit->events.destroy, &idle_inhibit->destroy);
 }
 
-struct wsm_idle_inhibit_manager_v1 *wsm_idle_inhibit_manager_v1_create() {
+struct wsm_idle_inhibit_manager_v1 *wsm_idle_inhibit_manager_v1_create(const struct wsm_server *server) {
     struct wsm_idle_inhibit_manager_v1 *idle_inhibit_manager_v1 = calloc(1, sizeof(struct wsm_idle_inhibit_manager_v1));
     if (!wsm_assert(idle_inhibit_manager_v1, "Could not create wsm_idle_inhibit_manager_v1: allocation failed!")) {
         return NULL;
     }
 
-    idle_inhibit_manager_v1->wlr_idle_notifier_v1 = wlr_idle_notifier_v1_create(server.wl_display);
+    idle_inhibit_manager_v1->wlr_idle_notifier_v1 = wlr_idle_notifier_v1_create(server->wl_display);
     if (!wsm_assert(idle_inhibit_manager_v1->wlr_idle_notifier_v1, "could not allocate wlr_idle_notifier_v1")) {
         return NULL;
     }
 
-    idle_inhibit_manager_v1->wlr_inhibit_manager_v1 = wlr_idle_inhibit_v1_create(server.wl_display);
+    idle_inhibit_manager_v1->wlr_inhibit_manager_v1 = wlr_idle_inhibit_v1_create(server->wl_display);
     if (!wsm_assert(idle_inhibit_manager_v1->wlr_inhibit_manager_v1, "could not allocate wlr_inhibit_manager_v1")) {
         return NULL;
     }
@@ -86,8 +86,8 @@ bool wsm_idle_inhibit_v1_is_active(struct wsm_idle_inhibit_v1 *inhibitor) {
     return false;
 }
 
-void wsm_idle_inhibit_v1_check_active() {
-    struct wsm_idle_inhibit_manager_v1 *manager = server.wsm_idle_inhibit_manager_v1;
+void wsm_idle_inhibit_v1_check_active(const struct wsm_server *server) {
+    struct wsm_idle_inhibit_manager_v1 *manager = server->wsm_idle_inhibit_manager_v1;
     struct wsm_idle_inhibit_v1 *inhibitor;
     bool inhibited = false;
     wl_list_for_each(inhibitor, &manager->inhibits, link) {

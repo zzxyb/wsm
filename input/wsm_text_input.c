@@ -197,8 +197,8 @@ struct wsm_input_method_relay *wsm_input_method_relay_create(struct wsm_seat *se
     relay->seat = seat;
     wl_list_init(&relay->text_inputs);
 
-    relay->wlr_input_method_manager = wlr_input_method_manager_v2_create(server.wl_display);
-    relay->wlr_text_input_manager = wlr_text_input_manager_v3_create(server.wl_display);
+    relay->wlr_input_method_manager = wlr_input_method_manager_v2_create(global_server.wl_display);
+    relay->wlr_text_input_manager = wlr_text_input_manager_v3_create(global_server.wl_display);
 
     relay->text_input_new.notify = relay_handle_text_input;
     wl_signal_add(&relay->wlr_text_input_manager->events.text_input,

@@ -34,7 +34,7 @@ THE SOFTWARE.
 
 #include <wlr/types/wlr_scene.h>
 
-struct wsm_workspace_manager *wsm_workspace_manager_create(struct wsm_output *output) {
+struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_server* server, struct wsm_output *output) {
     struct wsm_workspace_manager *workspace_manager = calloc(1, sizeof(struct wsm_workspace_manager));
     if (!wsm_assert(workspace_manager, "Could not create wsm_workspace_manager: allocation failed!")) {
         return NULL;
@@ -50,7 +50,7 @@ struct wsm_workspace_manager *wsm_workspace_manager_create(struct wsm_output *ou
     workspace->output = output;
     workspace->height = output->wlr_output->height;
     workspace->width = output->wlr_output->width;
-    workspace->tree = wlr_scene_tree_create(server.wsm_scene->view_tree);
+    workspace->tree = wlr_scene_tree_create(server->wsm_scene->view_tree);
     wlr_scene_node_set_enabled(&workspace->tree->node, true);
 
     return workspace_manager;

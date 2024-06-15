@@ -51,8 +51,8 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
     wsm_log(WSM_DEBUG, "New output %p: %s (non-desktop: %d)",
             wlr_output, wlr_output->name, wlr_output->non_desktop);
 
-    if (!wlr_output_init_render(wlr_output, server.wlr_allocator,
-                                server.wlr_renderer)) {
+    if (!wlr_output_init_render(wlr_output, global_server.wlr_allocator,
+                                global_server.wlr_renderer)) {
         wsm_log(WSM_ERROR, "Failed to init output render");
         return;
     }
@@ -78,8 +78,8 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
     wl_list_insert(&output_manager->outputs, &output->link);
     struct wlr_output_layout_output *l_output = wlr_output_layout_add_auto(output_manager->wlr_output_layout,
                                                                            wlr_output);
-    output->wlr_scene_output = wlr_scene_output_create(server.wsm_scene->wlr_scene, wlr_output);
-    wlr_scene_output_layout_add_output(server.wsm_scene->wlr_scene_output_layout, l_output, output->wlr_scene_output);
+    output->wlr_scene_output = wlr_scene_output_create(global_server.wsm_scene->wlr_scene, wlr_output);
+    wlr_scene_output_layout_add_output(global_server.wsm_scene->wlr_scene_output_layout, l_output, output->wlr_scene_output);
 }
 
 static bool verify_output_config_v1(const struct wlr_output_configuration_v1 *config)
@@ -140,7 +140,7 @@ static void add_output_to_layout(struct wsm_output *output)
 {
     struct wlr_output *wlr_output = output->wlr_output;
     struct wlr_output_layout_output *layout_output =
-        wlr_output_layout_add_auto(server.wsm_output_manager->wlr_output_layout, wlr_output);
+        wlr_output_layout_add_auto(global_server.wsm_output_manager->wlr_output_layout, wlr_output);
     if (!layout_output) {
         wsm_log(WSM_ERROR, "unable to add output to layout");
         return;
@@ -148,12 +148,12 @@ static void add_output_to_layout(struct wsm_output *output)
 
     if (!output->wlr_scene_output) {
         output->wlr_scene_output =
-            wlr_scene_output_create(server.wsm_scene->wlr_scene, wlr_output);
+            wlr_scene_output_create(global_server.wsm_scene->wlr_scene, wlr_output);
         if (!output->wlr_scene_output) {
             wsm_log(WSM_ERROR, "unable to create scene output");
             return;
         }
-        wlr_scene_output_layout_add_output(server.wsm_scene->wlr_scene_output_layout, layout_output, output->wlr_scene_output);
+        wlr_scene_output_layout_add_output(global_server.wsm_scene->wlr_scene_output_layout, layout_output, output->wlr_scene_output);
     }
 }
 
@@ -261,9 +261,9 @@ static bool output_config_apply(struct wsm_output_manager *output_manager, struc
 
         if (output_enabled) {
             struct wlr_box pos = {0};
-            wlr_output_layout_get_box(server.wsm_output_manager->wlr_output_layout, o, &pos);
+            wlr_output_layout_get_box(output_manager->wlr_output_layout, o, &pos);
             if (pos.x != head->state.x || pos.y != head->state.y) {
-                wlr_output_layout_add(server.wsm_output_manager->wlr_output_layout, o,
+                wlr_output_layout_add(output_manager->wlr_output_layout, o,
                                       head->state.x, head->state.y);
             }
         }
@@ -276,8 +276,8 @@ static bool output_config_apply(struct wsm_output_manager *output_manager, struc
         }
     }
 
-    server.wsm_output_manager->pending_output_layout_change--;
-    do_output_layout_change(&server);
+    output_manager->pending_output_layout_change--;
+    do_output_layout_change(&global_server);
     return success;
 }
 
@@ -324,7 +324,7 @@ static void handle_output_power_manager_set_mode(struct wl_listener *listener, v
 }
 
 static void handle_output_layout_change(struct wl_listener *listener, void *data) {
-    do_output_layout_change(&server);
+    do_output_layout_change(&global_server);
 }
 
 static void handle_gamma_control_set_gamma(struct wl_listener *listener, void *data) {
@@ -341,7 +341,7 @@ static void handle_gamma_control_set_gamma(struct wl_listener *listener, void *d
     wlr_output_schedule_frame(output->wlr_output);
 }
 
-struct wsm_output_manager *wsm_output_manager_create() {
+struct wsm_output_manager *wsm_output_manager_create(const struct wsm_server *server) {
     struct wsm_output_manager *output_manager = calloc(1, sizeof(struct wsm_output_manager));
     if (!wsm_assert(output_manager, "Could not create wsm_output_manager: allocation failed!")) {
         return NULL;
@@ -353,14 +353,14 @@ struct wsm_output_manager *wsm_output_manager_create() {
     output_manager->wsm_output_manager_config = wsm_output_manager_config_create(output_manager);
 
     output_manager->new_output.notify = handle_new_output;
-    wl_signal_add(&server.backend->events.new_output, &output_manager->new_output);
+    wl_signal_add(&server->backend->events.new_output, &output_manager->new_output);
     output_manager->output_layout_change.notify = handle_output_layout_change;
     wl_signal_add(&output_manager->wlr_output_layout->events.change,
                   &output_manager->output_layout_change);
 
-    wlr_xdg_output_manager_v1_create(server.wl_display, output_manager->wlr_output_layout);
+    wlr_xdg_output_manager_v1_create(server->wl_display, output_manager->wlr_output_layout);
 
-    output_manager->wlr_output_manager_v1 = wlr_output_manager_v1_create(server.wl_display);
+    output_manager->wlr_output_manager_v1 = wlr_output_manager_v1_create(server->wl_display);
     output_manager->output_manager_apply.notify = handle_output_manager_apply;
     wl_signal_add(&output_manager->wlr_output_manager_v1->events.apply,
                   &output_manager->output_manager_apply);
@@ -368,13 +368,13 @@ struct wsm_output_manager *wsm_output_manager_create() {
     wl_signal_add(&output_manager->wlr_output_manager_v1->events.test,
                   &output_manager->output_manager_test);
 
-    output_manager->wlr_output_power_manager_v1 = wlr_output_power_manager_v1_create(server.wl_display);
+    output_manager->wlr_output_power_manager_v1 = wlr_output_power_manager_v1_create(server->wl_display);
     output_manager->wsm_output_power_manager_set_mode.notify = handle_output_power_manager_set_mode;
     wl_signal_add(&output_manager->wlr_output_power_manager_v1->events.set_mode,
                   &output_manager->wsm_output_power_manager_set_mode);
 
     output_manager->wlr_gamma_control_manager_v1 =
-        wlr_gamma_control_manager_v1_create(server.wl_display);
+        wlr_gamma_control_manager_v1_create(server->wl_display);
 
     output_manager->gamma_control_set_gamma.notify = handle_gamma_control_set_gamma;
     wl_signal_add(&output_manager->wlr_gamma_control_manager_v1->events.set_gamma,

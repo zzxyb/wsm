@@ -62,7 +62,7 @@ struct wsm_keyboard *wsm_keyboard_create(struct wsm_seat *seat,  struct wsm_seat
     wl_list_init(&keyboard->keyboard_key.link);
     wl_list_init(&keyboard->keyboard_modifiers.link);
 
-    keyboard->key_repeat_source = wl_event_loop_add_timer(server.wl_event_loop,
+    keyboard->key_repeat_source = wl_event_loop_add_timer(global_server.wl_event_loop,
                                                           handle_keyboard_repeat, keyboard);
 
     return keyboard;

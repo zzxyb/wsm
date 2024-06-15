@@ -30,6 +30,8 @@ THE SOFTWARE.
 struct wsm_workspace;
 struct wsm_output;
 
+struct wsm_server;
+
 /**
  * @brief workspace management.
  *
@@ -56,7 +58,7 @@ struct wsm_workspace_manager {
     struct wsm_workspace *active_workspace;
 };
 
-struct wsm_workspace_manager *wsm_workspace_manager_create(struct wsm_output *output);
+struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_server* server, struct wsm_output *output);
 void wsm_workspace_destroy(struct wsm_workspace_manager *workspace_manager);
 
 #endif

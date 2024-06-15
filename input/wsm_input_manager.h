@@ -37,6 +37,7 @@ THE SOFTWARE.
 struct wlr_seat;
 
 struct wsm_seat;
+struct wsm_server;
 
 struct wsm_input_manager {
     struct wl_list devices;
@@ -55,7 +56,7 @@ struct wsm_input_manager {
     struct wl_listener virtual_pointer_new;
 };
 
-struct wsm_input_manager *wsm_input_manager_create();
+struct wsm_input_manager *wsm_input_manager_create(const struct wsm_server* server);
 struct wsm_seat *input_manager_get_default_seat();
 struct wsm_seat *input_manager_get_seat(const char *seat_name, bool create);
 struct wsm_seat *input_manager_seat_from_wlr_seat(struct wlr_seat *wlr_seat);
