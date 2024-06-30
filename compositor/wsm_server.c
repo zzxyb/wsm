@@ -22,12 +22,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#define _POSIX_C_SOURCE 200809L
 #include "wsm_server.h"
 #include "wsm_log.h"
 #include "wsm_xdg_shell.h"
 #include "../config.h"
 #include "wsm_scene.h"
+#include "wsm_output.h"
 #include "wsm_input_manager.h"
 #include "wsm_output_manager.h"
 #include "wsm_server_decoration_manager.h"
@@ -35,6 +35,11 @@ THE SOFTWARE.
 #include "wsm_layer_shell.h"
 #include "wsm_output.h"
 #include "wsm_font.h"
+#include "wsm_list.h"
+#include "wsm_seat.h"
+#include "wsm_config.h"
+#include "wsm_cursor.h"
+#include "wsm_session_lock.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -48,8 +53,10 @@ THE SOFTWARE.
 #include <wlr/config.h>
 #include <wlr/types/wlr_drm.h>
 #include <wlr/backend/multi.h>
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
 #include <wlr/xwayland/shell.h>
+#include <wlr/xwayland/xwayland.h>
+#include <wlr/xwayland/server.h>
 #endif
 #include <wlr/types/wlr_scene.h>
 #include <wlr/backend/wayland.h>
@@ -84,12 +91,68 @@ THE SOFTWARE.
 #include <wlr/types/wlr_cursor_shape_v1.h>
 #include <wlr/types/wlr_xdg_activation_v1.h>
 #include <wlr/types/wlr_relative_pointer_v1.h>
+#include <wlr/types/wlr_pointer_constraints_v1.h>
 #include <wlr/types/wlr_foreign_toplevel_management_v1.h>
+#include <wlr/types/wlr_ext_foreign_toplevel_list_v1.h>
+#include <wlr/types/wlr_primary_selection_v1.h>
 
-#define WSM_XDG_SHELL_VERSION 2
-#define WSM_LAYER_SHELL_VERSION 3
+#define WSM_XDG_SHELL_VERSION 5
+#define WSM_LAYER_SHELL_VERSION 4
 #define WSM_WLR_FRACTIONAL_SCALE_V1_VERSION 1
+#define WSM_FOREIGN_TOPLEVEL_LIST_VERSION 1
 #define WINDOW_TITLE "Wsm Compositor"
+
+static void handle_pointer_constraint_set_region(struct wl_listener *listener,
+                                                 void *data) {
+    struct wsm_pointer_constraint *wsm_constraint =
+        wl_container_of(listener, wsm_constraint, set_region);
+    struct wsm_cursor *cursor = wsm_constraint->cursor;
+
+    cursor->active_confine_requires_warp = true;
+}
+
+void handle_constraint_destroy(struct wl_listener *listener, void *data) {
+    struct wsm_pointer_constraint *wsm_constraint =
+        wl_container_of(listener, wsm_constraint, destroy);
+    struct wlr_pointer_constraint_v1 *constraint = data;
+    struct wsm_cursor *cursor = wsm_constraint->cursor;
+
+    wl_list_remove(&wsm_constraint->set_region.link);
+    wl_list_remove(&wsm_constraint->destroy.link);
+
+    if (cursor->active_constraint == constraint) {
+        warp_to_constraint_cursor_hint(cursor);
+
+        if (cursor->constraint_commit.link.next != NULL) {
+            wl_list_remove(&cursor->constraint_commit.link);
+        }
+        wl_list_init(&cursor->constraint_commit.link);
+        cursor->active_constraint = NULL;
+    }
+
+    free(wsm_constraint);
+}
+
+void handle_pointer_constraint(struct wl_listener *listener, void *data) {
+    struct wlr_pointer_constraint_v1 *constraint = data;
+    struct wsm_seat *seat = constraint->seat->data;
+
+    struct wsm_pointer_constraint *wsm_constraint =
+        calloc(1, sizeof(struct wsm_pointer_constraint));
+    wsm_constraint->cursor = seat->wsm_cursor;
+    wsm_constraint->constraint = constraint;
+
+    wsm_constraint->set_region.notify = handle_pointer_constraint_set_region;
+    wl_signal_add(&constraint->events.set_region, &wsm_constraint->set_region);
+
+    wsm_constraint->destroy.notify = handle_constraint_destroy;
+    wl_signal_add(&constraint->events.destroy, &wsm_constraint->destroy);
+
+    struct wlr_surface *surface = seat->wlr_seat->keyboard_state.focused_surface;
+    if (surface && surface == constraint->surface) {
+        wsm_cursor_constrain(seat->wsm_cursor, constraint);
+    }
+}
 
 #if WLR_HAS_DRM_BACKEND
 static void handle_drm_lease_request(struct wl_listener *listener, void *data) {
@@ -98,21 +161,6 @@ static void handle_drm_lease_request(struct wl_listener *listener, void *data) {
     if (!lease) {
         wsm_log(WSM_ERROR, "Failed to grant lease request");
         wlr_drm_lease_request_v1_reject(req);
-    }
-
-    for (size_t i = 0; i < req->n_connectors; ++i) {
-        struct wsm_output *output = req->connectors[i]->output->data;
-        if (!output) {
-            continue;
-        }
-
-        wlr_output_enable(output->wlr_output, false);
-        wlr_output_commit(output->wlr_output);
-
-        wlr_output_layout_remove(global_server.wsm_output_manager->wlr_output_layout,
-                                 output->wlr_output);
-        output->wlr_scene_output = NULL;
-        output->leased = true;
     }
 }
 #endif
@@ -135,7 +183,7 @@ static bool is_privileged(const struct wl_global *global, const struct wsm_serve
 static bool filter_global(const struct wl_client *client,
                           const struct wl_global *global, void *data) {
     struct wsm_server *server = data;
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
     if (global_server.xwayland_enabled) {
         struct wlr_xwayland *xwayland = server->xwayland.wlr_xwayland;
         if (xwayland && global == xwayland->shell_v1->global) {
@@ -199,12 +247,14 @@ static void detect_proprietary(struct wlr_backend *backend, void *data) {
 bool wsm_server_init(struct wsm_server *server)
 {
     server->wsm_font = wsm_font_create();
+    wsm_config_init();
+
     server->wl_display = wl_display_create();
     server->wl_event_loop = wl_display_get_event_loop(server->wl_display);
 
     wl_display_set_global_filter(server->wl_display, filter_global, server);
 
-    server->backend = wlr_backend_autocreate(server->wl_display, &server->wlr_session);
+    server->backend = wlr_backend_autocreate(server->wl_event_loop, &server->wlr_session);
     if (server->backend == NULL) {
         wsm_log(WSM_ERROR, "failed to create wlr_backend");
         return false;
@@ -220,10 +270,10 @@ bool wsm_server_init(struct wsm_server *server)
 
     wlr_renderer_init_wl_shm(server->wlr_renderer, server->wl_display);
 
-    if (wlr_renderer_get_dmabuf_texture_formats(server->wlr_renderer) != NULL) {
-        wlr_drm_create(server->wl_display, server->wlr_renderer);
+    if (wlr_renderer_get_texture_formats(server->wlr_renderer, WLR_BUFFER_CAP_DMABUF) != NULL) {
         server->linux_dmabuf_v1 = wlr_linux_dmabuf_v1_create_with_renderer(
             server->wl_display, 4, server->wlr_renderer);
+        // wlr_drm_create(server->wl_display, server->wlr_renderer);
     }
 
     server->wlr_allocator = wlr_allocator_autocreate(server->backend, server->wlr_renderer);
@@ -235,7 +285,8 @@ bool wsm_server_init(struct wsm_server *server)
     server->wlr_compositor = wlr_compositor_create(server->wl_display, 6,
                                                server->wlr_renderer);
     wlr_subcompositor_create(server->wl_display);
-#ifdef HAVE_XWAYLAND
+    server->wsm_scene = wsm_scene_create(server);
+#if HAVE_XWAYLAND
     if (server->xwayland_enabled) {
         server->xcursor_manager = wlr_xcursor_manager_create(NULL, 24);
     }
@@ -243,7 +294,8 @@ bool wsm_server_init(struct wsm_server *server)
     server->data_device_manager = wlr_data_device_manager_create(server->wl_display);
     server->wsm_output_manager = wsm_output_manager_create(server);
 
-    server->wsm_scene = wsm_scene_create(server);
+    wsm_idle_inhibit_manager_v1_init();
+
     server->wsm_layer_shell = wsm_layer_shell_create(server);
     server->wsm_xdg_shell = wsm_xdg_shell_create(server);
     server->idle_notifier_v1 = wlr_idle_notifier_v1_create(server->wl_display);
@@ -251,9 +303,20 @@ bool wsm_server_init(struct wsm_server *server)
     server->wsm_xdg_decoration_manager = xdg_decoration_manager_create(server);
     server->wlr_relative_pointer_manager =
         wlr_relative_pointer_manager_v1_create(server->wl_display);
+
+    server->pointer_constraints =
+        wlr_pointer_constraints_v1_create(server->wl_display);
+    server->pointer_constraint.notify = handle_pointer_constraint;
+    wl_signal_add(&server->pointer_constraints->events.new_constraint,
+                  &server->pointer_constraint);
+
     server->presentation = wlr_presentation_create(server->wl_display, server->backend);
+    server->foreign_toplevel_list =
+        wlr_ext_foreign_toplevel_list_v1_create(server->wl_display, WSM_FOREIGN_TOPLEVEL_LIST_VERSION);
     server->foreign_toplevel_manager =
         wlr_foreign_toplevel_manager_v1_create(server->wl_display);
+
+    wsm_session_lock_init();
 #if WLR_HAS_DRM_BACKEND
     server->drm_lease_manager=
         wlr_drm_lease_v1_manager_create(server->wl_display, server->backend);
@@ -300,7 +363,7 @@ bool wsm_server_init(struct wsm_server *server)
         return false;
     }
 
-    server->headless_backend = wlr_headless_backend_create(server->wl_display);
+    server->headless_backend = wlr_headless_backend_create(server->wl_event_loop);
     if (!server->headless_backend) {
         wsm_log(WSM_ERROR, "Failed to create secondary headless backend");
         wlr_backend_destroy(server->backend);
@@ -309,16 +372,32 @@ bool wsm_server_init(struct wsm_server *server)
         wlr_multi_backend_add(server->backend, server->headless_backend);
     }
 
-    // struct wlr_output *wlr_output =
-    //     wlr_headless_add_output(server->headless_backend, 800, 600);
-    // wlr_output_set_name(wlr_output, "FALLBACK");
+    struct wlr_output *wlr_output =
+        wlr_headless_add_output(server->headless_backend, 800, 600);
+    wlr_output_set_name(wlr_output, "FALLBACK");
+    server->wsm_scene->fallback_output = wsm_ouput_create(wlr_output);
 
     if (!server->txn_timeout_ms) {
         server->txn_timeout_ms = 200;
     }
 
+    server->dirty_nodes = create_list();
+
     server->wsm_input_manager = wsm_input_manager_create(server);
     input_manager_get_default_seat();
 
+    if (global_config.primary_selection)
+        wlr_primary_selection_v1_device_manager_create(server->wl_display);
+
     return true;
+}
+
+void server_finish(struct wsm_server *server) {
+#if HAVE_XWAYLAND
+    wlr_xwayland_destroy(server->xwayland.wlr_xwayland);
+#endif
+    wl_display_destroy_clients(server->wl_display);
+    wlr_backend_destroy(server->backend);
+    wl_display_destroy(server->wl_display);
+    list_free(server->dirty_nodes);
 }

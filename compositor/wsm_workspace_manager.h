@@ -29,8 +29,14 @@ THE SOFTWARE.
 
 struct wsm_workspace;
 struct wsm_output;
+struct wsm_list;
 
 struct wsm_server;
+
+struct wsm_workspace_manager_state {
+    struct wsm_list *workspaces;
+    struct wsm_workspace *active_workspace;
+};
 
 /**
  * @brief workspace management.
@@ -54,11 +60,11 @@ struct wsm_server;
  * -------------------------------------------------------------------------
  */
 struct wsm_workspace_manager {
-    struct wl_list wsm_workspaces;
-    struct wsm_workspace *active_workspace;
+    struct wsm_workspace_manager_state current;
 };
 
-struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_server* server, struct wsm_output *output);
-void wsm_workspace_destroy(struct wsm_workspace_manager *workspace_manager);
+struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_server* server,
+                                                           struct wsm_output *output);
+void wsm_workspace_manager_destroy(struct wsm_workspace_manager *workspace_manager);
 
 #endif

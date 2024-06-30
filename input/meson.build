@@ -14,13 +14,19 @@ wsm_input = static_library(
         'wsm_switch.c',
         'wsm_input.c',
         'wsm_text_input.c',
-        'wsm_seatop.c'
+        'wsm_seatop_default.c',
+        'wsm_seatop_move_floating.c',
+        'wsm_seatop_resize_floating.c',
+        'wsm_seatop_down.c',
 	),
 	dependencies: [
+        wayland_server,
         wlroots,
         server_protos,
         libinput,
         xkbcommon,
+        xcb,
+        xcb_icccm,
         ],
-        include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc, node_inc]
+        include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc, shell_inc, decoration_inc]
 )

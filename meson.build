@@ -1,8 +1,8 @@
 project(
 	'wsm',
 	'c',
-        version: '1.0-dev',
-	license: 'GPL2.0',
+        version: '0.1-dev',
+        license: 'MIT',
 	meson_version: '>=0.60.0',
 	default_options: [
 		'c_std=c11',
@@ -14,6 +14,8 @@ project(
 add_project_arguments(
 	[
                 '-DWLR_USE_UNSTABLE',
+                '-D_POSIX_C_SOURCE=200809L',
+
 		'-Wno-unused-parameter',
 		'-Wno-unused-result',
 		'-Wno-missing-braces',
@@ -34,25 +36,41 @@ if is_freebsd
 	add_project_arguments('-D_C11_SOURCE', language: 'c')
 endif
 
+wlroots_version = ['>=0.18.0', '<0.20.0']
+#subproject(
+#        'wlroots',
+#        default_options: ['examples=false'],
+#        required: false,
+#        version: wlroots_version,
+#)
+wlroots = dependency('wlroots-0.18', version: wlroots_version, fallback: 'wlroots')
+wlroots_features = {
+        'xwayland': get_option('xwayland').enabled(),
+        'libinput_backend': true,
+        'session': true,
+}
+foreach name, _ : wlroots_features
+        var_name = 'have_' + name.underscorify()
+        have = wlroots.get_variable(pkgconfig: var_name, internal: var_name) == 'true'
+        wlroots_features += { name: have }
+endforeach
+
+null_dep = dependency('', required: false)
 wayland_server = dependency('wayland-server', version: '>=1.20.0')
 wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
 wayland_egl = dependency('wayland-egl')
 pixman = dependency('pixman-1')
 xkbcommon = dependency('xkbcommon', version: '>=1.5.0')
-libinput = dependency('libinput', version: '>=1.21.0')
+libinput = wlroots_features['libinput_backend'] ? dependency('libinput', version: '>=1.26.0') : null_dep
 wayland_protos = dependency('wayland-protocols', version: '>=1.24')
-wlroots = dependency(
-    'wlroots',
-    default_options: ['default_library=static', 'examples=false'],
-    version: ['>=0.17.0', '<==0.18.0'],
-)
 drm_full = dependency('libdrm') # only needed for drm_fourcc.h
 drm = drm_full.partial_dependency(compile_args: true, includes: true)
 threads = dependency('threads') # for pthread_setschedparam
 systemd_dep = dependency('libsystemd')
-xcb = dependency('xcb', required: get_option('xwayland'))
-xcb_icccm = dependency('xcb-icccm', required: get_option('xwayland'))
+xcb = wlroots_features['xwayland'] ? dependency('xcb') : null_dep
+xcb_icccm = wlroots_features['xwayland'] ? dependency('xcb-icccm') : null_dep
+libudev = wlroots_features['libinput_backend'] ? dependency('libudev') : null_dep
 cairo = dependency('cairo')
 pango = dependency('pango')
 xpm = dependency('xpm')
@@ -62,14 +80,6 @@ pangocairo = dependency('pangocairo')
 math = cc.find_library('m')
 rt = cc.find_library('rt')
 
-wlroots_features = {
-	'xwayland': false,
-}
-foreach name, _ : wlroots_features
-	var_name = 'have_' + name.underscorify()
-	have = wlroots.get_variable(pkgconfig: var_name, internal: var_name) == 'true'
-	wlroots_features += { name: have }
-endforeach
 if get_option('xwayland').enabled() and not wlroots_features['xwayland']
         error('Cannot enable Xwayland in wsm: wlroots has been built without Xwayland support')
 endif
@@ -125,11 +135,10 @@ output_inc = include_directories('output')
 config_inc = include_directories('config')
 scene_inc = include_directories('scene')
 decoration_inc = include_directories('decoration')
-node_inc = include_directories('node')
+shell_inc = include_directories('shell')
 
 subdir('protocols')
 subdir('common')
-subdir('effects')
 subdir('compositor')
 subdir('scene')
 subdir('input')
@@ -137,7 +146,7 @@ subdir('xwl')
 subdir('output')
 subdir('config')
 subdir('decoration')
-subdir('node')
+subdir('shell')
 
 if get_option('documentation').enabled()
         subdir('doc')
@@ -158,6 +167,9 @@ wsm_deps = [
         xpm,
         jpeg,
         svg,
+        xcb,
+        xcb_icccm,
+        libudev,
 ]
 
 dir_prefix = get_option('prefix')
@@ -166,8 +178,8 @@ dir_data = join_paths(dir_prefix, get_option('datadir'))
 dir_libexec = join_paths(dir_prefix, get_option('libexecdir'))
 version_wsm = meson.project_version()
 conf = configuration_data()
-conf.set('HAVE_XWAYLAND', have_xwayland)
-conf.set('IS_MOBILE', get_option('mobile').enabled())
+conf.set10('HAVE_XWAYLAND', have_xwayland)
+conf.set10('IS_MOBILE', get_option('mobile').enabled())
 conf.set_quoted('VERSION', version_wsm)
 conf.set_quoted('BINDIR', dir_bin)
 conf.set_quoted('DATADIR', dir_data)
@@ -188,7 +200,7 @@ executable(
         'wsm',
         wsm_sources,
         dependencies: wsm_deps,
-        link_with: [wsm_common, wsm_compositor, wsm_input, wsm_effect, wsm_config, wsm_xwl, wsm_output, wsm_scene, wsm_decoration, wsm_node],
-        include_directories:[common_inc, compositor_inc, xwl_inc, output_inc, config_inc, scene_inc, decoration_inc, node_inc],
+        link_with: [wsm_common, wsm_compositor, wsm_input, wsm_config, wsm_xwl, wsm_output, wsm_scene, wsm_decoration, wsm_shell],
+        include_directories:[common_inc, compositor_inc, xwl_inc, output_inc, config_inc, scene_inc, decoration_inc],
         install: true
 )

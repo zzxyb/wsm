@@ -31,52 +31,69 @@ THE SOFTWARE.
 #ifndef WSM_SERVER_H
 #define WSM_SERVER_H
 
+#include "wsm_idle_inhibit_v1.h"
+
 #include "../config.h"
 #ifdef HAVE_XWAYLAND
 #include "wsm_xwayland.h"
 #endif
 #include <wayland-server-core.h>
 
-#include <wlr/util/box.h>
-#include <wlr/backend.h>
-
 struct wlr_idle;
 struct wl_display;
+struct wsm_output;
 struct wlr_backend;
+struct wlr_surface;
 struct wlr_renderer;
 struct wlr_allocator;
 struct wlr_compositor;
 struct wlr_presentation;
 struct wlr_output_layout;
+struct wlr_session_lock_v1;
 struct wlr_linux_dmabuf_v1;
 struct wlr_xcursor_manager;
 struct wlr_idle_notifier_v1;
 struct wlr_output_manager_v1;
 struct wlr_data_device_manager;
 struct wlr_drm_lease_v1_manager;
+struct wlr_pointer_constraint_v1;
 struct wlr_security_context_manager_v1;
 struct wlr_xdg_activation_v1;
 struct wlr_content_type_manager_v1;
 struct wlr_data_control_manager_v1;
 struct wlr_screencopy_manager_v1;
+struct wlr_pointer_constraints_v1;
 struct wlr_export_dmabuf_manager_v1;
+struct wlr_session_lock_manager_v1;
 struct wlr_relative_pointer_manager_v1;
 struct wlr_foreign_toplevel_manager_v1;
+struct wlr_ext_foreign_toplevel_list_v1;
 
 struct wsm_font;
+struct wsm_list;
 struct wsm_xdg_shell;
 struct wsm_layer_shell;
 struct wsm_scene;
+struct wsm_cursor;
+struct wsm_transaction;
+struct wsm_session_lock;
 struct wsm_input_manager;
 struct wsm_output_manager;
 struct wsm_xdg_decoration_manager;
 struct wsm_server_decoration_manager;
-struct wsm_idle_inhibit_manager_v1;
 
 /**
  * @brief server global server object
  */
 extern struct wsm_server global_server;
+
+struct wsm_pointer_constraint {
+    struct wsm_cursor *cursor;
+    struct wlr_pointer_constraint_v1 *constraint;
+
+    struct wl_listener set_region;
+    struct wl_listener destroy;
+};
 
 struct wsm_server {
     const char *socket;
@@ -95,6 +112,7 @@ struct wsm_server {
     struct wlr_security_context_manager_v1 *security_context_manager_v1;
     struct wlr_idle_notifier_v1 *idle_notifier_v1;
     struct wlr_presentation *presentation;
+    struct wlr_ext_foreign_toplevel_list_v1 *foreign_toplevel_list;
     struct wlr_foreign_toplevel_manager_v1 *foreign_toplevel_manager;
     struct wlr_drm_lease_v1_manager *drm_lease_manager;
     struct wlr_content_type_manager_v1 *content_type_manager_v1;
@@ -102,8 +120,16 @@ struct wsm_server {
     struct wlr_screencopy_manager_v1 *screencopy_manager_v1;
     struct wlr_export_dmabuf_manager_v1 *export_dmabuf_manager_v1;
     struct wlr_xdg_activation_v1 *xdg_activation_v1;
-    struct wl_listener xdg_activation_v1_request_activate;
-    struct wl_listener xdg_activation_v1_new_token;
+    struct wlr_pointer_constraints_v1 *pointer_constraints;
+    struct wl_listener pointer_constraint;
+
+    struct {
+        struct wsm_session_lock *lock;
+        struct wlr_session_lock_manager_v1 *manager;
+
+        struct wl_listener new_lock;
+        struct wl_listener manager_destroy;
+    } session_lock;
 
 #ifdef HAVE_XWAYLAND
     struct wsm_xwayland xwayland;
@@ -120,7 +146,7 @@ struct wsm_server {
     struct wsm_output_manager *wsm_output_manager;
     struct wsm_server_decoration_manager *wsm_server_decoration_manager;
     struct wsm_xdg_decoration_manager *wsm_xdg_decoration_manager;
-    struct wsm_idle_inhibit_manager_v1 *wsm_idle_inhibit_manager_v1;
+    struct wsm_idle_inhibit_manager_v1 wsm_idle_inhibit_manager_v1;
 
     struct wl_listener drm_lease_request;
 
@@ -128,9 +154,24 @@ struct wsm_server {
     // regardless of readiness.
     size_t txn_timeout_ms;
 
+    // Stores a transaction after it has been committed, but is waiting for
+    // views to ack the new dimensions before being applied. A queued
+    // transaction is frozen and must not have new instructions added to it.
+    struct wsm_transaction *queued_transaction;
+
+    // Stores a pending transaction that will be committed once the existing
+    // queued transaction is applied and freed. The pending transaction can be
+    // updated with new instructions as needed.
+    struct wsm_transaction *pending_transaction;
+
+    struct wsm_list *dirty_nodes;
+
+    struct wl_event_source *delayed_modeset;
+
     bool xwayland_enabled;
 };
 
 bool wsm_server_init(struct wsm_server *server);
+void server_finish(struct wsm_server *server);
 
 #endif

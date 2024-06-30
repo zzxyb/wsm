@@ -27,12 +27,11 @@ THE SOFTWARE.
 
 #include "../config.h"
 
+#include <stdbool.h>
 
 #ifdef HAVE_XWAYLAND
 
 #include <xcb/xproto.h>
-
-#include <wlr/xwayland.h>
 
 struct wlr_xwayland_surface;
 
@@ -57,17 +56,13 @@ enum atom_name {
 
 struct wsm_xwayland {
     struct wlr_xwayland *wlr_xwayland;
+    struct wlr_xcursor_manager *xcursor_manager;
 
     xcb_atom_t atoms[ATOM_LAST];
 };
 
 bool xwayland_start(struct wsm_server *server);
-struct wsm_xwayland_view *xwayland_view_create(struct wlr_xwayland_surface *xsurface);
-struct wsm_xwayland_view *xwayland_view_from_view(struct wsm_view *view);
-struct wlr_xwayland_surface *xwayland_surface_from_view(struct wsm_view *view);
-struct wsm_xwayland_view *create_xwayland_view(struct wlr_xwayland_surface *xsurface);
-void xsurface_associate(struct wl_listener *listener, void *data);
-void xsurface_map(struct wl_listener *listener, void *data);
+
 #endif
 
 #endif

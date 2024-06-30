@@ -53,7 +53,6 @@ struct wsm_output_manager_config;
 
 struct wsm_output_manager {
     struct wlr_output_manager_v1 *wlr_output_manager_v1;
-    struct wlr_output_layout *wlr_output_layout;
     struct wlr_output_power_manager_v1 *wlr_output_power_manager_v1;
     struct wlr_gamma_control_manager_v1 *wlr_gamma_control_manager_v1;
     struct wsm_output_manager_config *wsm_output_manager_config;
@@ -74,5 +73,6 @@ struct wsm_output_manager {
 
 struct wsm_output_manager *wsm_output_manager_create(const struct wsm_server *server);
 void wsm_output_manager_destory(struct wsm_output_manager *manager);
+void update_output_manager_config(struct wsm_server *server);
 
 #endif

@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#define _POSIX_C_SOURCE 200809L
 #include "wsm_log.h"
 #include "config.h"
 #include "common/wsm_common.h"
@@ -39,6 +38,7 @@ THE SOFTWARE.
 #include <systemd/sd-bus.h>
 
 #include <wlr/util/log.h>
+#include <wlr/backend.h>
 
 struct wsm_server global_server = {0};
 
@@ -107,7 +107,7 @@ static void usage(int error_code) {
             "different options will be accepted.\n\n"
 
             "Core options:\n\n"
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
             "  --xwayland\t\tLoad the xwayland module\n"
 #endif
             "  -l, --log-level\tSet log output level, default value is 1 only ERROR logs, 3 output all logs, 0 disabled log\n"
@@ -133,6 +133,19 @@ static char *copy_command_line(int argc, char * const argv[]) {
     return str;
 }
 
+void wsm_terminate(int exit_code) {
+    if (!global_server.wl_display) {
+        exit(exit_code);
+    } else {
+        wl_display_terminate(global_server.wl_display);
+    }
+}
+
+void sig_handler(int signal) {
+    wsm_log(WSM_INFO, "sig_handler: %d", signal);
+    wsm_terminate(EXIT_SUCCESS);
+}
+
 int main(int argc, char **argv) {
     char *startup_cmd = NULL;
     char *cmdline = NULL;
@@ -141,7 +154,7 @@ int main(int argc, char **argv) {
     int32_t log_level = WSM_ERROR;
 
     const struct wsm_option core_options[] = {
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
         { WSM_OPTION_BOOLEAN, "xwayland", 0, &xwayland },
 #endif
         { WSM_OPTION_INTEGER, "log-level", 'l', &log_level },
@@ -178,9 +191,15 @@ int main(int argc, char **argv) {
         goto shutdown;
     }
 
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
     global_server.xwayland_enabled = xwayland;
 #endif
+    // handle SIGTERM signals
+    signal(SIGTERM, sig_handler);
+    signal(SIGINT, sig_handler);
+
+    // prevent ipc from crashing
+    signal(SIGPIPE, SIG_IGN);
     wsm_server_init(&global_server);
 
     const char *socket = wl_display_add_socket_auto(global_server.wl_display);
@@ -193,7 +212,7 @@ int main(int argc, char **argv) {
         wsm_log(WSM_DEBUG, "Command disabled xwayland!");
     }
 
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
     if (xwayland ) {
         if (!xwayland_start(&global_server)) {
             wsm_log(WSM_ERROR, "xwayland start failed!");
@@ -226,8 +245,7 @@ int main(int argc, char **argv) {
 
 shutdown:
     wsm_log(WSM_ERROR, "Shutting down wsm");
-    if (global_server.wl_display)
-        wl_display_terminate(global_server.wl_display);
+    server_finish(&global_server);
 
     return EXIT_FAILURE;
 }

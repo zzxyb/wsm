@@ -22,24 +22,22 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef WSM_XDG_POPUP_H
-#define WSM_XDG_POPUP_H
+#ifndef WSM_SEATOP_DOWN_H
+#define WSM_SEATOP_DOWN_H
 
-#include <wayland-server-core.h>
+struct wlr_surface;
+struct wlr_touch_down_event;
 
-struct wlr_xdg_popup;
+struct wsm_seat;
+struct wsm_container;
 
-struct wsm_view;
+void seatop_begin_down(struct wsm_seat *seat, struct wsm_container *con,
+                       double sx, double sy);
 
-struct wsm_xdg_popup {
-    struct wsm_view *parent_view;
-    struct wlr_xdg_popup *wlr_popup;
+void seatop_begin_down_on_surface(struct wsm_seat *seat,
+                                  struct wlr_surface *surface, double sx, double sy);
 
-    struct wl_listener commit;
-    struct wl_listener destroy;
-    struct wl_listener new_popup;
-};
-
-struct wsm_xdg_popup *xdg_popup_create(struct wsm_view *view, struct wlr_xdg_popup *wlr_popup);
+void seatop_begin_touch_down(struct wsm_seat *seat, struct wlr_surface *surface,
+                             struct wlr_touch_down_event *event, double sx, double sy, double lx, double ly);
 
 #endif

@@ -84,6 +84,6 @@ not use GNU extensions.
 * Support mobile phone pull-down and slide up gestures
 * Support window effects, including but not limited to fillet and blur、Minimize 
 * Support restricting applications from obtaining sensitive privacy data of user equipment
-* Support GL API and hardware layer rendering
+* Support hardware layer rendering(muti drm-plane)
 
 [wlroots]: https://gitlab.freedesktop.org/wlroots/wlroots

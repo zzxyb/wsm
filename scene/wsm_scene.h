@@ -26,6 +26,7 @@ THE SOFTWARE.
 #define WSM_SCENE_H
 
 #include "../config.h"
+#include "node/wsm_node.h"
 
 #include <stdbool.h>
 
@@ -33,6 +34,7 @@ struct wlr_scene;
 struct wlr_scene_tree;
 struct wlr_scene_output;
 struct wlr_output_state;
+struct wlr_output_layout;
 struct wlr_scene_output_layout;
 struct wlr_scene_output_state_options;
 
@@ -64,22 +66,55 @@ struct wsm_server;
  *
  */
 struct wsm_scene {
-    struct wlr_scene *wlr_scene;
-    struct wlr_scene_tree *view_tree_always_on_bottom;
-    struct wlr_scene_tree *view_tree;
-    struct wlr_scene_tree *view_tree_always_on_top;
-    struct wlr_scene_tree *xdg_popup_tree;
+    struct wsm_node node;
+    struct wlr_output_layout *output_layout;
+
+    struct wlr_scene *root_scene;
+    struct wlr_scene_tree *staging;
+
+    struct wlr_scene_tree *layer_tree;
+
+    struct {
+        struct wlr_scene_tree *shell_background;
+        struct wlr_scene_tree *shell_bottom;
+        struct wlr_scene_tree *tiling;
+        struct wlr_scene_tree *floating;
+        struct wlr_scene_tree *shell_top;
+        struct wlr_scene_tree *fullscreen;
+        struct wlr_scene_tree *fullscreen_global;
 #ifdef HAVE_XWAYLAND
-    struct wlr_scene_tree *unmanaged_tree;
+        struct wlr_scene_tree *unmanaged;
 #endif
-    struct wlr_scene_tree *osd_overlay_layers_tree;
-    struct wlr_scene_output_layout *wlr_scene_output_layout;
+        struct wlr_scene_tree *shell_overlay;
+        struct wlr_scene_tree *popup;
+        struct wlr_scene_tree *seat;
+        struct wlr_scene_tree *session_lock;
+    } layers;
+
+    struct wl_list all_outputs;
+
+    double x, y;
+    double width, height;
+
+    struct wsm_list *outputs;
+    struct wsm_list *non_desktop_outputs;
+    struct wsm_list *scratchpad;
+
+    struct wsm_output *fallback_output;
+    struct wsm_container *fullscreen_global;
+
+    struct {
+        struct wl_signal new_node;
+    } events;
 };
 
 struct wsm_scene *wsm_scene_create(const struct wsm_server* server);
-bool wsm_scene_output_commit(struct wlr_scene_output *scene_output,
-                             const struct wlr_scene_output_state_options *options);
+// bool wsm_scene_output_commit(struct wlr_scene_output *scene_output,
+//                              const struct wlr_scene_output_state_options *options);
 bool wsm_scene_output_build_state(struct wlr_scene_output *scene_output,
                                   struct wlr_output_state *state, const struct wlr_scene_output_state_options *options);
+void root_get_box(struct wsm_scene *root, struct wlr_box *box);
+void root_scratchpad_show(struct wsm_container *con);
+void arrange_root(void);
 
 #endif

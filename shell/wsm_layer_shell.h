@@ -25,6 +25,8 @@ THE SOFTWARE.
 #ifndef WSM_LAYER_SHELL_H
 #define WSM_LAYER_SHELL_H
 
+#include "wsm_view.h"
+
 #include <wlr/util/box.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
 
@@ -33,6 +35,7 @@ THE SOFTWARE.
 struct wlr_subsurface;
 struct wlr_xdg_popup;
 struct wlr_layer_shell_v1;
+struct wlr_scene_layer_surface_v1;
 
 struct wsm_seat;
 struct wsm_output;
@@ -44,47 +47,31 @@ enum layer_parent_type {
 };
 
 struct wsm_layer_surface {
-    struct wlr_layer_surface_v1 *wlr_layer_surface;
-    struct wl_list link;
-
-    struct wl_listener destroy;
     struct wl_listener map;
     struct wl_listener unmap;
     struct wl_listener surface_commit;
     struct wl_listener output_destroy;
+    struct wl_listener node_destroy;
     struct wl_listener new_popup;
-    struct wl_listener new_subsurface;
 
-    struct wlr_box geo;
     bool mapped;
-    struct wlr_box extent;
-    enum zwlr_layer_shell_v1_layer layer;
 
-    struct wl_list subsurfaces;
+    struct wlr_scene_tree *popups;
+    struct wsm_popup_desc desc;
+
+    struct wsm_output *output;
+    struct wlr_scene_layer_surface_v1 *scene;
+    struct wlr_scene_tree *tree;
+    struct wlr_layer_surface_v1 *layer_surface;
 };
 
 struct wsm_layer_popup {
     struct wlr_xdg_popup *wlr_popup;
-    enum layer_parent_type parent_type;
-    union {
-        struct wsm_layer_surface *parent_layer;
-        struct wsm_layer_popup *parent_popup;
-    };
-    struct wl_listener map;
-    struct wl_listener unmap;
+    struct wlr_scene_tree *scene;
+    struct wsm_layer_surface *toplevel;
+
     struct wl_listener destroy;
-    struct wl_listener commit;
     struct wl_listener new_popup;
-};
-
-struct wsm_layer_subsurface {
-    struct wlr_subsurface *wlr_subsurface;
-    struct wsm_layer_surface *layer_surface;
-    struct wl_list link;
-
-    struct wl_listener map;
-    struct wl_listener unmap;
-    struct wl_listener destroy;
     struct wl_listener commit;
 };
 
@@ -93,10 +80,10 @@ struct wsm_layer_shell {
     struct wl_listener layer_shell_surface;
 };
 
-void wsm_layer_shell_destroy(struct wsm_layer_shell *shell);
 struct wsm_layer_shell *wsm_layer_shell_create(const struct wsm_server *server);
-void layers_arrange(struct wsm_output *output);
-void layer_try_set_focus(struct wsm_seat *seat,
-                         struct wlr_layer_surface_v1 *layer_surface);
+void wsm_layer_shell_destroy(struct wsm_layer_shell *shell);
+void arrange_layers(struct wsm_output *output);
+struct wlr_layer_surface_v1 *toplevel_layer_surface_from_surface(
+    struct wlr_surface *surface);
 
 #endif

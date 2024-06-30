@@ -4,6 +4,15 @@ wsm_scene = static_library(
         'wsm_scene.c',
         'wsm_scene.h',
         'wsm_view_item.c',
+        'node/wsm_node.c',
+        'node/wsm_text_node.c',
+        'node/wsm_image_node.c',
+        'node/wsm_node_descriptor.c',
+        'effects/wsm_effect.c',
+        'effects/blur/wsm_gl_blur_base.c',
+        'effects/blur/wsm_gl_blur.c',
+        'effects/scissors/wsm_gl_scissors_base.c',
+        'effects/scissors/wsm_gl_scissors.c',
         ),
         dependencies: [
         wlroots,
@@ -14,6 +23,7 @@ wsm_scene = static_library(
         math,
         xpm,
         jpeg,
+        svg,
         ],
-        include_directories:[common_inc, xwl_inc, input_inc, output_inc, compositor_inc, node_inc]
+        include_directories:[common_inc, xwl_inc, input_inc, output_inc, compositor_inc, decoration_inc]
 )

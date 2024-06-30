@@ -22,27 +22,33 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef WSM_SEATOP_H
-#define WSM_SEATOP_H
+#ifndef WSM_NODE_DESCRIPTOR_H
+#define WSM_NODE_DESCRIPTOR_H
 
-#include "gesture/wsm_gesture.h"
-
-#include <stdlib.h>
-#include <stdint.h>
-
-#define WSM_CURSOR_PRESSED_BUTTONS_CAP 32
+#include <wayland-server-core.h>
 
 struct wlr_scene_node;
 
-struct wsm_seat;
+struct wsm_view;
 
-struct wsm_seatop_event {
-    struct wlr_scene_node *previous_node;
-    uint32_t pressed_buttons[WSM_CURSOR_PRESSED_BUTTONS_CAP];
-    size_t pressed_button_count;
-    struct wsm_gesture_tracker gestures;
+enum wsm_scene_descriptor_type {
+    WSM_SCENE_DESC_BUFFER_TIMER,
+    WSM_SCENE_DESC_NON_INTERACTIVE,
+    WSM_SCENE_DESC_CONTAINER,
+    WSM_SCENE_DESC_VIEW,
+    WSM_SCENE_DESC_LAYER_SHELL,
+    WSM_SCENE_DESC_XWAYLAND_UNMANAGED,
+    WSM_SCENE_DESC_POPUP,
+    WSM_SCENE_DESC_DRAG_ICON,
 };
 
-void wsm_seatop_begin(struct wsm_seat *seat);
+bool wsm_scene_descriptor_assign(struct wlr_scene_node *node,
+                             enum wsm_scene_descriptor_type type, void *data);
+
+void *wsm_scene_descriptor_try_get(struct wlr_scene_node *node,
+                               enum wsm_scene_descriptor_type type);
+
+void wsm_scene_descriptor_destroy(struct wlr_scene_node *node,
+                              enum wsm_scene_descriptor_type type);
 
 #endif

@@ -78,5 +78,7 @@ struct wsm_input_device* wsm_input_device_create();
 struct wsm_input_device *input_wsm_device_from_wlr(
     struct wlr_input_device *device);
 void wsm_input_device_destroy(struct wlr_input_device *wlr_device);
+void wsm_input_configure_libinput_device_send_events(
+    struct wsm_input_device *input_device);
 
 #endif

@@ -9,5 +9,5 @@ wsm_output = static_library(
         wlroots,
         server_protos,
         ],
-        include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, input_inc, config_inc]
+        include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, input_inc, config_inc, decoration_inc, shell_inc]
 )
