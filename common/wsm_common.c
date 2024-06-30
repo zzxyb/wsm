@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-// #define _POSIX_C_SOURCE 200809L
 #include "wsm_log.h"
 #include "wsm_common.h"
 
@@ -93,4 +92,33 @@ char *lenient_strncat(char *dest, const char *src, size_t len) {
         return strncat(dest, src, len);
     }
     return dest;
+}
+
+int lenient_strcmp(const char *a, const char *b) {
+    if (a == b) {
+        return 0;
+    } else if (!a) {
+        return -1;
+    } else if (!b) {
+        return 1;
+    } else {
+        return strcmp(a, b);
+    }
+}
+
+void color_to_rgba(float dest[static 4], uint32_t color) {
+    dest[0] = ((color >> 24) & 0xff) / 255.0;
+    dest[1] = ((color >> 16) & 0xff) / 255.0;
+    dest[2] = ((color >> 8) & 0xff) / 255.0;
+    dest[3] = (color & 0xff) / 255.0;
+}
+
+char* int_to_string(int num) {
+    int length = snprintf(NULL, 0, "%d", num);
+    char *str = (char *)malloc((length + 1) * sizeof(char));
+    if (str == NULL) {
+        return NULL;
+    }
+    snprintf(str, length + 1, "%d", num);
+    return str;
 }

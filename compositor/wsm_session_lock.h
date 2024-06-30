@@ -22,12 +22,35 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef WSM_FOREIGN_TOPLEVEL_H
-#define WSM_FOREIGN_TOPLEVEL_H
+#ifndef WSM_SESSION_LOCK_H
+#define WSM_SESSION_LOCK_H
 
-struct wsm_view;
+#include <stdbool.h>
 
-void foreign_toplevel_handle_create(struct wsm_view *view);
-void foreign_toplevel_update_outputs(struct wsm_view *view);
+#include <wayland-server-core.h>
+
+struct wlr_surface;
+struct wlr_session_lock_v1;
+
+struct wsm_output;
+
+struct wsm_session_lock {
+    struct wlr_session_lock_v1 *lock;
+    struct wlr_surface *focused;
+    bool abandoned;
+
+    struct wl_list outputs; // struct wsm_session_lock_output
+
+    // invalid if the session is abandoned
+    struct wl_listener new_surface;
+    struct wl_listener unlock;
+    struct wl_listener destroy;
+};
+
+void wsm_session_lock_init(void);
+void wsm_session_lock_add_output(struct wsm_session_lock *lock,
+                                  struct wsm_output *output);
+bool wsm_session_lock_has_surface(struct wsm_session_lock *lock,
+                                   struct wlr_surface *surface);
 
 #endif

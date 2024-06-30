@@ -22,33 +22,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef WSM_XDG_SHELL_H
-#define WSM_XDG_SHELL_H
+#ifndef WSM_SEATOP_RESIZE_FLOATING_H
+#define WSM_SEATOP_RESIZE_FLOATING_H
 
-#include <wayland-server-core.h>
+#include <wlr/util/edges.h>
 
-struct wlr_xdg_shell;
-struct wlr_xdg_surface;
-struct wlr_xdg_toplevel;
-struct wlr_xdg_activation_v1;
+struct wsm_seat;
+struct wsm_container;
 
-struct wsm_view;
-struct wsm_server;
-struct wsm_xdg_shell_view;
-
-struct wsm_xdg_shell {
-    struct wlr_xdg_shell *wlr_xdg_shell;
-    struct wlr_xdg_activation_v1 *xdg_activation;
-    struct wl_listener xdg_shell_surface;
-    struct wl_listener xdg_activation_request;
-};
-
-void wsm_xdg_shell_destroy(struct wsm_xdg_shell *shell);
-struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server);
-struct wsm_xdg_shell_view *xdg_shell_view_from_view(
-    struct wsm_view *view);
-struct wlr_xdg_toplevel *top_parent_of(struct wsm_view *view);
-struct wlr_xdg_surface *xdg_surface_from_view(struct wsm_view *view);
-struct wlr_xdg_toplevel *xdg_toplevel_from_view(struct wsm_view *view);
+void seatop_begin_resize_floating(struct wsm_seat *seat,
+                                  struct wsm_container *con, enum wlr_edges edge);
 
 #endif

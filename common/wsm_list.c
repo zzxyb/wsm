@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#define _POSIX_C_SOURCE 200809L
 #include "wsm_list.h"
 #include "wsm_log.h"
 
@@ -30,8 +29,7 @@ THE SOFTWARE.
 #include <stdlib.h>
 #include <string.h>
 
-struct wsm_list *
-wsm_list_create(void) {
+struct wsm_list *create_list(void) {
     struct wsm_list *list = malloc(sizeof(struct wsm_list));
     if (!list) {
         return NULL;

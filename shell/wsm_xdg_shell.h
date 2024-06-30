@@ -22,45 +22,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef WSM_XWAYLAND_UNMANAGED_H
-#define WSM_XWAYLAND_UNMANAGED_H
-
-#include "../config.h"
+#ifndef WSM_XDG_SHELL_H
+#define WSM_XDG_SHELL_H
 
 #include <wayland-server-core.h>
 
-#ifdef HAVE_XWAYLAND
+struct wlr_xdg_shell;
+struct wlr_xdg_surface;
+struct wlr_xdg_toplevel;
+struct wlr_xdg_activation_v1;
 
-struct wlr_scene_node;
-struct wlr_xwayland_surface;
+struct wsm_view;
+struct wsm_server;
+struct wsm_xdg_shell_view;
 
-struct wsm_xwayland_view;
+struct wsm_xdg_shell {
+    struct wlr_xdg_shell *wlr_xdg_shell;
+    struct wlr_xdg_activation_v1 *xdg_activation_v1;
 
-struct wsm_xwayland_unmanaged {
-    struct wlr_xwayland_surface *wlr_xwayland_surface;
-    struct wlr_scene_node *surface_scene;
-    struct wl_list link;
-
-    int lx, ly;
-
-    struct wl_listener request_activate;
-    struct wl_listener request_configure;
-    struct wl_listener request_fullscreen;
-    struct wl_listener commit;
-    struct wl_listener set_geometry;
-    struct wl_listener associate;
-    struct wl_listener dissociate;
-    struct wl_listener map;
-    struct wl_listener unmap;
-    struct wl_listener destroy;
-    struct wl_listener override_redirect;
+    struct wl_listener xdg_shell_toplevel;
+    struct wl_listener xdg_activation_request;
+    struct wl_listener xdg_activation_v1_request_activate;
+    struct wl_listener xdg_activation_v1_new_token;
 };
 
-struct wsm_xwayland_unmanaged *wsm_xwayland_unmanaged_create(struct wlr_xwayland_surface *xsurface);
-void destory_wsm_xwayland_unmanaged(struct wsm_xwayland_unmanaged *xwayland_unmanaged);
-void unmanaged_xsurface_associate(struct wl_listener *listener, void *data);
-void unmanaged_xsurface_map(struct wl_listener *listener, void *data);
-
-#endif
+struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server);
+void wsm_xdg_shell_destroy(struct wsm_xdg_shell *shell);
 
 #endif

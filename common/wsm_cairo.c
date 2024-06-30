@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#define _POSIX_C_SOURCE 200809L
 #include "wsm_cairo.h"
 
 void cairo_set_source_u32(cairo_t *cairo, uint32_t color) {

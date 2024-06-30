@@ -133,5 +133,8 @@ char *format_str(const char *fmt, ...) _WSM_ATTRIB_PRINTF(1, 2);
 uint32_t get_current_time_msec();
 char *lenient_strcat(char *dest, const char *src);
 char *lenient_strncat(char *dest, const char *src, size_t len);
+int lenient_strcmp(const char *a, const char *b);
+void color_to_rgba(float dest[static 4], uint32_t color);
+char* int_to_string(int num);
 
 #endif

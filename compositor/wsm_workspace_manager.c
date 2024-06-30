@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#define _POSIX_C_SOURCE 200809L
 #include "wsm_log.h"
 #include "wsm_scene.h"
 #include "wsm_server.h"
@@ -40,27 +39,17 @@ struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_serv
         return NULL;
     }
 
-    wl_list_init(&workspace_manager->wsm_workspaces);
-
-    struct wsm_workspace *workspace = calloc(1, sizeof(struct wsm_workspace));
-    workspace_manager->active_workspace = workspace;
-    workspace->index = 0;
-    workspace->x = 0;
-    workspace->y = 0;
-    workspace->output = output;
-    workspace->height = output->wlr_output->height;
-    workspace->width = output->wlr_output->width;
-    workspace->tree = wlr_scene_tree_create(server->wsm_scene->view_tree);
-    wlr_scene_node_set_enabled(&workspace->tree->node, true);
+    workspace_manager->current.active_workspace = NULL;
+    workspace_manager->current.workspaces = create_list();
 
     return workspace_manager;
 }
 
-void wsm_workspace_destroy(struct wsm_workspace_manager *workspace_manager) {
+void wsm_workspace_manager_destroy(struct wsm_workspace_manager *workspace_manager) {
     if (!workspace_manager) {
         wsm_log(WSM_ERROR, "workspace_manager is NULL!");
     };
 
-    wl_list_remove(&workspace_manager->wsm_workspaces);
+    list_free(workspace_manager->current.workspaces);
     free(workspace_manager);
 }

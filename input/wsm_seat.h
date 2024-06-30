@@ -33,13 +33,15 @@ THE SOFTWARE.
 
 #include <wayland-util.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 
-#include <wlr/types/wlr_tablet_tool.h>
 #include <wlr/types/wlr_input_device.h>
+#include <wlr/types/wlr_tablet_tool.h>
 
 struct wlr_seat;
 struct wlr_drag;
 struct wlr_surface;
+struct wlr_scene_tree;
 struct wlr_layer_surface_v1;
 struct wlr_pointer_axis_event;
 struct wlr_pointer_hold_end_event;
@@ -55,15 +57,53 @@ struct wlr_touch_up_event;
 struct wlr_touch_down_event;
 struct wlr_touch_cancel_event;
 
+struct wsm_node;
+struct wsm_list;
 struct wsm_cursor;
 struct wsm_output;
 struct wsm_keyboard;
 struct wsm_switch;
 struct wsm_tablet;
+struct wsm_container;
+struct wsm_workspace;
 struct wsm_tablet_pad;
 struct wsm_input_device;
 struct wsm_tablet_tool;
 struct wsm_input_method_relay;
+
+enum wsm_input_idle_source {
+    IDLE_SOURCE_KEYBOARD = 1 << 0,
+    IDLE_SOURCE_POINTER = 1 << 1,
+    IDLE_SOURCE_TOUCH = 1 << 2,
+    IDLE_SOURCE_TABLET_PAD = 1 << 3,
+    IDLE_SOURCE_TABLET_TOOL = 1 << 4,
+    IDLE_SOURCE_SWITCH = 1 << 5,
+};
+
+struct wsm_seat_device {
+    struct wsm_seat *wsm_seat;
+    struct wsm_input_device *input_device;
+    struct wsm_keyboard *keyboard;
+    struct wsm_switch *switch_device;
+    struct wsm_tablet *tablet;
+    struct wsm_tablet_pad *tablet_pad;
+    struct wl_list link;
+};
+
+struct wsm_seat_node {
+    struct wsm_seat *seat;
+    struct wsm_node *node;
+
+    struct wl_list link; // focus_stack
+
+    struct wl_listener destroy;
+};
+
+struct wsm_drag {
+    struct wsm_seat *seat;
+    struct wlr_drag *wlr_drag;
+    struct wl_listener destroy;
+};
 
 struct wsm_seat {
     struct wlr_seat *wlr_seat;
@@ -74,6 +114,8 @@ struct wsm_seat {
 
     bool has_focus;
     struct wl_list focus_stack;
+    struct wsm_workspace *workspace;
+    char *prev_workspace_name;
 
     struct wlr_layer_surface_v1 *focused_layer;
 
@@ -92,7 +134,7 @@ struct wsm_seat {
 
     uint32_t idle_inhibit_sources, idle_wake_sources;
 
-    struct wl_list deferred_bindings;
+    struct wsm_list *deferred_bindings;
 
     struct wsm_input_method_relay *im_relay;
 
@@ -102,6 +144,7 @@ struct wsm_seat {
     struct wl_listener start_drag;
     struct wl_listener request_set_selection;
     struct wl_listener request_set_primary_selection;
+    struct wl_listener destroy;
 
     struct wl_list devices;
     struct wl_list keyboard_groups;
@@ -113,7 +156,7 @@ struct wsm_seat {
 struct wsm_seatop_impl {
 	void (*button)(struct wsm_seat *seat, uint32_t time_msec,
 			struct wlr_input_device *device, uint32_t button,
-			enum wlr_button_state state);
+            enum wl_pointer_button_state state);
 	void (*pointer_motion)(struct wsm_seat *seat, uint32_t time_msec);
 	void (*pointer_axis)(struct wsm_seat *seat,
 			struct wlr_pointer_axis_event *event);
@@ -147,25 +190,8 @@ struct wsm_seatop_impl {
     void (*tablet_tool_tip)(struct wsm_seat *seat, struct wsm_tablet_tool *tool,
                             uint32_t time_msec, enum wlr_tablet_tool_tip_state state);
     void (*end)(struct wsm_seat *seat);
-    void (*render)(struct wsm_seat *seat, struct wsm_output *output,
-			pixman_region32_t *damage);
+    void (*unref)(struct wsm_seat *seat, struct wsm_container *con);
 	bool allow_set_cursor;
-};
-
-struct wsm_seat_device {
-    struct wsm_seat *wsm_seat;
-    struct wsm_input_device *input_device;
-    struct wsm_keyboard *keyboard;
-    struct wsm_switch *switch_device;
-    struct wsm_tablet *tablet;
-    struct wsm_tablet_pad *tablet_pad;
-    struct wl_list link;
-};
-
-struct wsm_drag {
-    struct wsm_seat *seat;
-    struct wlr_drag *wlr_drag;
-    struct wl_listener destroy;
 };
 
 struct wsm_seat *seat_create(const char *seat_name);
@@ -180,6 +206,9 @@ void seat_remove_device(struct wsm_seat *seat,
                         struct wsm_input_device *device);
 void seat_idle_notify_activity(struct wsm_seat *seat,
                                enum wlr_input_device_type source);
+void seatop_tablet_tool_tip(struct wsm_seat *seat,
+                            struct wsm_tablet_tool *tool, uint32_t time_msec,
+                            enum wlr_tablet_tool_tip_state state);
 void seatop_hold_begin(struct wsm_seat *seat,
                        struct wlr_pointer_hold_begin_event *event);
 void seatop_hold_end(struct wsm_seat *seat,
@@ -201,7 +230,7 @@ void seatop_pointer_axis(struct wsm_seat *seat,
                          struct wlr_pointer_axis_event *event);
 void seatop_button(struct wsm_seat *seat, uint32_t time_msec,
                    struct wlr_input_device *device, uint32_t button,
-                   enum wlr_button_state state);
+                   enum wl_pointer_button_state state);
 void seatop_touch_motion(struct wsm_seat *seat,
                          struct wlr_touch_motion_event *event, double lx, double ly);
 void seatop_touch_up(struct wsm_seat *seat,
@@ -222,5 +251,33 @@ void seat_set_focus_surface(struct wsm_seat *seat,
 void seat_set_focus_layer(struct wsm_seat *seat,
                           struct wlr_layer_surface_v1 *layer);
 void drag_icons_update_position(struct wsm_seat *seat);
+void seat_pointer_notify_button(struct wsm_seat *seat, uint32_t time_msec,
+                                uint32_t button, enum wl_pointer_button_state state);
+void seat_set_focus_workspace(struct wsm_seat *seat,
+                              struct wsm_workspace *ws);
+void seat_set_focus(struct wsm_seat *seat, struct wsm_node *node);
+struct wsm_node *seat_get_focus(struct wsm_seat *seat);
+struct wsm_workspace *seat_get_focused_workspace(struct wsm_seat *seat);
+struct wsm_node *seat_get_focus_inactive(struct wsm_seat *seat,
+                                          struct wsm_node *node);
+struct wsm_container *seat_get_focus_inactive_view(struct wsm_seat *seat,
+                                                    struct wsm_node *ancestor);
+struct wsm_workspace *seat_get_last_known_workspace(struct wsm_seat *seat);
+struct wsm_node *seat_get_active_tiling_child(struct wsm_seat *seat,
+                                               struct wsm_node *parent);
+void seat_set_raw_focus(struct wsm_seat *seat, struct wsm_node *node);
+void seat_configure_xcursor(struct wsm_seat *seat);
+struct wsm_container *seat_get_focused_container(struct wsm_seat *seat);
+void seat_set_focus_container(struct wsm_seat *seat,
+                              struct wsm_container *con);
+void seatop_unref(struct wsm_seat *seat, struct wsm_container *con);
+void seat_consider_warp_to_focus(struct wsm_seat *seat);
+struct wsm_container *seat_get_focus_inactive_tiling(struct wsm_seat *seat,
+                                                      struct wsm_workspace *workspace);
+bool seat_is_input_allowed(struct wsm_seat *seat,
+                           struct wlr_surface *surface);
+void seat_unfocus_unless_client(struct wsm_seat *seat, struct wl_client *client);
+void seat_configure_device_mapping(struct wsm_seat *seat,
+                                   struct wsm_input_device *input_device);
 
 #endif

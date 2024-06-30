@@ -51,5 +51,6 @@ struct wsm_xdg_decoration {
 void handle_xdg_decoration(struct wl_listener *listener, void *data);
 struct wsm_xdg_decoration *wsm_server_decoration_from_surface(
     struct wlr_surface *surface);
+void set_xdg_decoration_mode(struct wsm_xdg_decoration *deco);
 
 #endif

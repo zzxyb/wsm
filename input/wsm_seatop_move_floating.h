@@ -22,5 +22,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#define _POSIX_C_SOURCE 200809L
-#include "wsm_effect.h"
+#ifndef WSM_SEATOP_MOVE_FLOATING_H
+#define WSM_SEATOP_MOVE_FLOATING_H
+
+struct wsm_seat;
+struct wsm_container;
+
+void seatop_begin_move_floating(struct wsm_seat *seat,
+                                struct wsm_container *con);
+
+#endif

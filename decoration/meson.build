@@ -11,5 +11,5 @@ wsm_decoration = static_library(
         wlroots,
         server_protos,
         ],
-        include_directories:[compositor_inc, common_inc, xwl_inc]
+        include_directories:[compositor_inc, common_inc, xwl_inc, scene_inc]
 )

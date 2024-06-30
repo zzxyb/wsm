@@ -31,7 +31,7 @@ struct wsm_list {
     void **items;
 };
 
-struct wsm_list *wsm_list_create(void);
+struct wsm_list *create_list(void);
 void list_free(struct wsm_list *list);
 void list_add(struct wsm_list *list, void *item);
 void list_insert(struct wsm_list *list, int index, void *item);

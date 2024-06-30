@@ -22,14 +22,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#define _POSIX_C_SOURCE 200809L
 #include "wsm_view.h"
 #include "wsm_log.h"
 #include "wsm_server.h"
+#include "wsm_container.h"
+#include "wsm_transaction.h"
 #include "wsm_xdg_decoration.h"
 #include "wsm_xdg_decoration_manager.h"
 
 #include <assert.h>
+#include <stdlib.h>
 
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 
@@ -37,56 +39,44 @@ static void xdg_decoration_handle_destroy(struct wl_listener *listener,
                                           void *data) {
     struct wsm_xdg_decoration *deco =
         wl_container_of(listener, deco, destroy);
-    assert(deco);
-    assert(deco->view);
-
+    if (deco->view) {
+        deco->view->xdg_decoration = NULL;
+    }
     wl_list_remove(&deco->destroy.link);
     wl_list_remove(&deco->request_mode.link);
     wl_list_remove(&deco->link);
-    deco->view->xdg_decoration = NULL;
     free(deco);
 }
 
 static void xdg_decoration_handle_request_mode(struct wl_listener *listener,
                                                void *data) {
-    struct wsm_xdg_decoration *xdg_deco =
-        wl_container_of(listener, xdg_deco, request_mode);
-    enum wlr_xdg_toplevel_decoration_v1_mode client_mode =
-        xdg_deco->wlr_xdg_decoration->requested_mode;
-
-    //TODO: support ssd
-
-    client_mode = WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
-    wlr_xdg_toplevel_decoration_v1_set_mode(xdg_deco->wlr_xdg_decoration,
-                                            client_mode);
-    // wsm_view_set_decorations(xdg_deco->view,
-                         // client_mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+    struct wsm_xdg_decoration *deco =
+        wl_container_of(listener, deco, request_mode);
+    set_xdg_decoration_mode(deco);
 }
 
 void handle_xdg_decoration(struct wl_listener *listener, void *data) {
-    struct wlr_xdg_toplevel_decoration_v1 *wlr_xdg_decoration = data;
-    struct wlr_xdg_surface *xdg_surface = wlr_xdg_decoration->toplevel->base;
-    if (!xdg_surface || !xdg_surface->data) {
-        wsm_log(WSM_ERROR,
-                "Invalid surface supplied for xdg decorations");
+    struct wlr_xdg_toplevel_decoration_v1 *wlr_deco = data;
+    struct wsm_xdg_shell_view *xdg_shell_view = wlr_deco->toplevel->base->data;
+
+    struct wsm_xdg_decoration *deco = calloc(1, sizeof(struct wsm_xdg_decoration));
+    if (!wsm_assert(deco, "Could not create wsm_xdg_decoration: allocation failed!")) {
         return;
     }
 
-    struct wsm_xdg_decoration *deco = calloc(1, sizeof(*deco));
-    assert(deco);
-
-    deco->view = (struct wsm_view *)xdg_surface->data;
+    deco->view = &xdg_shell_view->view;
     deco->view->xdg_decoration = deco;
-    deco->wlr_xdg_decoration = wlr_xdg_decoration;
+    deco->wlr_xdg_decoration = wlr_deco;
 
+    wl_signal_add(&wlr_deco->events.destroy, &deco->destroy);
     deco->destroy.notify = xdg_decoration_handle_destroy;
-    wl_signal_add(&wlr_xdg_decoration->events.destroy, &deco->destroy);
 
+    wl_signal_add(&wlr_deco->events.request_mode, &deco->request_mode);
     deco->request_mode.notify = xdg_decoration_handle_request_mode;
-    wl_signal_add(&wlr_xdg_decoration->events.request_mode, &deco->request_mode);
 
     wl_list_insert(&global_server.wsm_xdg_decoration_manager->xdg_decorations, &deco->link);
-    xdg_decoration_handle_request_mode(&deco->request_mode, wlr_xdg_decoration);
+
+    set_xdg_decoration_mode(deco);
 }
 
 struct wsm_xdg_decoration *xdg_decoration_from_surface(
@@ -98,4 +88,34 @@ struct wsm_xdg_decoration *xdg_decoration_from_surface(
         }
     }
     return NULL;
+}
+
+void set_xdg_decoration_mode(struct wsm_xdg_decoration *deco) {
+    struct wsm_view *view = deco->view;
+    enum wlr_xdg_toplevel_decoration_v1_mode mode =
+        WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE;
+    enum wlr_xdg_toplevel_decoration_v1_mode client_mode =
+        deco->wlr_xdg_decoration->requested_mode;
+
+    bool floating;
+    if (view->container) {
+        floating = container_is_floating(view->container);
+        bool csd = false;
+        csd = client_mode ==
+              WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
+        view_update_csd_from_client(view, csd);
+        arrange_container(view->container);
+        transaction_commit_dirty();
+    } else {
+        floating = view->impl->wants_floating &&
+                   view->impl->wants_floating(view);
+    }
+
+    if (floating && client_mode) {
+        mode = client_mode;
+    }
+
+    if (view->wlr_xdg_toplevel->base->initialized) {
+        wlr_xdg_toplevel_decoration_v1_set_mode(deco->wlr_xdg_decoration, mode);
+    }
 }

@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#define _POSIX_C_SOURCE 200809L
 #include "wsm_input.h"
 #include "wsm_input_manager.h"
 #include "wsm_server.h"
@@ -30,6 +29,7 @@ THE SOFTWARE.
 #include "wsm_seat.h"
 
 #include <wlr/types/wlr_input_method_v2.h>
+#include <wlr/backend/libinput.h>
 
 static enum libinput_config_status handle_set_send_events(struct libinput_device *device, uint32_t mode) {
     if (libinput_device_config_send_events_get_mode(device) == mode) {
@@ -315,4 +315,14 @@ void wsm_input_device_destroy(struct wlr_input_device *wlr_device) {
     input_device->input_device_impl = NULL;
     free(input_device->identifier);
     free(input_device);
+}
+
+void wsm_input_configure_libinput_device_send_events(
+    struct wsm_input_device *input_device) {
+    if (!wlr_input_device_is_libinput(input_device->wlr_device)) {
+        return;
+    }
+
+    // struct libinput_device *device =
+    //     wlr_libinput_get_device_handle(input_device->wlr_device);
 }

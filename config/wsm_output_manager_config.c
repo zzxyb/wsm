@@ -23,7 +23,6 @@
  * SOFTWARE.
  */
 
-#define _POSIX_C_SOURCE 200809L
 #include "wsm_log.h"
 #include "wsm_list.h"
 #include "wsm_output_manager.h"
@@ -42,7 +41,7 @@ struct wsm_output_manager_config *wsm_output_manager_config_create(struct wsm_ou
         return NULL;
     }
 
-    outputs_manager_config->configs = wsm_list_create();
+    outputs_manager_config->configs = create_list();
     return outputs_manager_config;
 }
 
