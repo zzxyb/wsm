@@ -102,7 +102,7 @@ static void handle_seat_destroy(struct wl_listener *listener, void *data) {
         seat_node_destroy(seat_node);
     }
 
-    // input_method_relay_finish(&seat->im_relay);
+    wsm_input_method_relay_finish(&seat->im_relay);
 
     wsm_cursor_destroy(seat->wsm_cursor);
     wl_list_remove(&seat->new_node.link);
@@ -170,8 +170,7 @@ static void seat_send_focus(struct wsm_node *node, struct wsm_seat *seat) {
 
         seat_keyboard_notify_enter(seat, view->surface);
         seat_tablet_pads_set_focus(seat, view->surface);
-
-        // input_method_relay_set_focus(&seat->im_relay, view->surface);
+        wsm_input_method_relay_set_focus(&seat->im_relay, view->surface);
 
         struct wlr_pointer_constraint_v1 *constraint =
             wlr_pointer_constraints_v1_constraint_for_surface(
@@ -494,7 +493,7 @@ struct wsm_seat *seat_create(const char *seat_name) {
     wl_list_init(&seat->keyboard_groups);
     wl_list_init(&seat->keyboard_shortcuts_inhibitors);
 
-    // input_method_relay_init(seat, &seat->im_relay);
+    wsm_input_method_relay_init(seat, &seat->im_relay);
 
     bool first = wl_list_empty(&global_server.wsm_input_manager->seats);
     wl_list_insert(&global_server.wsm_input_manager->seats, &seat->link);
@@ -877,7 +876,7 @@ void seat_set_focus_surface(struct wsm_seat *seat,
         wlr_seat_keyboard_notify_clear_focus(seat->wlr_seat);
     }
 
-    // input_method_relay_set_focus
+    wsm_input_method_relay_set_focus(&seat->im_relay, surface);
     seat_tablet_pads_set_focus(seat, surface);
 }
 
@@ -950,7 +949,7 @@ static void seat_set_workspace_focus(struct wsm_seat *seat, struct wsm_node *nod
             view_close_popups(last_focus->wsm_container->view);
         }
         seat_send_unfocus(last_focus, seat);
-        // wsm_input_method_relay_set_focus(&seat->im_relay, NULL);
+        wsm_input_method_relay_set_focus(&seat->im_relay, NULL);
         seat->has_focus = false;
         return;
     }

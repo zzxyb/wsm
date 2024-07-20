@@ -26,6 +26,7 @@ THE SOFTWARE.
 #define WSM_SEAT_H
 
 #include "wsm_input.h"
+#include "wsm_text_input.h"
 
 #include <stdbool.h>
 
@@ -69,7 +70,6 @@ struct wsm_workspace;
 struct wsm_tablet_pad;
 struct wsm_input_device;
 struct wsm_tablet_tool;
-struct wsm_input_method_relay;
 
 enum wsm_input_idle_source {
     IDLE_SOURCE_KEYBOARD = 1 << 0,
@@ -136,7 +136,7 @@ struct wsm_seat {
 
     struct wsm_list *deferred_bindings;
 
-    struct wsm_input_method_relay *im_relay;
+    struct wsm_input_method_relay im_relay;
 
     struct wl_listener focus_destroy;
     struct wl_listener new_node;

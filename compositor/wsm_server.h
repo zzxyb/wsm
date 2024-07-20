@@ -68,6 +68,8 @@ struct wlr_session_lock_manager_v1;
 struct wlr_relative_pointer_manager_v1;
 struct wlr_foreign_toplevel_manager_v1;
 struct wlr_ext_foreign_toplevel_list_v1;
+struct wlr_input_method_manager_v2;
+struct wlr_text_input_manager_v3;
 
 struct wsm_font;
 struct wsm_list;
@@ -121,6 +123,8 @@ struct wsm_server {
     struct wlr_export_dmabuf_manager_v1 *export_dmabuf_manager_v1;
     struct wlr_xdg_activation_v1 *xdg_activation_v1;
     struct wlr_pointer_constraints_v1 *pointer_constraints;
+    struct wlr_input_method_manager_v2 *input_method;
+    struct wlr_text_input_manager_v3 *text_input;
     struct wl_listener pointer_constraint;
 
     struct {
