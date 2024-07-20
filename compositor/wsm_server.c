@@ -286,11 +286,8 @@ bool wsm_server_init(struct wsm_server *server)
                                                server->wlr_renderer);
     wlr_subcompositor_create(server->wl_display);
     server->wsm_scene = wsm_scene_create(server);
-#if HAVE_XWAYLAND
-    if (server->xwayland_enabled) {
-        server->xcursor_manager = wlr_xcursor_manager_create(NULL, 24);
-    }
-#endif
+
+    server->xcursor_manager = wlr_xcursor_manager_create(NULL, 24);
     server->data_device_manager = wlr_data_device_manager_create(server->wl_display);
     server->wsm_output_manager = wsm_output_manager_create(server);
 
