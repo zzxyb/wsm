@@ -613,11 +613,7 @@ struct wsm_cursor *wsm_cursor_create(const struct wsm_server* server, struct wsm
     cursor->wsm_seat = seat;
     wlr_cursor_attach_output_layout(wlr_cursor, server->wsm_scene->output_layout);
 
-#if HAVE_XWAYLAND
-    if (global_server.xwayland_enabled) {
-        wlr_cursor_set_xcursor(cursor->wlr_cursor, global_server.xcursor_manager, "default");
-    }
-#endif
+    wlr_cursor_set_xcursor(cursor->wlr_cursor, global_server.xcursor_manager, "default");
 
     cursor->request_cursor.notify = handle_request_cursor;
     wl_signal_add(&seat->wlr_seat->events.request_set_cursor,
@@ -751,12 +747,9 @@ void wsm_cursor_destroy(struct wsm_cursor *cursor) {
     wl_list_remove(&cursor->tool_button.link);
     wl_list_remove(&cursor->request_set_cursor.link);
 
-#if HAVE_XWAYLAND
-    if (global_server.xwayland_enabled) {
-        wlr_xcursor_manager_destroy(global_server.xcursor_manager);
-        global_server.xcursor_manager = NULL;
-    }
-#endif
+    wlr_xcursor_manager_destroy(global_server.xcursor_manager);
+    global_server.xcursor_manager = NULL;
+
     wlr_cursor_destroy(cursor->wlr_cursor);
     free(cursor);
 }
@@ -802,11 +795,7 @@ void cursor_set_image(struct wsm_cursor *cursor, const char *image,
     if (!image) {
         wlr_cursor_unset_image(cursor->wlr_cursor);
     } else if (!current_image || strcmp(current_image, image) != 0) {
-#if HAVE_XWAYLAND
-        if (global_server.xwayland_enabled) {
-            wlr_cursor_set_xcursor(cursor->wlr_cursor, global_server.xcursor_manager, image);
-        }
-#endif
+        wlr_cursor_set_xcursor(cursor->wlr_cursor, global_server.xcursor_manager, image);
     }
 }
 
