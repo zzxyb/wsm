@@ -337,11 +337,12 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
         transaction_commit_dirty();
     }
 
+    bool mod_pressed = modifiers;
     // Handle beginning floating move
     if (cont && is_floating_or_child && !is_fullscreen_or_child &&
         state == WL_POINTER_BUTTON_STATE_PRESSED) {
         uint32_t btn_move = BTN_LEFT;
-        if (button == btn_move && (on_titlebar)) {
+        if (button == btn_move && (mod_pressed || on_titlebar)) {
             seatop_begin_move_floating(seat, container_toplevel_ancestor(cont));
             return;
         }
@@ -359,7 +360,7 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 
         // Via mod+click
         uint32_t btn_resize = BTN_LEFT;
-        if (button == btn_resize) {
+        if (mod_pressed && button == btn_resize) {
             struct wsm_container *floater = container_toplevel_ancestor(cont);
             edge = 0;
             edge |= cursor->wlr_cursor->x > floater->pending.x + floater->pending.width / 2 ?
