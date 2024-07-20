@@ -39,6 +39,8 @@ struct wlr_pointer_gestures_v1;
 struct wsm_seat;
 struct wsm_node;
 struct wsm_server;
+struct input_config;
+struct wsm_input_device;
 
 struct wsm_input_manager {
     struct wl_list devices;
@@ -67,5 +69,7 @@ char *input_device_get_identifier(struct wlr_input_device *device);
 void input_manager_configure_xcursor(void);
 void input_manager_set_focus(struct wsm_node *node);
 void input_manager_configure_all_input_mappings(void);
+struct input_config *input_device_get_config(struct wsm_input_device *device);
+const char *input_device_get_type(struct wsm_input_device *device);
 
 #endif

@@ -95,6 +95,8 @@ THE SOFTWARE.
 #include <wlr/types/wlr_foreign_toplevel_management_v1.h>
 #include <wlr/types/wlr_ext_foreign_toplevel_list_v1.h>
 #include <wlr/types/wlr_primary_selection_v1.h>
+#include <wlr/types/wlr_input_method_v2.h>
+#include <wlr/types/wlr_text_input_v3.h>
 
 #define WSM_XDG_SHELL_VERSION 5
 #define WSM_LAYER_SHELL_VERSION 4
@@ -308,6 +310,8 @@ bool wsm_server_init(struct wsm_server *server)
                   &server->pointer_constraint);
 
     server->presentation = wlr_presentation_create(server->wl_display, server->backend);
+    server->input_method = wlr_input_method_manager_v2_create(server->wl_display);
+    server->text_input = wlr_text_input_manager_v3_create(server->wl_display);
     server->foreign_toplevel_list =
         wlr_ext_foreign_toplevel_list_v1_create(server->wl_display, WSM_FOREIGN_TOPLEVEL_LIST_VERSION);
     server->foreign_toplevel_manager =
@@ -334,11 +338,8 @@ bool wsm_server_init(struct wsm_server *server)
     wlr_single_pixel_buffer_manager_v1_create(server->wl_display);
     wlr_fractional_scale_manager_v1_create(server->wl_display,
                                            WSM_WLR_FRACTIONAL_SCALE_V1_VERSION);
-    wlr_fractional_scale_manager_v1_create(server->wl_display,
-                                           WSM_WLR_FRACTIONAL_SCALE_V1_VERSION);
     server->content_type_manager_v1 =
         wlr_content_type_manager_v1_create(server->wl_display, 1);
-    wlr_fractional_scale_manager_v1_create(server->wl_display, 1);
 
     struct wlr_xdg_foreign_registry *foreign_registry =
         wlr_xdg_foreign_registry_create(server->wl_display);

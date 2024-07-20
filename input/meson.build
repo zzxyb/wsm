@@ -18,6 +18,7 @@ wsm_input = static_library(
         'wsm_seatop_move_floating.c',
         'wsm_seatop_resize_floating.c',
         'wsm_seatop_down.c',
+        'wsm_text_input.c'
 	),
 	dependencies: [
         wayland_server,
@@ -28,5 +29,5 @@ wsm_input = static_library(
         xcb,
         xcb_icccm,
         ],
-        include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc, shell_inc, decoration_inc]
+        include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc, shell_inc, decoration_inc, config_inc]
 )

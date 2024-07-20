@@ -26,6 +26,8 @@ THE SOFTWARE.
 #include "wsm_server.h"
 #include "wsm_seat.h"
 #include "wsm_common.h"
+#include "wsm_config.h"
+#include "wsm_input_config.h"
 #include "wsm_input_manager.h"
 
 #include <ctype.h>
@@ -224,4 +226,65 @@ void input_manager_configure_all_input_mappings(void) {
         wsm_input_configure_libinput_device_send_events(input_device);
 #endif
     }
+}
+
+struct input_config *input_device_get_config(struct wsm_input_device *device) {
+    struct input_config *wildcard_config = NULL;
+    struct input_config *input_config = NULL;
+    for (int i = 0; i < global_config.input_configs->length; ++i) {
+        input_config = global_config.input_configs->items[i];
+        if (strcmp(input_config->identifier, device->identifier) == 0) {
+            return input_config;
+        } else if (strcmp(input_config->identifier, "*") == 0) {
+            wildcard_config = input_config;
+        }
+    }
+
+    const char *device_type = input_device_get_type(device);
+    for (int i = 0; i < global_config.input_type_configs->length; ++i) {
+        input_config = global_config.input_type_configs->items[i];
+        if (strcmp(input_config->identifier + 5, device_type) == 0) {
+            return input_config;
+        }
+    }
+
+    return wildcard_config;
+}
+
+static bool device_is_touchpad(struct wsm_input_device *device) {
+#if WLR_HAS_LIBINPUT_BACKEND
+    if (device->wlr_device->type != WLR_INPUT_DEVICE_POINTER ||
+        !wlr_input_device_is_libinput(device->wlr_device)) {
+        return false;
+    }
+
+    struct libinput_device *libinput_device =
+        wlr_libinput_get_device_handle(device->wlr_device);
+
+    return libinput_device_config_tap_get_finger_count(libinput_device) > 0;
+#else
+    return false;
+#endif
+}
+
+const char *input_device_get_type(struct wsm_input_device *device) {
+    switch (device->wlr_device->type) {
+    case WLR_INPUT_DEVICE_POINTER:
+        if (device_is_touchpad(device)) {
+            return "touchpad";
+        } else {
+            return "pointer";
+        }
+    case WLR_INPUT_DEVICE_KEYBOARD:
+        return "keyboard";
+    case WLR_INPUT_DEVICE_TOUCH:
+        return "touch";
+    case WLR_INPUT_DEVICE_TABLET:
+        return "tablet_tool";
+    case WLR_INPUT_DEVICE_TABLET_PAD:
+        return "tablet_pad";
+    case WLR_INPUT_DEVICE_SWITCH:
+        return "switch";
+    }
+    return "unknown";
 }

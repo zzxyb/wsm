@@ -31,6 +31,10 @@ struct wsm_config global_config = {0};
 #define UNFOCUSED_BORDER 0xEFF0F1FF
 
 void wsm_config_init() {
+    global_config.input_configs = create_list();
+    global_config.input_type_configs = create_list();
+    global_config.reloading = false;
+
     global_config.xwayland = XWAYLAND_MODE_LAZY;
 
     // titlebar

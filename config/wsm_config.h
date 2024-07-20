@@ -54,7 +54,18 @@ enum wsm_fowa {
     FOWA_NONE,
 };
 
+enum seat_keyboard_grouping {
+    KEYBOARD_GROUP_DEFAULT, // the default is currently smart
+    KEYBOARD_GROUP_NONE,
+    KEYBOARD_GROUP_SMART, // keymap and repeat info
+};
+
 struct wsm_config {
+    struct wsm_list *input_configs;
+    struct wsm_list *input_type_configs;
+
+    bool reloading;
+
     // border colors
     struct {
         struct border_colors focused;
