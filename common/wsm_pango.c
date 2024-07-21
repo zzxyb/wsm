@@ -88,7 +88,7 @@ PangoLayout *get_pango_layout(cairo_t *cairo, const PangoFontDescription *desc,
             wsm_log(WSM_ERROR, "pango_parse_markup '%s' -> error %s", text,
                      error->message);
             g_error_free(error);
-            markup = false; // fallback to plain text
+            markup = false;
         }
     }
     if (!markup) {
@@ -128,7 +128,6 @@ void get_text_size(cairo_t *cairo, const PangoFontDescription *desc, int *width,
 void get_text_metrics(const PangoFontDescription *description, int *height, int *baseline) {
     cairo_t *cairo = cairo_create(NULL);
     PangoContext *pango = pango_cairo_create_context(cairo);
-    // When passing NULL as a language, pango uses the current locale.
     PangoFontMetrics *metrics = pango_context_get_metrics(pango, description, NULL);
 
     *baseline = pango_font_metrics_get_ascent(metrics) / PANGO_SCALE;

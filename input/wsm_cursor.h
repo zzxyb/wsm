@@ -165,6 +165,5 @@ struct wsm_node *node_at_coords(
 void dispatch_cursor_button(struct wsm_cursor *cursor,
                             struct wlr_input_device *device, uint32_t time_msec, uint32_t button,
                             enum wl_pointer_button_state state);
-void cursor_notify_key_press(struct wsm_cursor *cursor);
 
 #endif

@@ -94,10 +94,8 @@ static void handle_request_cursor(struct wl_listener *listener, void *data) {
 }
 
 static void handle_request_set_shape(struct wl_listener *listener, void *data) {
-    struct wlr_cursor_shape_manager_v1_request_set_shape_event *event = data;
-    const char *shape_name = wlr_cursor_shape_v1_name(event->shape);
-    struct wsm_cursor *cursor = wl_container_of(listener, cursor, request_set_shape);
-    struct wsm_seat *seat = cursor->wsm_seat;
+    const struct wlr_cursor_shape_manager_v1_request_set_shape_event *event = data;
+    struct wsm_seat *seat = event->seat_client->seat->data;
 
     if (!seatop_allows_set_cursor(seat)) {
         return;
@@ -110,12 +108,11 @@ static void handle_request_set_shape(struct wl_listener *listener, void *data) {
     }
 
     if (focused_client == NULL || event->seat_client->client != focused_client) {
-        wsm_log(WSM_ERROR, "denying request to set cursor from unfocused client");
+        wsm_log(WSM_DEBUG, "denying request to set cursor from unfocused client");
         return;
     }
 
-    wsm_log(WSM_DEBUG, "set xcursor to shape %s", shape_name);
-    cursor_set_image(cursor, wlr_cursor_shape_v1_name(event->shape), focused_client);
+    cursor_set_image(seat->wsm_cursor, wlr_cursor_shape_v1_name(event->shape), focused_client);
 }
 
 static void handle_image_surface_destroy(struct wl_listener *listener,
@@ -338,14 +335,15 @@ static void handle_touch_up(struct wl_listener *listener, void *data) {
     struct wlr_touch_up_event *event = data;
     cursor_handle_activity_from_device(cursor, &event->touch->base);
 
+    struct wsm_seat *seat = cursor->wsm_seat;
+
     if (cursor->simulating_pointer_from_touch) {
-        if (cursor->pointer_touch_id == cursor->wsm_seat->touch_id) {
+        if (cursor->pointer_touch_id == seat->touch_id) {
             cursor->pointer_touch_up = true;
             dispatch_cursor_button(cursor, &event->touch->base,
                                    event->time_msec, BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED);
         }
     } else {
-        struct wsm_seat *seat = cursor->wsm_seat;
         seatop_touch_up(seat, event);
     }
 }
@@ -1083,8 +1081,6 @@ struct wsm_node *node_at_coords(
             }
 
             if (wsm_scene_descriptor_try_get(current, WSM_SCENE_DESC_LAYER_SHELL)) {
-                // We don't want to feed through the current workspace on
-                // layer shells
                 return NULL;
             }
 
@@ -1131,30 +1127,4 @@ void dispatch_cursor_button(struct wsm_cursor *cursor,
     }
 
     seatop_button(cursor->wsm_seat, time_msec, device, button, state);
-}
-
-void cursor_notify_key_press(struct wsm_cursor *cursor) {
-    // if (cursor->hidden) {
-    //     return;
-    // }
-
-    // if (cursor->hide_when_typing == HIDE_WHEN_TYPING_DEFAULT) {
-    //     // No cached value, need to lookup in the seat_config
-    //     const struct seat_config *seat_config = seat_get_config(cursor->seat);
-    //     if (!seat_config) {
-    //         seat_config = seat_get_config_by_name("*");
-    //         if (!seat_config) {
-    //             return;
-    //         }
-    //     }
-    //     cursor->hide_when_typing = seat_config->hide_cursor_when_typing;
-    //     // The default is currently disabled
-    //     if (cursor->hide_when_typing == HIDE_WHEN_TYPING_DEFAULT) {
-    //         cursor->hide_when_typing = HIDE_WHEN_TYPING_DISABLE;
-    //     }
-    // }
-
-    // if (cursor->hide_when_typing == HIDE_WHEN_TYPING_ENABLE) {
-    //     cursor_hide(cursor);
-    // }
 }

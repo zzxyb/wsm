@@ -671,3 +671,8 @@ void wsm_xdg_shell_destroy(struct wsm_xdg_shell *shell) {
 
     free(shell);
 }
+
+struct wsm_view *view_from_wlr_xdg_surface(
+    struct wlr_xdg_surface *xdg_surface) {
+    return xdg_surface->data;
+}

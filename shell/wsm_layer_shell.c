@@ -62,7 +62,7 @@ static struct wlr_scene_tree *wsm_layer_get_scene(struct wsm_output *output,
 
 static struct wsm_layer_surface *wsm_layer_surface_create(
     struct wlr_scene_layer_surface_v1 *scene) {
-    struct wsm_layer_surface *surface = calloc(1, sizeof(*surface));
+    struct wsm_layer_surface *surface = calloc(1, sizeof(struct wsm_layer_surface));
     if (!surface) {
         wsm_log(WSM_ERROR, "Could not allocate a scene_layer surface");
         return NULL;
@@ -125,13 +125,11 @@ static void handle_map(struct wl_listener *listener, void *data) {
     struct wlr_layer_surface_v1 *layer_surface =
         surface->scene->layer_surface;
 
-    // focus on new surface
     if (layer_surface->current.keyboard_interactive &&
         (layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY ||
          layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_TOP)) {
         struct wsm_seat *seat;
         wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
-            // but only if the currently focused layer has a lower precedence
             if (!seat->focused_layer ||
                 seat->focused_layer->current.layer >= layer_surface->current.layer) {
                 seat_set_focus_layer(seat, layer_surface);
@@ -160,8 +158,6 @@ static void popup_unconstrain(struct wsm_layer_popup *popup) {
     struct wlr_xdg_popup *wlr_popup = popup->wlr_popup;
     struct wsm_output *output = popup->toplevel->output;
 
-    // if a client tries to create a popup while we are in the process of destroying
-    // its output, don't crash.
     if (!output) {
         return;
     }
@@ -169,8 +165,6 @@ static void popup_unconstrain(struct wsm_layer_popup *popup) {
     int lx, ly;
     wlr_scene_node_coords(&popup->toplevel->scene->tree->node, &lx, &ly);
 
-    // the output box expressed in the coordinate system of the toplevel parent
-    // of the popup
     struct wlr_box output_toplevel_sx_box = {
         .x = output->lx - lx,
         .y = output->ly - ly,
@@ -429,7 +423,6 @@ static void arrange_surface(struct wsm_output *output, const struct wlr_box *ful
     wl_list_for_each(node, &tree->children, link) {
         struct wsm_layer_surface *surface = wsm_scene_descriptor_try_get(node,
                                                                       WSM_SCENE_DESC_LAYER_SHELL);
-        // surface could be null during destruction
         if (!surface) {
             continue;
         }
@@ -469,17 +462,14 @@ struct wlr_layer_surface_v1 *toplevel_layer_surface_from_surface(
         if (!surface) {
             return NULL;
         }
-        // Topmost layer surface
         if ((layer = wlr_layer_surface_v1_try_from_wlr_surface(surface))) {
             return layer;
         }
-        // Layer subsurface
         if (wlr_subsurface_try_from_wlr_surface(surface)) {
             surface = wlr_surface_get_root_surface(surface);
             continue;
         }
 
-        // Layer surface popup
         struct wlr_xdg_surface *xdg_surface = NULL;
         if ((xdg_surface = wlr_xdg_surface_try_from_wlr_surface(surface)) &&
             xdg_surface->role == WLR_XDG_SURFACE_ROLE_POPUP && xdg_surface->popup != NULL) {
@@ -490,7 +480,6 @@ struct wlr_layer_surface_v1 *toplevel_layer_surface_from_surface(
             continue;
         }
 
-        // Return early if the surface is not a layer/xdg_popup/sub surface
         return NULL;
     } while (true);
 }

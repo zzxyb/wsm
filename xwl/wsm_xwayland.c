@@ -945,7 +945,6 @@ void handle_xwayland_ready(struct wl_listener *listener, void *data) {
  * @return true represents successed; false maybe failed to start Xwayland or wsm disabled Xwayland
  */
 bool xwayland_start(struct wsm_server *server) {
-#if HAVE_XWAYLAND
     if (global_server.xwayland_enabled) {
         wsm_log(WSM_DEBUG, "Initializing Xwayland (lazy=%d)",
                 global_config.xwayland == XWAYLAND_MODE_LAZY);
@@ -965,9 +964,13 @@ bool xwayland_start(struct wsm_server *server) {
             setenv("DISPLAY", server->xwayland.wlr_xwayland->display_name, true);
         }
     }
-#endif
 
     return true;
+}
+
+struct wsm_view *view_from_wlr_xwayland_surface(
+    struct wlr_xwayland_surface *xsurface) {
+    return xsurface->data;
 }
 
 #endif
