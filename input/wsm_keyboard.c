@@ -398,10 +398,6 @@ static void handle_key_event(struct wsm_keyboard *keyboard,
         // keyboard_shortcuts_inhibitor_get_for_focused_surface(seat);
     // bool shortcuts_inhibited = wsm_inhibitor && wsm_inhibitor->inhibitor->active;
 
-    if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
-        // cursor_notify_key_press(seat->cursor);
-    }
-
     // Identify new keycode, raw keysym(s), and translated keysym(s)
     struct key_info keyinfo;
     update_keyboard_state(keyboard, event->keycode, event->state, &keyinfo);

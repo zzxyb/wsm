@@ -65,46 +65,15 @@ struct wsm_idle_inhibitor_v1 {
 
 bool wsm_idle_inhibit_v1_is_active(
     struct wsm_idle_inhibitor_v1 *inhibitor);
-
 void wsm_idle_inhibit_v1_check_active(void);
-
 void wsm_idle_inhibit_v1_user_inhibitor_register(struct wsm_view *view,
                                                   enum wsm_idle_inhibit_mode mode);
-
 struct wsm_idle_inhibitor_v1 *wsm_idle_inhibit_v1_user_inhibitor_for_view(
     struct wsm_view *view);
-
 struct wsm_idle_inhibitor_v1 *wsm_idle_inhibit_v1_application_inhibitor_for_view(
     struct wsm_view *view);
-
 void wsm_idle_inhibit_v1_user_inhibitor_destroy(
     struct wsm_idle_inhibitor_v1 *inhibitor);
-
 bool wsm_idle_inhibit_manager_v1_init(void);
-
-/*
-struct wlr_idle_inhibitor_v1;
-struct wlr_idle_notifier_v1;
-struct wlr_idle_inhibit_manager_v1;
-
-struct wsm_server;
-
-struct wsm_idle_inhibit_manager_v1 {
-    struct wlr_idle_inhibit_manager_v1 *wlr_inhibit_manager_v1;
-    struct wlr_idle_notifier_v1 *wlr_idle_notifier_v1;
-    struct wl_listener new_idle_inhibit_v1;
-    struct wl_list inhibits;
-};
-
-struct wsm_idle_inhibit_v1 {
-    struct wlr_idle_inhibitor_v1 *wlr_inhibit_v1;
-
-    struct wl_list link;
-    struct wl_listener destroy;
-};
-
-struct wsm_idle_inhibit_manager_v1 *wsm_idle_inhibit_manager_v1_create(const struct wsm_server *server);
-bool wsm_idle_inhibit_v1_is_active(struct wsm_idle_inhibit_v1 *inhibitor);
-void wsm_idle_inhibit_v1_check_active(const struct wsm_server *server);*/
 
 #endif

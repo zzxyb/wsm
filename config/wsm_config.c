@@ -48,6 +48,7 @@ void wsm_config_init() {
     // borders
     global_config.border = B_NORMAL;
     global_config.floating_border = B_NORMAL;
+    // TODO: Maybe some spacing should be left to facilitate edge recognition
     global_config.border_thickness = 2;
     global_config.floating_border_thickness = 2;
 

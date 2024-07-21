@@ -48,5 +48,7 @@ struct wsm_xdg_shell {
 
 struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server);
 void wsm_xdg_shell_destroy(struct wsm_xdg_shell *shell);
+struct wsm_view *view_from_wlr_xdg_surface(
+    struct wlr_xdg_surface *xdg_surface);
 
 #endif

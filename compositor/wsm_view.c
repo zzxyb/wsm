@@ -775,18 +775,6 @@ void view_center_and_clip_surface(struct wsm_view *view) {
     }
 }
 
-struct wsm_view *view_from_wlr_xdg_surface(
-    struct wlr_xdg_surface *xdg_surface) {
-    return xdg_surface->data;
-}
-
-#if HAVE_XWAYLAND
-struct wsm_view *view_from_wlr_xwayland_surface(
-    struct wlr_xwayland_surface *xsurface) {
-    return xsurface->data;
-}
-#endif
-
 struct wsm_view *view_from_wlr_surface(struct wlr_surface *wlr_surface) {
     struct wlr_xdg_surface *xdg_surface;
     if ((xdg_surface = wlr_xdg_surface_try_from_wlr_surface(wlr_surface))) {
