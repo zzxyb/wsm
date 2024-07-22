@@ -206,21 +206,6 @@ struct wsm_popup_desc {
     struct wsm_view *view;
 };
 
-struct wsm_xdg_popup {
-    struct wsm_view *view;
-
-    struct wlr_scene_tree *scene_tree;
-    struct wlr_scene_tree *xdg_surface_tree;
-    struct wlr_xdg_popup *wlr_xdg_popup;
-
-    struct wsm_popup_desc desc;
-
-    struct wl_listener surface_commit;
-    struct wl_listener new_popup;
-    struct wl_listener reposition;
-    struct wl_listener destroy;
-};
-
 bool view_init(struct wsm_view *view, enum wsm_view_type type,
                const struct wsm_view_impl *impl);
 void view_destroy(struct wsm_view *view);

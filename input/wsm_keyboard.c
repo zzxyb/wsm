@@ -861,7 +861,7 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
     struct wsm_keyboard_group *wsm_group =
         calloc(1, sizeof(struct wsm_keyboard_group));
     if (!wsm_group) {
-        wsm_log(WSM_ERROR, "Failed to allocate wsm_keyboard_group");
+        wsm_log(WSM_ERROR, "Could not create wsm_keyboard_group: allocation failed!");
         return;
     }
 
@@ -878,7 +878,7 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 
     wsm_group->seat_device = calloc(1, sizeof(struct wsm_seat_device));
     if (!wsm_group->seat_device) {
-        wsm_log(WSM_ERROR, "Failed to allocate wsm_seat_device for group");
+        wsm_log(WSM_ERROR, "Could not create wsm_seat_device for group: allocation failed!");
         goto cleanup;
     }
     wsm_group->seat_device->wsm_seat = seat;
@@ -886,14 +886,14 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
     wsm_group->seat_device->input_device =
         calloc(1, sizeof(struct wsm_input_device));
     if (!wsm_group->seat_device->input_device) {
-        wsm_log(WSM_ERROR, "Failed to allocate wsm_input_device for group");
+        wsm_log(WSM_ERROR, "Could not create wsm_input_device for group: allocation failed!");
         goto cleanup;
     }
     wsm_group->seat_device->input_device->wlr_device =
         &wsm_group->wlr_group->keyboard.base;
 
     if (!wsm_keyboard_create(seat, wsm_group->seat_device)) {
-        wsm_log(WSM_ERROR, "Failed to allocate wsm_keyboard for group");
+        wsm_log(WSM_ERROR, "Could not create wsm_keyboard for group: allocation failed!");
         goto cleanup;
     }
 

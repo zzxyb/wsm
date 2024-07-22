@@ -4,6 +4,8 @@ wsm_shell = static_library(
         'wsm_xdg_shell.c',
         'wsm_layer_shell.c',
         'wsm_arrange.c',
+        'wsm_layer_popup.c',
+        'wsm_xdg_popup.c',
 	),
 	dependencies: [
         xcb,
