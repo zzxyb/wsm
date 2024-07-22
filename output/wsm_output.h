@@ -153,7 +153,6 @@ struct wsm_workspace *output_get_active_workspace(struct wsm_output *output);
 struct wsm_output_non_desktop *output_non_desktop_create(struct wlr_output *wlr_output);
 void output_for_each_container(struct wsm_output *output,
                                void (*f)(struct wsm_container *con, void *data), void *data);
-void arrange_output(struct wsm_output *output);
 void request_modeset();
 struct udev_device *wsm_output_get_device_handle(struct wsm_output *output);
 struct wsm_output *output_by_name_or_id(const char *name_or_id);

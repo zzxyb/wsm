@@ -43,6 +43,7 @@ THE SOFTWARE.
 #include "wsm_idle_inhibit_v1.h"
 #include "wsm_input_manager.h"
 #include "wsm_xdg_decoration.h"
+#include "wsm_arrange.h"
 
 #include <float.h>
 #include <stdlib.h>
@@ -500,12 +501,12 @@ static void handle_foreign_fullscreen_request(
     container_set_fullscreen(container,
                              event->fullscreen ? FULLSCREEN_WORKSPACE : FULLSCREEN_NONE);
     if (event->fullscreen) {
-        arrange_root();
+        arrange_root_auto();
     } else {
         if (container->pending.parent) {
-            arrange_container(container->pending.parent);
+            wsm_arrange_container_auto(container->pending.parent);
         } else if (container->pending.workspace) {
-            arrange_workspace(container->pending.workspace);
+            wsm_arrange_workspace_auto(container->pending.workspace);
         }
     }
     transaction_commit_dirty();
@@ -634,12 +635,12 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
 
     if (fullscreen) {
         container_set_fullscreen(view->container, true);
-        arrange_workspace(view->container->pending.workspace);
+        wsm_arrange_workspace_auto(view->container->pending.workspace);
     } else {
         if (container->pending.parent) {
-            arrange_container(container->pending.parent);
+            wsm_arrange_container_auto(container->pending.parent);
         } else if (container->pending.workspace) {
-            arrange_workspace(container->pending.workspace);
+            wsm_arrange_workspace_auto(container->pending.workspace);
         }
     }
 
@@ -662,7 +663,7 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
     if (floating) {
         container_set_floating(container, true);
         if (container->pending.workspace) {
-            arrange_workspace(container->pending.workspace);
+            wsm_arrange_workspace_auto(container->pending.workspace);
         }
     }
 
@@ -712,10 +713,9 @@ void view_unmap(struct wsm_view *view) {
     }
 
     if (global_server.wsm_scene->fullscreen_global) {
-        // Container may have been a child of the root fullscreen container
-        arrange_root();
+        arrange_root_auto();
     } else if (ws && !ws->node.destroying) {
-        arrange_workspace(ws);
+        wsm_arrange_workspace_auto(ws);
         workspace_detect_urgent(ws);
     }
 

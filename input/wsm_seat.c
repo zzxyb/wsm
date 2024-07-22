@@ -37,6 +37,7 @@ THE SOFTWARE.
 #include "wsm_input_manager.h"
 #include "wsm_seatop_default.h"
 #include "wsm_workspace.h"
+#include "wsm_arrange.h"
 #include "node/wsm_node_descriptor.h"
 
 #include <stdlib.h>
@@ -1050,7 +1051,7 @@ static void seat_set_workspace_focus(struct wsm_seat *seat, struct wsm_node *nod
     seat->has_focus = true;
 
     if (new_workspace) {
-        arrange_workspace(new_workspace);
+        wsm_arrange_workspace_auto(new_workspace);
     }
 }
 

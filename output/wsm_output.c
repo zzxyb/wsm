@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include "wsm_list.h"
 #include "wsm_common.h"
 #include "wsm_output.h"
+#include "wsm_arrange.h"
 #include "wsm_workspace.h"
 #include "wsm_transaction.h"
 #include "wsm_input_manager.h"
@@ -114,8 +115,8 @@ static void handle_commit(struct wl_listener *listener, void *data) {
             WLR_OUTPUT_STATE_MODE |
             WLR_OUTPUT_STATE_TRANSFORM |
             WLR_OUTPUT_STATE_SCALE)) {
-        arrange_layers(output);
-        arrange_output(output);
+        wsm_arrange_layers(output);
+        wsm_arrange_output_auto(output);
 
         update_output_manager_config(&global_server);
     }
@@ -564,8 +565,8 @@ void output_enable(struct wsm_output *output) {
 
     wl_signal_emit_mutable(&global_server.wsm_scene->events.new_node, &output->node);
 
-    arrange_layers(output);
-    arrange_root();
+    wsm_arrange_layers(output);
+    arrange_root_auto();
 }
 
 static void evacuate_sticky(struct wsm_workspace *old_ws,
@@ -659,7 +660,7 @@ void output_disable(struct wsm_output *output) {
 
     output->enabled = false;
 
-    arrange_root();
+    arrange_root_auto();
 
     input_manager_configure_all_input_mappings();
 }
@@ -824,21 +825,6 @@ void output_for_each_container(struct wsm_output *output,
     for (int i = 0; i < output->workspace_manager->current.workspaces->length; ++i) {
         struct wsm_workspace *workspace = output->workspace_manager->current.workspaces->items[i];
         workspace_for_each_container(workspace, f, data);
-    }
-}
-
-void arrange_output(struct wsm_output *output) {
-    struct wlr_box output_box;
-    wlr_output_layout_get_box(global_server.wsm_scene->output_layout,
-                              output->wlr_output, &output_box);
-    output->lx = output_box.x;
-    output->ly = output_box.y;
-    output->width = output_box.width;
-    output->height = output_box.height;
-
-    for (int i = 0; i < output->workspace_manager->current.workspaces->length; ++i) {
-        struct wsm_workspace *workspace = output->workspace_manager->current.workspaces->items[i];
-        arrange_workspace(workspace);
     }
 }
 

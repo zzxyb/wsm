@@ -34,6 +34,7 @@ THE SOFTWARE.
 #include "wsm_seat.h"
 #include "wsm_config.h"
 #include "wsm_common.h"
+#include "wsm_arrange.h"
 #include "node/wsm_text_node.h"
 #include "wsm_titlebar.h"
 #include "wsm_xdg_decoration.h"
@@ -46,9 +47,6 @@ THE SOFTWARE.
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_foreign_toplevel_management_v1.h>
-
-#define MIN_SANE_W 100
-#define MIN_SANE_H 60
 
 static bool container_is_focused(struct wsm_container *con, void *data) {
     return con->current.focused;
@@ -501,8 +499,8 @@ void container_floating_move_to(struct wsm_container *con,
     if (new_workspace && old_workspace != new_workspace) {
         container_detach(con);
         workspace_add_floating(new_workspace, con);
-        arrange_workspace(old_workspace);
-        arrange_workspace(new_workspace);
+        wsm_arrange_workspace_auto(old_workspace);
+        wsm_arrange_workspace_auto(new_workspace);
         // If the moved container was a visible scratchpad container, then
         // update its transform.
         if (con->scratchpad) {
@@ -883,7 +881,7 @@ void container_handle_fullscreen_reparent(struct wsm_container *con) {
     }
     con->pending.workspace->fullscreen = con;
 
-    arrange_workspace(con->pending.workspace);
+    wsm_arrange_workspace_auto(con->pending.workspace);
 }
 
 void floating_fix_coordinates(struct wsm_container *con,
@@ -902,123 +900,6 @@ void floating_fix_coordinates(struct wsm_container *con,
     }
 }
 
-void arrange_container(struct wsm_container *container) {
-    if (container->view) {
-        view_autoconfigure(container->view);
-        node_set_dirty(&container->node);
-        return;
-    }
-    struct wlr_box box;
-    container_get_box(container, &box);
-    arrange_children(container->pending.children, container->pending.layout, &box);
-    node_set_dirty(&container->node);
-}
-
-static void apply_horiz_layout(struct wsm_list *children, struct wlr_box *parent) {
-    if (!children->length) {
-        return;
-    }
-
-    // Count the number of new windows we are resizing, and how much space
-    // is currently occupied
-    int new_children = 0;
-    double current_width_fraction = 0;
-    for (int i = 0; i < children->length; ++i) {
-        struct wsm_container *child = children->items[i];
-        current_width_fraction += child->width_fraction;
-        if (child->width_fraction <= 0) {
-            new_children += 1;
-        }
-    }
-
-    // Calculate each height fraction
-    double total_width_fraction = 0;
-    for (int i = 0; i < children->length; ++i) {
-        struct wsm_container *child = children->items[i];
-        if (child->width_fraction <= 0) {
-            if (current_width_fraction <= 0) {
-                child->width_fraction = 1.0;
-            } else if (children->length > new_children) {
-                child->width_fraction = current_width_fraction /
-                                        (children->length - new_children);
-            } else {
-                child->width_fraction = current_width_fraction;
-            }
-        }
-        total_width_fraction += child->width_fraction;
-    }
-    // Normalize width fractions so the sum is 1.0
-    for (int i = 0; i < children->length; ++i) {
-        struct wsm_container *child = children->items[i];
-        child->width_fraction /= total_width_fraction;
-    }
-
-    // Calculate gap size
-    double inner_gap = 0;
-    struct wsm_container *child = children->items[0];
-    struct wsm_workspace *ws = child->pending.workspace;
-    if (ws) {
-        inner_gap = ws->gaps_inner;
-    }
-    // Descendants of tabbed/stacked containers don't have gaps
-    struct wsm_container *temp = child;
-    while (temp) {
-        // enum wsm_container_layout layout = container_parent_layout(temp);
-        inner_gap = 0;
-
-        temp = temp->pending.parent;
-    }
-    double total_gap = fmin(inner_gap * (children->length - 1),
-                            fmax(0, parent->width - MIN_SANE_W * children->length));
-    double child_total_width = parent->width - total_gap;
-    inner_gap = floor(total_gap / (children->length - 1));
-
-    // Resize windows
-    wsm_log(WSM_DEBUG, "Arranging %p horizontally", parent);
-    double child_x = parent->x;
-    for (int i = 0; i < children->length; ++i) {
-        struct wsm_container *child = children->items[i];
-        child->child_total_width = child_total_width;
-        child->pending.x = child_x;
-        child->pending.y = parent->y;
-        child->pending.width = round(child->width_fraction * child_total_width);
-        child->pending.height = parent->height;
-        child_x += child->pending.width + inner_gap;
-
-        // Make last child use remaining width of parent
-        if (i == children->length - 1) {
-            child->pending.width = parent->x + parent->width - child->pending.x;
-        }
-    }
-}
-
-void arrange_children(struct wsm_list *children,
-                      enum wsm_container_layout layout, struct wlr_box *parent) {
-    // switch (layout) {
-    // case L_HORIZ:
-    //     apply_horiz_layout(children, parent);
-    //     break;
-    // case L_VERT:
-    //     apply_vert_layout(children, parent);
-    //     break;
-    // case L_TABBED:
-    //     apply_tabbed_layout(children, parent);
-    //     break;
-    // case L_STACKED:
-    //     apply_stacked_layout(children, parent);
-    //     break;
-    // case L_NONE:
-         apply_horiz_layout(children, parent);
-    //     break;
-    // }
-
-    // Recurse into child containers
-    for (int i = 0; i < children->length; ++i) {
-        struct wsm_container *child = children->items[i];
-        arrange_container(child);
-    }
-}
-
 enum wsm_container_layout container_parent_layout(struct wsm_container *con) {
     if (con->pending.parent) {
         return con->pending.parent->pending.layout;
@@ -1027,13 +908,6 @@ enum wsm_container_layout container_parent_layout(struct wsm_container *con) {
         return con->pending.workspace->layout;
     }
     return L_NONE;
-}
-
-void arrange_floating(struct wsm_list *floating) {
-    for (int i = 0; i < floating->length; ++i) {
-        struct wsm_container *floater = floating->items[i];
-        arrange_container(floater);
-    }
 }
 
 static void container_fullscreen_workspace(struct wsm_container *con) {
@@ -1459,4 +1333,18 @@ struct wsm_container *container_obstructing_fullscreen_container(struct wsm_cont
     }
 
     return NULL;
+}
+
+void disable_container(struct wsm_container *con) {
+    if (con->view) {
+        wlr_scene_node_reparent(&con->view->scene_tree->node, con->content_tree);
+    } else {
+        for (int i = 0; i < con->current.children->length; i++) {
+            struct wsm_container *child = con->current.children->items[i];
+
+            wlr_scene_node_reparent(&child->scene_tree->node, con->content_tree);
+
+            disable_container(child);
+        }
+    }
 }

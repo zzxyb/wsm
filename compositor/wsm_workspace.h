@@ -125,7 +125,6 @@ void root_for_each_container(void (*f)(struct wsm_container *con, void *data),
 void workspace_update_representation(struct wsm_workspace *ws);
 void workspace_add_floating(struct wsm_workspace *workspace,
                             struct wsm_container *con);
-void arrange_workspace(struct wsm_workspace *workspace);
 void workspace_add_gaps(struct wsm_workspace *ws);
 void workspace_consider_destroy(struct wsm_workspace *ws);
 void workspace_begin_destroy(struct wsm_workspace *workspace);
@@ -133,7 +132,7 @@ struct wsm_container *workspace_add_tiling(struct wsm_workspace *workspace,
                                            struct wsm_container *con);
 void workspace_detect_urgent(struct wsm_workspace *workspace);
 struct wsm_container *workspace_find_container(struct wsm_workspace *ws,
-                                                bool (*test)(struct wsm_container *con, void *data), void *data);
+                                               bool (*test)(struct wsm_container *con, void *data), void *data);
 struct wsm_output *workspace_output_get_highest_available(
     struct wsm_workspace *ws, struct wsm_output *exclude);
 size_t workspace_num_sticky_containers(struct wsm_workspace *ws);
@@ -144,5 +143,6 @@ bool output_match_name_or_id(struct wsm_output *output,
 void output_add_workspace(struct wsm_output *output,
                           struct wsm_workspace *workspace);
 void output_sort_workspaces(struct wsm_output *output);
+void disable_workspace(struct wsm_workspace *ws);
 
 #endif

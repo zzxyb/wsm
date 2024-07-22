@@ -32,6 +32,7 @@ THE SOFTWARE.
 #include "wsm_scene.h"
 #include "wsm_seat.h"
 #include "wsm_config.h"
+#include "wsm_arrange.h"
 #include "wsm_workspace.h"
 #include "wsm_transaction.h"
 #include "wsm_output_manager.h"
@@ -647,7 +648,7 @@ static void handle_request_fullscreen(struct wl_listener *listener, void *data) 
     }
     container_set_fullscreen(view->container, xsurface->fullscreen);
 
-    arrange_root();
+    arrange_root_auto();
     transaction_commit_dirty();
 }
 

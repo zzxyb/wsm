@@ -27,6 +27,7 @@ THE SOFTWARE.
 #include "wsm_cursor.h"
 #include "wsm_seat.h"
 #include "wsm_view.h"
+#include "wsm_arrange.h"
 #include "wsm_container.h"
 #include "wsm_transaction.h"
 
@@ -52,7 +53,7 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 
     if (seat->wsm_cursor->pressed_button_count == 0) {
         container_set_resizing(con, false);
-        arrange_container(con); // Send configure w/o resizing hint
+        wsm_arrange_container_auto(con); // Send configure w/o resizing hint
         transaction_commit_dirty();
         seatop_begin_default(seat);
     }
@@ -167,7 +168,7 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
     con->pending.content_width += relative_grow_width;
     con->pending.content_height += relative_grow_height;
 
-    arrange_container(con);
+    wsm_arrange_container_auto(con);
     transaction_commit_dirty();
 }
 

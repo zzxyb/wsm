@@ -32,6 +32,9 @@ THE SOFTWARE.
 
 #include <wlr/util/box.h>
 
+#define MIN_SANE_W 100
+#define MIN_SANE_H 60
+
 struct wlr_scene_buffer;
 
 struct wsm_view;
@@ -309,11 +312,7 @@ void container_update_title_bar(struct wsm_container *container);
 void container_handle_fullscreen_reparent(struct wsm_container *con);
 void floating_fix_coordinates(struct wsm_container *con,
                               struct wlr_box *old, struct wlr_box *new);
-void arrange_container(struct wsm_container *container);
-void arrange_children(struct wsm_list *children,
-                      enum wsm_container_layout layout, struct wlr_box *parent);
 enum wsm_container_layout container_parent_layout(struct wsm_container *con);
-void arrange_floating(struct wsm_list *floating);
 void container_set_fullscreen(struct wsm_container *con,
                               enum wsm_fullscreen_mode mode);
 void container_reap_empty(struct wsm_container *con);
@@ -335,5 +334,6 @@ void container_set_resizing(struct wsm_container *con, bool resizing);
 void floating_calculate_constraints(int *min_width, int *max_width,
                                     int *min_height, int *max_height);
 struct wsm_container *container_obstructing_fullscreen_container(struct wsm_container *container);
+void disable_container(struct wsm_container *con);
 
 #endif

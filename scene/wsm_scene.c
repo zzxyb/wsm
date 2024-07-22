@@ -32,6 +32,7 @@ THE SOFTWARE.
 #include "node/wsm_node_descriptor.h"
 #include "wsm_output_manager.h"
 #include "wsm_workspace.h"
+#include "wsm_arrange.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -1213,32 +1214,9 @@ void root_scratchpad_show(struct wsm_container *con) {
     }
     set_container_transform(new_ws, con);
 
-    arrange_workspace(new_ws);
+    wsm_arrange_workspace_auto(new_ws);
     seat_set_focus(seat, seat_get_focus_inactive(seat, &con->node));
     if (old_ws) {
         workspace_consider_destroy(old_ws);
-    }
-}
-
-void arrange_root(void) {
-    struct wlr_box layout_box;
-    wlr_output_layout_get_box(global_server.wsm_scene->output_layout, NULL, &layout_box);
-    global_server.wsm_scene->x = layout_box.x;
-    global_server.wsm_scene->y = layout_box.y;
-    global_server.wsm_scene->width = layout_box.width;
-    global_server.wsm_scene->height = layout_box.height;
-
-    if (global_server.wsm_scene->fullscreen_global) {
-        struct wsm_container *fs = global_server.wsm_scene->fullscreen_global;
-        fs->pending.x = global_server.wsm_scene->x;
-        fs->pending.y = global_server.wsm_scene->y;
-        fs->pending.width = global_server.wsm_scene->width;
-        fs->pending.height = global_server.wsm_scene->height;
-        arrange_container(fs);
-    } else {
-        for (int i = 0; i < global_server.wsm_scene->outputs->length; ++i) {
-            struct wsm_output *output = global_server.wsm_scene->outputs->items[i];
-            arrange_output(output);
-        }
     }
 }
