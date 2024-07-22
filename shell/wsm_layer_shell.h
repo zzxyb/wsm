@@ -72,7 +72,6 @@ struct wsm_layer_shell {
 
 struct wsm_layer_shell *wsm_layer_shell_create(const struct wsm_server *server);
 void wsm_layer_shell_destroy(struct wsm_layer_shell *shell);
-void arrange_layers(struct wsm_output *output);
 struct wlr_layer_surface_v1 *toplevel_layer_surface_from_surface(
     struct wlr_surface *surface);
 

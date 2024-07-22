@@ -27,6 +27,7 @@ THE SOFTWARE.
 #include "wsm_server_decoration.h"
 #include "wsm_log.h"
 #include "wsm_view.h"
+#include "wsm_arrange.h"
 #include "wsm_container.h"
 #include "wsm_transaction.h"
 
@@ -59,7 +60,7 @@ static void server_decoration_handle_mode(struct wl_listener *listener,
                WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT;
     view_update_csd_from_client(view, csd);
 
-    arrange_container(view->container);
+    wsm_arrange_container_auto(view->container);
     transaction_commit_dirty();
 }
 

@@ -221,64 +221,6 @@ void workspace_add_floating(struct wsm_workspace *workspace,
     node_set_dirty(&con->node);
 }
 
-void arrange_workspace(struct wsm_workspace *workspace) {
-    if (!workspace->output) {
-        // Happens when there are no outputs connected
-        return;
-    }
-    struct wsm_output *output = workspace->output;
-    struct wlr_box *area = &output->usable_area;
-    wsm_log(WSM_DEBUG, "Usable area for ws: %dx%d@%d,%d",
-             area->width, area->height, area->x, area->y);
-
-    bool first_arrange = workspace->width == 0 && workspace->height == 0;
-    struct wlr_box prev_box;
-    workspace_get_box(workspace, &prev_box);
-
-    double prev_x = workspace->x - workspace->current_gaps.left;
-    double prev_y = workspace->y - workspace->current_gaps.top;
-    workspace->width = area->width;
-    workspace->height = area->height;
-    workspace->x = output->lx + area->x;
-    workspace->y = output->ly + area->y;
-
-    // Adjust any floating containers
-    double diff_x = workspace->x - prev_x;
-    double diff_y = workspace->y - prev_y;
-    if (!first_arrange && (diff_x != 0 || diff_y != 0)) {
-        for (int i = 0; i < workspace->floating->length; ++i) {
-            struct wsm_container *floater = workspace->floating->items[i];
-            struct wlr_box workspace_box;
-            workspace_get_box(workspace, &workspace_box);
-            floating_fix_coordinates(floater, &prev_box, &workspace_box);
-            // Set transformation for scratchpad windows.
-            if (floater->scratchpad) {
-                struct wlr_box output_box;
-                output_get_box(output, &output_box);
-                floater->transform = output_box;
-            }
-        }
-    }
-
-    workspace_add_gaps(workspace);
-    node_set_dirty(&workspace->node);
-    wsm_log(WSM_DEBUG, "Arranging workspace '%s' at %f, %f", workspace->name,
-             workspace->x, workspace->y);
-    if (workspace->fullscreen) {
-        struct wsm_container *fs = workspace->fullscreen;
-        fs->pending.x = output->lx;
-        fs->pending.y = output->ly;
-        fs->pending.width = output->width;
-        fs->pending.height = output->height;
-        arrange_container(fs);
-    } else {
-        struct wlr_box box;
-        workspace_get_box(workspace, &box);
-        arrange_children(workspace->tiling, workspace->layout, &box);
-        arrange_floating(workspace->floating);
-    }
-}
-
 void workspace_add_gaps(struct wsm_workspace *ws) {
     ws->current_gaps.top = 0;
     ws->current_gaps.right = 0;
@@ -486,4 +428,20 @@ static int sort_workspace_cmp_qsort(const void *_a, const void *_b) {
 
 void output_sort_workspaces(struct wsm_output *output) {
     list_stable_sort(output->workspace_manager->current.workspaces, sort_workspace_cmp_qsort);
+}
+
+void disable_workspace(struct wsm_workspace *ws) {
+    for (int i = 0; i < ws->current.tiling->length; i++) {
+        struct wsm_container *child = ws->current.tiling->items[i];
+
+        wlr_scene_node_reparent(&child->scene_tree->node, ws->layers.non_fullscreen);
+        disable_container(child);
+    }
+
+    for (int i = 0; i < ws->current.floating->length; i++) {
+        struct wsm_container *floater = ws->current.floating->items[i];
+        wlr_scene_node_reparent(&floater->scene_tree->node, global_server.wsm_scene->layers.floating);
+        disable_container(floater);
+        wlr_scene_node_set_enabled(&floater->scene_tree->node, false);
+    }
 }

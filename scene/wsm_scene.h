@@ -115,6 +115,5 @@ bool wsm_scene_output_build_state(struct wlr_scene_output *scene_output,
                                   struct wlr_output_state *state, const struct wlr_scene_output_state_options *options);
 void root_get_box(struct wsm_scene *root, struct wlr_box *box);
 void root_scratchpad_show(struct wsm_container *con);
-void arrange_root(void);
 
 #endif

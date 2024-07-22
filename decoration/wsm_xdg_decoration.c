@@ -25,6 +25,7 @@ THE SOFTWARE.
 #include "wsm_view.h"
 #include "wsm_log.h"
 #include "wsm_server.h"
+#include "wsm_arrange.h"
 #include "wsm_container.h"
 #include "wsm_transaction.h"
 #include "wsm_xdg_decoration.h"
@@ -104,7 +105,7 @@ void set_xdg_decoration_mode(struct wsm_xdg_decoration *deco) {
         csd = client_mode ==
               WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
         view_update_csd_from_client(view, csd);
-        arrange_container(view->container);
+        wsm_arrange_container_auto(view->container);
         transaction_commit_dirty();
     } else {
         floating = view->impl->wants_floating &&

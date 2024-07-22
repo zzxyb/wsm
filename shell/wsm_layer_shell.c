@@ -29,6 +29,7 @@ THE SOFTWARE.
 #include "wsm_seat.h"
 #include "wsm_output.h"
 #include "wsm_cursor.h"
+#include "wsm_arrange.h"
 #include "wsm_transaction.h"
 #include "wsm_input_manager.h"
 #include "wsm_workspace.h"
@@ -114,7 +115,7 @@ static void handle_surface_commit(struct wl_listener *listener, void *data) {
 
     if (layer_surface->initial_commit || committed || layer_surface->surface->mapped != surface->mapped) {
         surface->mapped = layer_surface->surface->mapped;
-        arrange_layers(surface->output);
+        wsm_arrange_layers(surface->output);
         transaction_commit_dirty();
     }
 }
@@ -136,7 +137,7 @@ static void handle_map(struct wl_listener *listener, void *data) {
                 seat_set_focus_layer(seat, layer_surface);
             }
         }
-        arrange_layers(surface->output);
+        wsm_arrange_layers(surface->output);
     }
 
     cursor_rebase_all();
@@ -219,7 +220,7 @@ static void handle_node_destroy(struct wl_listener *listener, void *data) {
     // }
 
     if (layer->output) {
-        arrange_layers(layer->output);
+        wsm_arrange_layers(layer->output);
         transaction_commit_dirty();
     }
 
@@ -342,44 +343,6 @@ struct wsm_layer_shell *wsm_layer_shell_create(const struct wsm_server *server) 
                   &layer_shell->layer_shell_surface);
 
     return layer_shell;
-}
-
-static void arrange_surface(struct wsm_output *output, const struct wlr_box *full_area,
-                            struct wlr_box *usable_area, struct wlr_scene_tree *tree) {
-    struct wlr_scene_node *node;
-    wl_list_for_each(node, &tree->children, link) {
-        struct wsm_layer_surface *surface = wsm_scene_descriptor_try_get(node,
-                                                                      WSM_SCENE_DESC_LAYER_SHELL);
-        if (!surface) {
-            continue;
-        }
-
-        if (!surface->scene->layer_surface->initialized) {
-            continue;
-        }
-
-        wlr_scene_layer_surface_v1_configure(surface->scene, full_area, usable_area);
-    }
-}
-
-void arrange_layers(struct wsm_output *output) {
-    struct wlr_box usable_area = { 0 };
-    wlr_output_effective_resolution(output->wlr_output,
-                                    &usable_area.width, &usable_area.height);
-    const struct wlr_box full_area = usable_area;
-
-    arrange_surface(output, &full_area, &usable_area, output->layers.shell_background);
-    arrange_surface(output, &full_area, &usable_area, output->layers.shell_bottom);
-    arrange_surface(output, &full_area, &usable_area, output->layers.shell_top);
-    arrange_surface(output, &full_area, &usable_area, output->layers.shell_overlay);
-
-    if (!wlr_box_equal(&usable_area, &output->usable_area)) {
-        wsm_log(WSM_DEBUG, "Usable area changed, rearranging output");
-        output->usable_area = usable_area;
-        arrange_output(output);
-    } else {
-        arrange_popups(global_server.wsm_scene->layers.popup);
-    }
 }
 
 struct wlr_layer_surface_v1 *toplevel_layer_surface_from_surface(

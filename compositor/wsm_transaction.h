@@ -85,6 +85,4 @@ bool transaction_notify_view_ready_by_serial(struct wsm_view *view,
 bool transaction_notify_view_ready_by_geometry(struct wsm_view *view,
                                                double x, double y, int width, int height);
 
-void arrange_popups(struct wlr_scene_tree *popups);
-
 #endif

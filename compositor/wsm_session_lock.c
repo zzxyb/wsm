@@ -29,6 +29,7 @@ THE SOFTWARE.
 #include "wsm_output.h"
 #include "wsm_scene.h"
 #include "wsm_cursor.h"
+#include "wsm_arrange.h"
 #include "wsm_input_manager.h"
 #include "wsm_layer_shell.h"
 
@@ -187,7 +188,7 @@ static void handle_unlock(struct wl_listener *listener, void *data) {
     // TODO: Make layer surface focus per-output based on cursor position
     for (int i = 0; i < global_server.wsm_scene->outputs->length; ++i) {
         struct wsm_output *output = global_server.wsm_scene->outputs->items[i];
-        arrange_layers(output);
+        wsm_arrange_layers(output);
     }
 }
 
