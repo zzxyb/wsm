@@ -110,7 +110,7 @@ static struct wlr_scene_rect *alloc_rect_node(struct wlr_scene_tree *parent,
     struct wlr_scene_rect *rect = wlr_scene_rect_create(
         parent, 0, 0, (float[4]){0.f, 0.f, 0.f, 1.f});
     if (!rect) {
-        wsm_log(WSM_ERROR, "Failed to allocate a wlr_scene_rect");
+        wsm_log(WSM_ERROR, "Could not create wlr_scene_rect: allocation failed!");
         *failed = true;
     }
 
@@ -194,7 +194,7 @@ struct wsm_container *container_create(struct wsm_view *view) {
 
         c->output_handler = wlr_scene_buffer_create(c->border.tree, NULL);
         if (!c->output_handler) {
-            wsm_log(WSM_ERROR, "Failed to allocate a scene node");
+            wsm_log(WSM_ERROR, "Could not create wlr_scene_buffer for container scene node: allocation failed!");
             failed = true;
         }
 

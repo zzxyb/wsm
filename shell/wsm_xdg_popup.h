@@ -1,0 +1,52 @@
+/*
+MIT License
+
+Copyright (c) 2024 YaoBing Xiao
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+
+#ifndef WSM_XDG_POPUP_H
+#define WSM_XDG_POPUP_H
+
+#include "wsm_view.h"
+
+struct wlr_scene_tree;
+struct wlr_xdg_popup;
+
+struct wsm_xdg_popup {
+    struct wsm_view *view;
+
+    struct wlr_scene_tree *scene_tree;
+    struct wlr_scene_tree *xdg_surface_tree;
+    struct wlr_xdg_popup *wlr_xdg_popup;
+
+    struct wsm_popup_desc desc;
+
+    struct wl_listener surface_commit;
+    struct wl_listener new_popup;
+    struct wl_listener reposition;
+    struct wl_listener destroy;
+};
+
+struct wsm_xdg_popup *wsm_xdg_popup_create(struct wlr_xdg_popup *wlr_popup,
+                                   struct wsm_view *view, struct wlr_scene_tree *parent);
+void wsm_xdg_popup_unconstrain(struct wsm_xdg_popup *popup);
+
+#endif
