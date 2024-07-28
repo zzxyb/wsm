@@ -262,7 +262,6 @@ void view_autoconfigure(struct wsm_view *view) {
 
     con->pending.border_top = con->pending.border_bottom = true;
     con->pending.border_left = con->pending.border_right = true;
-    double y_offset = 0;
 
     bool show_border = true;
     con->pending.border_left &= show_border;
@@ -271,40 +270,27 @@ void view_autoconfigure(struct wsm_view *view) {
     con->pending.border_bottom &= show_border;
 
     double x, y, width, height;
+    int max_thickness;
     switch (con->pending.border) {
     default:
     case B_CSD:
     case B_NONE:
         x = con->pending.x;
-        y = con->pending.y + y_offset;
+        y = con->pending.y;
         width = con->pending.width;
-        height = con->pending.height - y_offset;
-        break;
-    case B_PIXEL:
-        x = con->pending.x + con->pending.border_thickness * con->pending.border_left;
-        y = con->pending.y + con->pending.border_thickness * con->pending.border_top + y_offset;
-        width = con->pending.width
-                - con->pending.border_thickness * con->pending.border_left
-                - con->pending.border_thickness * con->pending.border_right;
-        height = con->pending.height - y_offset
-                 - con->pending.border_thickness * con->pending.border_top
-                 - con->pending.border_thickness * con->pending.border_bottom;
+        height = con->pending.height;
         break;
     case B_NORMAL:
-        // Height is: 1px border + 3px pad + title height + 3px pad + 1px border
-        x = con->pending.x + con->pending.border_thickness * con->pending.border_left;
+        max_thickness = get_max_thickness(con->pending);
+        x = con->pending.x + max_thickness * con->pending.border_left;
+        y = con->pending.y + container_titlebar_height()
+            + max_thickness * con->pending.border_top;
         width = con->pending.width
-                - con->pending.border_thickness * con->pending.border_left
-                - con->pending.border_thickness * con->pending.border_right;
-        if (y_offset) {
-            y = con->pending.y + y_offset;
-            height = con->pending.height - y_offset
-                     - con->pending.border_thickness * con->pending.border_bottom;
-        } else {
-            y = con->pending.y + container_titlebar_height();
-            height = con->pending.height - container_titlebar_height()
-                     - con->pending.border_thickness * con->pending.border_bottom;
-        }
+                - max_thickness * con->pending.border_left
+                - max_thickness * con->pending.border_right;
+        height = con->pending.height - container_titlebar_height()
+                 - max_thickness * con->pending.border_bottom
+                 - max_thickness * con->pending.border_top;
         break;
     }
 
@@ -610,15 +596,10 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
         view_update_csd_from_client(view, decoration);
     }
 
-    if (view->impl->wants_floating && view->impl->wants_floating(view)) {
-        view->container->pending.border = global_config.floating_border;
-        view->container->pending.border_thickness = global_config.floating_border_thickness;
-        container_set_floating(view->container, true);
-    } else {
-        view->container->pending.border = global_config.border;
-        view->container->pending.border_thickness = global_config.border_thickness;
-        view_set_tiled(view, true);
-    }
+    view->container->pending.border = global_config.floating_border;
+    view->container->pending.border_thickness = global_config.floating_border_thickness;
+    view->container->pending.sensing_thickness = global_config.sensing_border_thickness;
+    container_set_floating(view->container, true);
 
     if (global_config.popup_during_fullscreen == POPUP_LEAVE &&
         container->pending.workspace &&
@@ -910,7 +891,7 @@ void view_update_title(struct wsm_view *view, bool force) {
     if (view->container->title_bar.title_text && len) {
         wsm_text_node_set_text(view->container->title_bar.title_text,
                                 view->container->formatted_title);
-        container_arrange_title_bar(view->container);
+        container_arrange_title_bar_node(view->container);
     } else {
         container_update_title_bar(view->container);
     }

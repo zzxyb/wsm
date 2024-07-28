@@ -57,7 +57,6 @@ enum wsm_container_layout {
 
 enum wsm_container_border {
     B_NONE,
-    B_PIXEL,
     B_NORMAL,
     B_CSD,
 };
@@ -98,6 +97,7 @@ struct wsm_container_state {
 
     enum wsm_container_border border;
     int border_thickness;
+    int sensing_thickness;
     bool border_top;
     bool border_bottom;
     bool border_left;
@@ -213,7 +213,7 @@ struct wsm_container {
         struct wlr_scene_rect *bottom;
         struct wlr_scene_rect *left;
         struct wlr_scene_rect *right;
-    } border;
+    } sensing;
 
     struct wlr_scene_tree *content_tree;
     struct wlr_scene_buffer *output_handler;
@@ -265,12 +265,6 @@ struct wsm_container {
     struct wlr_box transform;
 
     float alpha;
-
-    struct wsm_list *marks; // char *
-
-    struct {
-        struct wl_signal destroy;
-    } events;
 };
 
 struct wsm_container *container_create(struct wsm_view *view);
@@ -307,7 +301,6 @@ struct wsm_list *container_get_siblings(struct wsm_container *container);
 void container_update_representation(struct wsm_container *container);
 size_t container_build_representation(enum wsm_container_layout layout,
                                       struct wsm_list *children, char *buffer);
-void container_arrange_title_bar(struct wsm_container *con);
 void container_update_title_bar(struct wsm_container *container);
 void container_handle_fullscreen_reparent(struct wsm_container *con);
 void floating_fix_coordinates(struct wsm_container *con,
@@ -335,5 +328,6 @@ void floating_calculate_constraints(int *min_width, int *max_width,
                                     int *min_height, int *max_height);
 struct wsm_container *container_obstructing_fullscreen_container(struct wsm_container *container);
 void disable_container(struct wsm_container *con);
+int get_max_thickness(struct wsm_container_state state);
 
 #endif

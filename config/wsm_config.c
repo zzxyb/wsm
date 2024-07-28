@@ -38,7 +38,6 @@ void wsm_config_init() {
     global_config.xwayland = XWAYLAND_MODE_LAZY;
 
     // titlebar
-    global_config.titlebar_border_thickness = 1;
     global_config.titlebar_h_padding = 5;
     global_config.titlebar_v_padding = 4;
     global_config.title_align = ALIGN_CENTER;
@@ -48,9 +47,8 @@ void wsm_config_init() {
     // borders
     global_config.border = B_NORMAL;
     global_config.floating_border = B_NORMAL;
-    // TODO: Maybe some spacing should be left to facilitate edge recognition
-    global_config.border_thickness = 2;
     global_config.floating_border_thickness = 2;
+    global_config.sensing_border_thickness = 8;
 
     // floating view
     global_config.floating_maximum_width = 0;
@@ -94,7 +92,8 @@ void wsm_config_init() {
     color_to_rgba(global_config.border_colors.placeholder.indicator, 0x000000FF);
     color_to_rgba(global_config.border_colors.placeholder.child_border, 0x0C0C0CFF);
 
-    color_to_rgba(global_config.border_colors.background, 0xFFFFFFFF);
+    color_to_rgba(global_config.text_background_color, 0x00000000);
+    color_to_rgba(global_config.sensing_border_color, 0x00000000);
 
     global_config.primary_selection = true;
 }

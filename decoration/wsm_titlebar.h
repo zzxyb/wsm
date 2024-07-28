@@ -74,8 +74,7 @@ enum ssd_part_type {
 struct wsm_titlebar {
     struct wlr_scene_tree *tree;
 
-    struct wlr_scene_tree *border;
-    struct wlr_scene_tree *background;
+    struct wlr_scene_rect *background;
     struct wsm_image_node *icon;
     struct wsm_text_node *title_text;
 

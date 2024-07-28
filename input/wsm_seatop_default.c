@@ -96,7 +96,8 @@ static enum wlr_edges find_edge(struct wsm_container *cont,
     if (!cont->view || (surface && cont->view->surface != surface)) {
         return WLR_EDGE_NONE;
     }
-    if (cont->pending.border == B_NONE || !cont->pending.border_thickness ||
+    int max_thickness = get_max_thickness(cont->pending);
+    if (cont->pending.border == B_NONE || !max_thickness ||
         cont->pending.border == B_CSD) {
         return WLR_EDGE_NONE;
     }
@@ -105,16 +106,16 @@ static enum wlr_edges find_edge(struct wsm_container *cont,
     }
 
     enum wlr_edges edge = 0;
-    if (cursor->wlr_cursor->x < cont->pending.x + cont->pending.border_thickness) {
+    if (cursor->wlr_cursor->x < cont->pending.x + max_thickness) {
         edge |= WLR_EDGE_LEFT;
     }
-    if (cursor->wlr_cursor->y < cont->pending.y + cont->pending.border_thickness) {
+    if (cursor->wlr_cursor->y < cont->pending.y + max_thickness) {
         edge |= WLR_EDGE_TOP;
     }
-    if (cursor->wlr_cursor->x >= cont->pending.x + cont->pending.width - cont->pending.border_thickness) {
+    if (cursor->wlr_cursor->x >= cont->pending.x + cont->pending.width - max_thickness) {
         edge |= WLR_EDGE_RIGHT;
     }
-    if (cursor->wlr_cursor->y >= cont->pending.y + cont->pending.height - cont->pending.border_thickness) {
+    if (cursor->wlr_cursor->y >= cont->pending.y + cont->pending.height - max_thickness) {
         edge |= WLR_EDGE_BOTTOM;
     }
 

@@ -45,7 +45,7 @@ void wsm_arrange_layer_surface(struct wsm_output *output, const struct wlr_box *
 void wsm_arrange_popups(struct wlr_scene_tree *popups);
 void wsm_arrange_layers(struct wsm_output *output);
 void wsm_arrange_container_auto(struct wsm_container *container);
-void wsm_arrange_container_with_parameter(struct wsm_container *con,
+void wsm_arrange_container_with_title_bar(struct wsm_container *con,
                         int width, int height, bool title_bar, int gaps);
 void wsm_arrange_children(struct wsm_list *children,
                       enum wsm_container_layout layout, struct wlr_box *parent);
@@ -53,6 +53,7 @@ void arrange_children_with_titlebar(enum wsm_container_layout layout, struct wsm
                                     struct wsm_container *active, struct wlr_scene_tree *content,
                                     int width, int height, int gaps);
 void wsm_arrange_floating(struct wsm_list *floating);
+void container_arrange_title_bar_node(struct wsm_container *con);
 void wsm_arrange_title_bar(struct wsm_container *con,
                   int x, int y, int width, int height);
 void wsm_arrange_fullscreen(struct wlr_scene_tree *tree,

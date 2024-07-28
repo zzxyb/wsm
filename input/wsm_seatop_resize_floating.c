@@ -88,17 +88,15 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
         grow_height = e->ref_height * max_multiplier;
     }
 
-    struct wsm_container_state *state = &con->current;
+    struct wsm_container_state state = con->current;
     double border_width = 0.0;
-    if (con->current.border == B_NORMAL || con->current.border == B_PIXEL) {
-        border_width = state->border_thickness * 2;
+    if (con->current.border == B_NORMAL) {
+        border_width = get_max_thickness(state) * 2;
     }
     double border_height = 0.0;
     if (con->current.border == B_NORMAL) {
         border_height += container_titlebar_height();
-        border_height += state->border_thickness;
-    } else if (con->current.border == B_PIXEL) {
-        border_height += state->border_thickness * 2;
+        border_height += get_max_thickness(state);
     }
 
     // Determine new width/height, and accommodate for floating min/max values
