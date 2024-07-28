@@ -793,6 +793,7 @@ void cursor_set_image(struct wsm_cursor *cursor, const char *image,
     if (!image) {
         wlr_cursor_unset_image(cursor->wlr_cursor);
     } else if (!current_image || strcmp(current_image, image) != 0) {
+        wlr_cursor_unset_image(cursor->wlr_cursor);
         wlr_cursor_set_xcursor(cursor->wlr_cursor, global_server.xcursor_manager, image);
     }
 }
