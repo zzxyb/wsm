@@ -172,6 +172,10 @@ struct output_config *new_output_config(const char *name) {
     return oc;
 }
 
+void store_output_config(struct output_config *oc) {
+
+}
+
 void free_output_config(struct output_config *oc) {
     if (!oc) {
         return;

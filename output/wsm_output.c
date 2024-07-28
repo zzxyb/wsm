@@ -753,28 +753,6 @@ bool wsm_output_is_usable(struct wsm_output *output) {
     return output && output->wlr_output->enabled && !output->leased;
 }
 
-// bool wsm_output_can_reuse_mode(struct wsm_output *output) {
-//     struct wlr_output *wlr_output = output->wlr_output;
-//     return wlr_output->current_mode && wlr_output_test(wlr_output);
-// }
-
-// struct wlr_drm_connector *get_drm_connector_from_wsm_output(
-//     struct wsm_output *output) {
-//     struct wlr_output *wlr_output = output->wlr_output;
-//     assert(wlr_output_is_drm(wlr_output));
-//     struct wlr_drm_connector *conn = wl_container_of(wlr_output, conn, output);
-//     return conn;
-// }
-
-// const char* get_drm_device_name_from_wsm_output(struct wsm_output *output) {
-//     struct wlr_drm_connector *drm_conn = wsm_output_get_drm_connector_from_output(output);
-//     if (drm_conn && drm_conn->backend) {
-//         struct wlr_drm_backend *drm_backend = drm_conn->backend;
-//         return drm_backend->name;
-//     }
-//     return NULL;
-// }
-
 void output_get_box(struct wsm_output *output, struct wlr_box *box) {
     box->x = output->lx;
     box->y = output->ly;
