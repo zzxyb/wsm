@@ -27,11 +27,14 @@ THE SOFTWARE.
 #include "wsm_scene.h"
 #include "wsm_server.h"
 #include "wsm_output.h"
+#include "wsm_config.h"
 #include "wsm_arrange.h"
 #include "wsm_workspace.h"
+#include "wsm_common.h"
 #include "wsm_layer_shell.h"
 #include "wsm_workspace_manager.h"
 #include "node/wsm_node_descriptor.h"
+#include "node/wsm_text_node.h"
 
 #include <wlr/types/wlr_scene.h>
 
@@ -335,6 +338,55 @@ void wsm_arrange_floating(struct wsm_list *floating) {
     }
 }
 
+void container_arrange_title_bar_node(struct wsm_container *con) {
+    enum alignment title_align = ALIGN_CENTER;
+    int marks_buffer_width = 0;
+    int width = con->title_width;
+    int height = container_titlebar_height();
+
+    pixman_region32_t text_area;
+    pixman_region32_init(&text_area);
+
+    if (con->title_bar.title_text) {
+        struct wsm_text_node *node = con->title_bar.title_text;
+
+        int h_padding;
+        if (title_align == ALIGN_RIGHT) {
+            h_padding = width - global_config.titlebar_h_padding - node->width;
+        } else if (title_align == ALIGN_CENTER) {
+            h_padding = ((int)width - marks_buffer_width - node->width) >> 1;
+        } else {
+            h_padding = global_config.titlebar_h_padding;
+        }
+
+        h_padding = MAX(h_padding, 0);
+
+        int alloc_width = MIN((int) node->width,
+                              width - h_padding - global_config.titlebar_h_padding);
+        alloc_width = MAX(alloc_width, 0);
+
+        wsm_text_node_set_max_width(node, alloc_width);
+        wlr_scene_node_set_position(node->node,
+                                    h_padding, ((height - node->height) >> 1) + get_max_thickness(con->pending)
+                                                                         * con->pending.border_top);
+        pixman_region32_union_rect(&text_area, &text_area,
+                                   node->node->x, node->node->y, alloc_width, node->height);
+    }
+
+    // silence pixman errors
+    if (width <= 0 || height <= 0) {
+        pixman_region32_fini(&text_area);
+        return;
+    }
+
+    wlr_scene_node_set_enabled(&con->title_bar.background->node, true);
+    wlr_scene_node_set_position(&con->title_bar.background->node, 0, get_max_thickness(con->pending)
+                                                                         * con->pending.border_top);
+    wlr_scene_rect_set_size(con->title_bar.background, width, height);
+
+    container_update(con);
+}
+
 void wsm_arrange_title_bar(struct wsm_container *con,
                               int x, int y, int width, int height) {
     container_update(con);
@@ -348,7 +400,7 @@ void wsm_arrange_title_bar(struct wsm_container *con,
     wlr_scene_node_set_position(&con->title_bar.tree->node, x, y);
 
     con->title_width = width;
-    container_arrange_title_bar(con);
+    container_arrange_title_bar_node(con);
 }
 
 void wsm_arrange_fullscreen(struct wlr_scene_tree *tree,
@@ -362,7 +414,7 @@ void wsm_arrange_fullscreen(struct wlr_scene_tree *tree,
         wlr_scene_node_set_enabled(&fs->scene_tree->node, false);
     } else {
         fs_node = &fs->scene_tree->node;
-        wsm_arrange_container_with_parameter(fs, width, height, true, 0);
+        wsm_arrange_container_with_title_bar(fs, width, height, true, 0);
     }
 
     wlr_scene_node_reparent(fs_node, tree);
@@ -370,7 +422,7 @@ void wsm_arrange_fullscreen(struct wlr_scene_tree *tree,
     wlr_scene_node_set_position(fs_node, 0, 0);
 }
 
-void wsm_arrange_container_with_parameter(struct wsm_container *con,
+void wsm_arrange_container_with_title_bar(struct wsm_container *con,
                                int width, int height, bool title_bar, int gaps) {
     wlr_scene_node_set_enabled(&con->scene_tree->node, true);
 
@@ -379,26 +431,17 @@ void wsm_arrange_container_with_parameter(struct wsm_container *con,
     }
 
     if (con->view) {
-        int border_top = container_titlebar_height();
-        int border_width = con->current.border_thickness;
-
-        if (title_bar && con->current.border != B_NORMAL) {
-            wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
-            wlr_scene_node_set_enabled(&con->border.top->node, true);
-        } else {
-            wlr_scene_node_set_enabled(&con->border.top->node, false);
-        }
+        int max_thickness = get_max_thickness(con->current);
+        int border_top = container_titlebar_height() + max_thickness * con->current.border_top;
+        int border_width = max_thickness;
 
         if (con->current.border == B_NORMAL) {
             if (title_bar) {
-                wsm_arrange_title_bar(con, 0, 0, width, border_top);
+                wsm_arrange_title_bar(con, max_thickness, 0, width - max_thickness * 2, border_top);
             } else {
                 border_top = 0;
                 // should be handled by the parent container
             }
-        } else if (con->current.border == B_PIXEL) {
-            container_update(con);
-            border_top = title_bar && con->current.border_top ? border_width : 0;
         } else if (con->current.border == B_NONE) {
             container_update(con);
             border_top = 0;
@@ -413,21 +456,22 @@ void wsm_arrange_container_with_parameter(struct wsm_container *con,
         int border_bottom = con->current.border_bottom ? border_width : 0;
         int border_left = con->current.border_left ? border_width : 0;
         int border_right = con->current.border_right ? border_width : 0;
+        int page_top = con->current.border_top ? border_width : 0;
 
-        wlr_scene_rect_set_size(con->border.top, width, border_top);
-        wlr_scene_rect_set_size(con->border.bottom, width, border_bottom);
-        wlr_scene_rect_set_size(con->border.left,
-                                border_left, height - border_top - border_bottom);
-        wlr_scene_rect_set_size(con->border.right,
-                                border_right, height - border_top - border_bottom);
+        wlr_scene_rect_set_size(con->sensing.top, width, page_top);
+        wlr_scene_rect_set_size(con->sensing.bottom, width, border_bottom);
+        wlr_scene_rect_set_size(con->sensing.left,
+                                border_left, height - border_bottom - page_top);
+        wlr_scene_rect_set_size(con->sensing.right,
+                                border_right, height - border_bottom - page_top);
 
-        wlr_scene_node_set_position(&con->border.top->node, 0, 0);
-        wlr_scene_node_set_position(&con->border.bottom->node,
+        wlr_scene_node_set_position(&con->sensing.top->node, 0, 0);
+        wlr_scene_node_set_position(&con->sensing.bottom->node,
                                     0, height - border_bottom);
-        wlr_scene_node_set_position(&con->border.left->node,
-                                    0, border_top);
-        wlr_scene_node_set_position(&con->border.right->node,
-                                    width - border_right, border_top);
+        wlr_scene_node_set_position(&con->sensing.left->node,
+                                    0, page_top);
+        wlr_scene_node_set_position(&con->sensing.right->node,
+                                    width - border_right, page_top);
 
         // make sure to reparent, it's possible that the client just came out of
         // fullscreen mode where the parent of the surface is not the container
@@ -466,12 +510,12 @@ void arrange_children_with_titlebar(enum wsm_container_layout layout, struct wsm
         bool activated = child == active;
 
         wsm_arrange_title_bar(child, 0, y + title_height, width, title_bar_height);
-        wlr_scene_node_set_enabled(&child->border.tree->node, activated);
+        wlr_scene_node_set_enabled(&child->sensing.tree->node, activated);
         wlr_scene_node_set_position(&child->scene_tree->node, 0, title_height);
         wlr_scene_node_reparent(&child->scene_tree->node, content);
 
         if (activated) {
-            wsm_arrange_container_with_parameter(child, width, height - title_height,
+            wsm_arrange_container_with_title_bar(child, width, height - title_height,
                                false, 0);
         } else {
             disable_container(child);
@@ -518,7 +562,7 @@ void arrange_workspace_floating(struct wsm_workspace *ws) {
                                     floater->current.x, floater->current.y);
         wlr_scene_node_set_enabled(&floater->scene_tree->node, true);
 
-        wsm_arrange_container_with_parameter(floater, floater->current.width, floater->current.height,
+        wsm_arrange_container_with_title_bar(floater, floater->current.width, floater->current.height,
                                              true, ws->gaps_inner);
     }
 }

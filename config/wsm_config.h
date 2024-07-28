@@ -74,13 +74,15 @@ struct wsm_config {
         struct border_colors unfocused;
         struct border_colors urgent;
         struct border_colors placeholder;
-        float background[4];
     } border_colors;
+
+    float text_background_color[4];
+    float sensing_border_color[4];
 
     enum wsm_container_border border;
     enum wsm_container_border floating_border;
-    int border_thickness;
     int floating_border_thickness;
+    int sensing_border_thickness; // pixels to expand based on the current border
 
     // floating view
     int32_t floating_maximum_width;
@@ -91,7 +93,6 @@ struct wsm_config {
     int font_height;
     int font_baseline;
     bool pango_markup;
-    int titlebar_border_thickness;
     int titlebar_h_padding;
     int titlebar_v_padding;
 

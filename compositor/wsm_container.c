@@ -155,42 +155,32 @@ struct wsm_container *container_create(struct wsm_view *view) {
     // Container tree structure
     // - scene tree
     //   - title bar
-    //     - border
+    //     - icon
     //     - background
     //     - title text
-    //     - marks text
-    //   - border
+    //     - button
+    //   - border for decoration
     //     - border top/bottom/left/right
-    //     - content_tree (we put the content node here so when we disable the
-    //       border everything gets disabled. We only render the content iff there
-    //       is a border as well)
+    //     - later plan to draw it at the end of rendering
     //     - buffer used for output enter/leave events for foreign_toplevel
+    //   - sensing_border
+    //     - sensing top/bottom/left/right convenient to perceive edge
     bool failed = false;
     c->scene_tree = alloc_scene_tree(global_server.wsm_scene->staging, &failed);
 
     c->title_bar.tree = alloc_scene_tree(c->scene_tree, &failed);
-    c->title_bar.border = alloc_scene_tree(c->title_bar.tree, &failed);
-    c->title_bar.background = alloc_scene_tree(c->title_bar.tree, &failed);
+    c->title_bar.background = alloc_rect_node(c->title_bar.tree, &failed);
 
-    for (int i = 0; i < 4; i++) {
-        alloc_rect_node(c->title_bar.border, &failed);
-    }
-
-    for (int i = 0; i < 5; i++) {
-        alloc_rect_node(c->title_bar.background, &failed);
-    }
-
-    c->border.tree = alloc_scene_tree(c->scene_tree, &failed);
-    c->content_tree = alloc_scene_tree(c->border.tree, &failed);
+    c->sensing.tree = alloc_scene_tree(c->scene_tree, &failed);
+    c->content_tree = alloc_scene_tree(c->sensing.tree, &failed);
 
     if (view) {
-        // only containers with views can have borders
-        c->border.top = alloc_rect_node(c->border.tree, &failed);
-        c->border.bottom = alloc_rect_node(c->border.tree, &failed);
-        c->border.left = alloc_rect_node(c->border.tree, &failed);
-        c->border.right = alloc_rect_node(c->border.tree, &failed);
+        c->sensing.top = alloc_rect_node(c->sensing.tree, &failed);
+        c->sensing.bottom = alloc_rect_node(c->sensing.tree, &failed);
+        c->sensing.left = alloc_rect_node(c->sensing.tree, &failed);
+        c->sensing.right = alloc_rect_node(c->sensing.tree, &failed);
 
-        c->output_handler = wlr_scene_buffer_create(c->border.tree, NULL);
+        c->output_handler = wlr_scene_buffer_create(c->sensing.tree, NULL);
         if (!c->output_handler) {
             wsm_log(WSM_ERROR, "Could not create wlr_scene_buffer for container scene node: allocation failed!");
             failed = true;
@@ -226,11 +216,8 @@ struct wsm_container *container_create(struct wsm_view *view) {
     c->pending.layout = L_NONE;
     c->view = view;
     c->alpha = 1.0f;
-    c->marks = create_list();
 
-    wl_signal_init(&c->events.destroy);
     wl_signal_emit_mutable(&global_server.wsm_scene->events.new_node, &c->node);
-
     container_update(c);
 
     return c;
@@ -249,8 +236,6 @@ void container_destroy(struct wsm_container *con) {
     free(con->formatted_title);
     list_free(con->pending.children);
     list_free(con->current.children);
-
-    list_free_items_and_destroy(con->marks);
 
     if (con->view && con->view->container == con) {
         con->view->container = NULL;
@@ -616,15 +601,15 @@ void container_set_geometry_from_content(struct wsm_container *con) {
     size_t top = 0;
 
     if (con->pending.border != B_CSD && !con->pending.fullscreen_mode) {
-        border_width = con->pending.border_thickness * (con->pending.border != B_NONE);
+        border_width = get_max_thickness(con->pending) * (con->pending.border != B_NONE);
         top = con->pending.border == B_NORMAL ?
-                  container_titlebar_height() : border_width;
+            container_titlebar_height() : border_width;
     }
 
     con->pending.x = con->pending.content_x - border_width;
-    con->pending.y = con->pending.content_y - top;
+    con->pending.y = con->pending.content_y - top - border_width;
     con->pending.width = con->pending.content_width + border_width * 2;
-    con->pending.height = top + con->pending.content_height + border_width;
+    con->pending.height = top + con->pending.content_height + border_width * 2;
     node_set_dirty(&con->node);
 }
 
@@ -709,7 +694,7 @@ void container_update_representation(struct wsm_container *con) {
 
         if (con->title_bar.title_text) {
             wsm_text_node_set_text(con->title_bar.title_text, con->formatted_title);
-            container_arrange_title_bar(con);
+            container_arrange_title_bar_node(con);
         } else {
             container_update_title_bar(con);
         }
@@ -769,90 +754,6 @@ size_t container_build_representation(enum wsm_container_layout layout,
     return len;
 }
 
-static void update_rect_list(struct wlr_scene_tree *tree, pixman_region32_t *region) {
-    int len;
-    const pixman_box32_t *rects = pixman_region32_rectangles(region, &len);
-
-    wlr_scene_node_set_enabled(&tree->node, len > 0);
-    if (len == 0) {
-        return;
-    }
-
-    int i = 0;
-    struct wlr_scene_node *node;
-    wl_list_for_each(node, &tree->children, link) {
-        struct wlr_scene_rect *rect = wlr_scene_rect_from_node(node);
-        wlr_scene_node_set_enabled(&rect->node, i < len);
-
-        if (i < len) {
-            const pixman_box32_t *box = &rects[i++];
-            wlr_scene_node_set_position(&rect->node, box->x1, box->y1);
-            wlr_scene_rect_set_size(rect, box->x2 - box->x1, box->y2 - box->y1);
-        }
-    }
-}
-
-void container_arrange_title_bar(struct wsm_container *con) {
-    enum alignment title_align = ALIGN_CENTER;
-    int marks_buffer_width = 0;
-    int width = con->title_width;
-    int height = container_titlebar_height();
-
-    pixman_region32_t text_area;
-    pixman_region32_init(&text_area);
-
-    if (con->title_bar.title_text) {
-        struct wsm_text_node *node = con->title_bar.title_text;
-
-        int h_padding;
-        if (title_align == ALIGN_RIGHT) {
-            h_padding = width - global_config.titlebar_h_padding - node->width;
-        } else if (title_align == ALIGN_CENTER) {
-            h_padding = ((int)width - marks_buffer_width - node->width) >> 1;
-        } else {
-            h_padding = global_config.titlebar_h_padding;
-        }
-
-        h_padding = MAX(h_padding, 0);
-
-        int alloc_width = MIN((int) node->width,
-                              width - h_padding - global_config.titlebar_h_padding);
-        alloc_width = MAX(alloc_width, 0);
-
-        wsm_text_node_set_max_width(node, alloc_width);
-        wlr_scene_node_set_position(node->node,
-                                    h_padding, (height - node->height) >> 1);
-
-        pixman_region32_union_rect(&text_area, &text_area,
-                                   node->node->x, node->node->y, alloc_width, node->height);
-    }
-
-    // silence pixman errors
-    if (width <= 0 || height <= 0) {
-        pixman_region32_fini(&text_area);
-        return;
-    }
-
-    pixman_region32_t background, border;
-
-    int thickness = global_config.titlebar_border_thickness;
-    pixman_region32_init_rect(&background,
-                              thickness, thickness,
-                              width - thickness * 2, height - thickness * 2);
-    pixman_region32_init_rect(&border, 0, 0, width, height);
-    pixman_region32_subtract(&border, &border, &background);
-
-    pixman_region32_subtract(&background, &background, &text_area);
-    pixman_region32_fini(&text_area);
-
-    update_rect_list(con->title_bar.background, &background);
-    pixman_region32_fini(&background);
-    update_rect_list(con->title_bar.border, &border);
-    pixman_region32_fini(&border);
-
-    container_update(con);
-}
-
 void container_update_title_bar(struct wsm_container *con) {
     if (!con->formatted_title) {
         return;
@@ -868,7 +769,7 @@ void container_update_title_bar(struct wsm_container *con) {
     con->title_bar.title_text = wsm_text_node_create(con->title_bar.tree,
                                                       global_server.wsm_font, con->formatted_title, colors->text, true);
 
-    container_arrange_title_bar(con);
+    container_arrange_title_bar_node(con);
 }
 
 void container_handle_fullscreen_reparent(struct wsm_container *con) {
@@ -1180,60 +1081,21 @@ static void scene_rect_set_color(struct wlr_scene_rect *rect,
     wlr_scene_rect_set_color(rect, premultiplied);
 }
 
-static bool container_is_current_floating(struct wsm_container *container) {
-    if (!container->current.parent && container->current.workspace &&
-        list_find(container->current.workspace->floating, container) != -1) {
-        return true;
-    }
-    if (container->scratchpad) {
-        return true;
-    }
-    return false;
-}
-
 void container_update(struct wsm_container *con) {
     struct border_colors *colors = container_get_current_colors(con);
-    struct wsm_list *siblings = NULL;
-    // enum wsm_container_layout layout = L_NONE;
     float alpha = con->alpha;
-
-    if (con->current.parent) {
-        siblings = con->current.parent->current.children;
-        // layout = con->current.parent->current.layout;
-    } else if (con->current.workspace) {
-        siblings = con->current.workspace->current.tiling;
-        // layout = con->current.workspace->current.layout;
-    }
-
-    float bottom[4], right[4];
-    memcpy(bottom, colors->child_border, sizeof(bottom));
-    memcpy(right, colors->child_border, sizeof(right));
-
-    if (!container_is_current_floating(con) && siblings && siblings->length == 1) {
-        memcpy(right, colors->indicator, sizeof(right));
-    }
-
-    struct wlr_scene_node *node;
-    wl_list_for_each(node, &con->title_bar.border->children, link) {
-        struct wlr_scene_rect *rect = wlr_scene_rect_from_node(node);
-        scene_rect_set_color(rect, colors->border, alpha);
-    }
-
-    wl_list_for_each(node, &con->title_bar.background->children, link) {
-        struct wlr_scene_rect *rect = wlr_scene_rect_from_node(node);
-        scene_rect_set_color(rect, colors->background, alpha);
-    }
+    scene_rect_set_color(con->title_bar.background, colors->background, alpha);
 
     if (con->view) {
-        scene_rect_set_color(con->border.top, colors->child_border, alpha);
-        scene_rect_set_color(con->border.bottom, bottom, alpha);
-        scene_rect_set_color(con->border.left, colors->child_border, alpha);
-        scene_rect_set_color(con->border.right, right, alpha);
+        wlr_scene_rect_set_color(con->sensing.top, global_config.sensing_border_color);
+        wlr_scene_rect_set_color(con->sensing.bottom, global_config.sensing_border_color);
+        wlr_scene_rect_set_color(con->sensing.left, global_config.sensing_border_color);
+        wlr_scene_rect_set_color(con->sensing.right, global_config.sensing_border_color);
     }
 
     if (con->title_bar.title_text) {
         wsm_text_node_set_color(con->title_bar.title_text, colors->text);
-        wsm_text_node_set_background(con->title_bar.title_text, colors->background);
+        wsm_text_node_set_background(con->title_bar.title_text, global_config.text_background_color);
     }
 }
 
@@ -1272,12 +1134,6 @@ void container_set_resizing(struct wsm_container *con, bool resizing) {
 
 void floating_calculate_constraints(int *min_width, int *max_width,
                                     int *min_height, int *max_height) {
-    // *min_width = 75;
-    // *min_height = 50;
-    // struct wlr_box box;
-    // wlr_output_layout_get_box(global_server.wsm_scene->output_layout, NULL, &box);
-    // *max_width = box.width;
-    // *max_height = box.height;
     if (global_config.floating_minimum_width == -1) { // no minimum
         *min_width = 0;
     } else if (global_config.floating_minimum_width == 0) { // automatic
@@ -1347,4 +1203,9 @@ void disable_container(struct wsm_container *con) {
             disable_container(child);
         }
     }
+}
+
+int get_max_thickness(struct wsm_container_state state) {
+    return state.sensing_thickness > state.border_thickness
+               ? state.sensing_thickness : state.border_thickness;
 }
