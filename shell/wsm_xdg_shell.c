@@ -490,9 +490,12 @@ void handle_xdg_shell_toplevel(struct wl_listener *listener, void *data) {
 }
 
 void xdg_activation_v1_handle_new_token(struct wl_listener *listener, void *data) {
+    // struct wlr_xdg_activation_token_v1 *token = data;
+    // struct wsm_seat *seat = token->seat ? token->seat->data :
+    //                              input_manager_current_seat();
 
+    // struct wsm_workspace *ws = seat_get_focused_workspace(seat);
 }
-
 
 void xdg_activation_v1_handle_request_activate(struct wl_listener *listener,
                                                void *data) {

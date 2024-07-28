@@ -26,8 +26,10 @@ THE SOFTWARE.
 #include "wsm_log.h"
 #include "wsm_output.h"
 #include "wsm_scene.h"
+#include "wsm_scene.h"
 #include "wsm_session_lock.h"
 #include "wsm_output_manager.h"
+#include "wsm_output_config.h"
 #include "wsm_output_manager_config.h"
 
 #include <stdlib.h>
@@ -98,81 +100,6 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
     request_modeset();
 }
 
-static bool verify_output_config_v1(const struct wlr_output_configuration_v1 *config)
-{
-    const char *err_msg = NULL;
-    struct wlr_output_configuration_head_v1 *head;
-    wl_list_for_each(head, &config->heads, link) {
-        if (!head->state.enabled) {
-            continue;
-        }
-
-        /* Handle custom modes */
-        if (!head->state.mode) {
-            int32_t refresh = head->state.custom_mode.refresh;
-
-            if (wlr_output_is_drm(head->state.output) && refresh == 0) {
-                err_msg = "DRM backend does not support a refresh rate of 0";
-                goto custom_mode_failed;
-            }
-
-            if (wlr_output_is_wl(head->state.output) && refresh != 0) {
-                err_msg = "Wayland backend refresh rates unsupported";
-                goto custom_mode_failed;
-            }
-        }
-
-        if (wlr_output_is_wl(head->state.output)
-            && !head->state.adaptive_sync_enabled) {
-            err_msg = "Wayland backend requires adaptive sync";
-            goto custom_mode_failed;
-        }
-
-        struct wlr_output_state output_state;
-        wlr_output_state_init(&output_state);
-        wlr_output_head_v1_state_apply(&head->state, &output_state);
-
-        if (!wlr_output_test_state(head->state.output, &output_state)) {
-            wlr_output_state_finish(&output_state);
-            return false;
-        }
-        wlr_output_state_finish(&output_state);
-    }
-
-    return true;
-
-custom_mode_failed:
-    assert(err_msg);
-    wsm_log(WSM_INFO, "%s (%s: %dx%d@%d)",
-            err_msg,
-            head->state.output->name,
-            head->state.custom_mode.width,
-            head->state.custom_mode.height,
-            head->state.custom_mode.refresh);
-    return false;
-}
-
-// static void add_output_to_layout(struct wsm_output *output)
-// {
-//     struct wlr_output *wlr_output = output->wlr_output;
-//     struct wlr_output_layout_output *layout_output =
-//         wlr_output_layout_add_auto(global_server.wsm_scene->output_layout, wlr_output);
-//     if (!layout_output) {
-//         wsm_log(WSM_ERROR, "unable to add output to layout");
-//         return;
-//     }
-
-//     if (!output->scene_output) {
-//         output->scene_output =
-//             wlr_scene_output_create(global_server.wsm_scene->root_scene, wlr_output);
-//         if (!output->scene_output) {
-//             wsm_log(WSM_ERROR, "unable to create scene output");
-//             return;
-//         }
-//         // wlr_scene_output_layout_add_output(global_server.wsm_scene->wlr_scene_output_layout, layout_output, output->scene_output);
-//     }
-// }
-
 void update_output_manager_config(struct wsm_server *server)
 {
     struct wlr_output_configuration_v1 *config =
@@ -197,66 +124,98 @@ void update_output_manager_config(struct wsm_server *server)
     wlr_output_manager_v1_set_configuration(global_server.wsm_output_manager->wlr_output_manager_v1, config);
 }
 
-static bool output_config_apply(struct wsm_output_manager *output_manager, struct wlr_output_configuration_v1 *config)
-{
-    // bool success = true;
-    // output_manager->pending_output_layout_change++;
+static struct output_config *output_config_for_config_head(
+    struct wlr_output_configuration_head_v1 *config_head,
+    struct wsm_output *output) {
+    struct output_config *oc = new_output_config(output->wlr_output->name);
+    oc->enabled = config_head->state.enabled;
+    if (!oc->enabled) {
+        return oc;
+    }
 
-    // struct wlr_output_configuration_head_v1 *head;
-    // wl_list_for_each(head, &config->heads, link) {
-    //     struct wlr_output *o = head->state.output;
-    //     struct wsm_output *output = wsm_output_from_wlr_output(o);
-    //     bool output_enabled = head->state.enabled && !output->leased;
-    //     bool need_to_add = output_enabled && !o->enabled;
-    //     bool need_to_remove = !output_enabled && o->enabled;
+    if (config_head->state.mode != NULL) {
+        struct wlr_output_mode *mode = config_head->state.mode;
+        oc->width = mode->width;
+        oc->height = mode->height;
+        oc->refresh_rate = mode->refresh / 1000.f;
+    } else {
+        oc->width = config_head->state.custom_mode.width;
+        oc->height = config_head->state.custom_mode.height;
+        oc->refresh_rate =
+            config_head->state.custom_mode.refresh / 1000.f;
+    }
+    oc->x = config_head->state.x;
+    oc->y = config_head->state.y;
+    oc->transform = config_head->state.transform;
+    oc->scale = config_head->state.scale;
+    oc->adaptive_sync = config_head->state.adaptive_sync_enabled;
+    return oc;
+}
 
-    //     wlr_output_enable(o, output_enabled);
-    //     if (output_enabled) {
-    //         /* Output specific actions only */
-    //         if (head->state.mode) {
-    //             wlr_output_set_mode(o, head->state.mode);
-    //         } else {
-    //             int32_t width = head->state.custom_mode.width;
-    //             int32_t height = head->state.custom_mode.height;
-    //             int32_t refresh = head->state.custom_mode.refresh;
-    //             wlr_output_set_custom_mode(o, width,
-    //                                        height, refresh);
-    //         }
-    //         wlr_output_set_scale(o, head->state.scale);
-    //         wlr_output_set_transform(o, head->state.transform);
-    //         wsm_output_set_enable_adaptive_sync(o, head->state.adaptive_sync_enabled);
-    //     }
-    //     if (!wlr_output_commit(o)) {
-    //         wsm_log(WSM_INFO, "Output config commit failed: %s", o->name);
-    //         success = false;
-    //         break;
-    //     }
+static void output_manager_apply(struct wsm_server *server,
+                                 struct wlr_output_configuration_v1 *config, bool test_only) {
+    struct wsm_scene *root = server->wsm_scene;
+    size_t configs_len = wl_list_length(&root->all_outputs);
+    struct matched_output_config *configs = calloc(configs_len, sizeof(struct matched_output_config));
+    if (!configs) {
+        return;
+    }
 
-    //     if (need_to_add) {
-    //         add_output_to_layout(output);
-    //     }
+    int config_idx = 0;
+    struct wsm_output *sway_output;
+    wl_list_for_each(sway_output, &root->all_outputs, link) {
+        if (sway_output == root->fallback_output) {
+            configs_len--;
+            continue;
+        }
 
-    //     if (output_enabled) {
-    //         struct wlr_box pos = {0};
-    //         wlr_output_layout_get_box(global_server.wsm_scene->output_layout, o, &pos);
-    //         if (pos.x != head->state.x || pos.y != head->state.y) {
-    //             wlr_output_layout_add(global_server.wsm_scene->output_layout, o,
-    //                                   head->state.x, head->state.y);
-    //         }
-    //     }
+        struct matched_output_config *cfg = &configs[config_idx++];
+        cfg->output = sway_output;
 
-    //     if (need_to_remove) {
-    //         // regions_evacuate_output(output);
-    //         wlr_scene_output_destroy(output->scene_output);
-    //         wlr_output_layout_remove(global_server.wsm_scene->output_layout, o);
-    //         output->scene_output = NULL;
-    //     }
-    // }
+        struct wlr_output_configuration_head_v1 *config_head;
+        wl_list_for_each(config_head, &config->heads, link) {
+            if (config_head->state.output == sway_output->wlr_output) {
+                cfg->config = output_config_for_config_head(config_head, sway_output);
+                break;
+            }
+        }
+        if (!cfg->config) {
+            cfg->config = find_output_config(sway_output);
+        }
+    }
 
-    // output_manager->pending_output_layout_change--;
-    // update_output_manager_config(&global_server);
-    // return success;
-    return false;
+    sort_output_configs_by_priority(configs, configs_len);
+    bool ok = apply_output_configs(configs, configs_len, test_only, false);
+    for (size_t idx = 0; idx < configs_len; idx++) {
+        struct matched_output_config *cfg = &configs[idx];
+        bool store_config = false;
+        if (!test_only && ok) {
+            struct wlr_output_configuration_head_v1 *config_head;
+            wl_list_for_each(config_head, &config->heads, link) {
+                if (config_head->state.output == cfg->output->wlr_output) {
+                    store_config = true;
+                    break;
+                }
+            }
+        }
+        if (store_config) {
+            store_output_config(cfg->config);
+        } else {
+            free_output_config(cfg->config);
+        }
+    }
+    free(configs);
+
+    if (ok) {
+        wlr_output_configuration_v1_send_succeeded(config);
+    } else {
+        wlr_output_configuration_v1_send_failed(config);
+    }
+    wlr_output_configuration_v1_destroy(config);
+
+    if (!test_only) {
+        update_output_manager_config(server);
+    }
 }
 
 static void handle_output_manager_apply(struct wl_listener *listener, void *data) {
@@ -264,50 +223,30 @@ static void handle_output_manager_apply(struct wl_listener *listener, void *data
         wl_container_of(listener, output_manager, output_manager_apply);
     struct wlr_output_configuration_v1 *config = data;
 
-    bool config_is_good = verify_output_config_v1(config);
-    if (config_is_good && output_config_apply(output_manager, config)) {
-        wlr_output_configuration_v1_send_succeeded(config);
-    } else {
-        wlr_output_configuration_v1_send_failed(config);
-    }
-    wlr_output_configuration_v1_destroy(config);
-    struct wsm_output *output;
-    wl_list_for_each(output, &output_manager->outputs, link) {
-        // wlr_xcursor_manager_load(server->seat.xcursor_manager,
-        //                          output->wlr_output->scale);
-    }
+    output_manager_apply(&global_server, config, false);
 }
 
 static void handle_output_manager_test(struct wl_listener *listener, void *data) {
     struct wsm_output_manager *output_manager =
         wl_container_of(listener, output_manager, output_manager_test);
     struct wlr_output_configuration_v1 *config = data;
-    if (verify_output_config_v1(config)) {
-        wlr_output_configuration_v1_send_succeeded(config);
-    } else {
-        wlr_output_configuration_v1_send_failed(config);
-    }
-    wlr_output_configuration_v1_destroy(config);
+    output_manager_apply(&global_server, config, true);
 }
 
 static void handle_output_power_manager_set_mode(struct wl_listener *listener, void *data) {
-    // struct wsm_output_manager *output_manager = wl_container_of(listener, output_manager,
-    //                                         wsm_output_power_manager_set_mode);
-    // struct wlr_output_power_v1_set_mode_event *event = data;
-    // wsm_output_power_manager_set_mode(event);
-    // struct wlr_output_power_v1_set_mode_event *event = data;
-    // struct wsm_output *output = event->output->data;
+    struct wlr_output_power_v1_set_mode_event *event = data;
+    struct wsm_output *output = event->output->data;
 
-    // struct output_config *oc = new_output_config(output->wlr_output->name);
-    // switch (event->mode) {
-    // case ZWLR_OUTPUT_POWER_V1_MODE_OFF:
-    //     oc->power = 0;
-    //     break;
-    // case ZWLR_OUTPUT_POWER_V1_MODE_ON:
-    //     oc->power = 1;
-    //     break;
-    // }
-    // store_output_config(oc);
+    struct output_config *oc = new_output_config(output->wlr_output->name);
+    switch (event->mode) {
+    case ZWLR_OUTPUT_POWER_V1_MODE_OFF:
+        oc->power = 0;
+        break;
+    case ZWLR_OUTPUT_POWER_V1_MODE_ON:
+        oc->power = 1;
+        break;
+    }
+    store_output_config(oc);
     request_modeset();
 }
 
