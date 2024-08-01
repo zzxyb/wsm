@@ -216,7 +216,6 @@ static void handle_commit(struct wl_listener *listener, void *data) {
         wlr_xdg_surface_schedule_configure(xdg_surface);
         wlr_xdg_toplevel_set_wm_capabilities(view->wlr_xdg_toplevel,
                                              XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN);
-        // TODO: wlr_xdg_toplevel_set_bounds()
         return;
     }
 
@@ -233,7 +232,7 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 
     if (new_size) {
         memcpy(&view->geometry, &new_geo, sizeof(struct wlr_box));
-        if (container_is_floating(view->container)) {
+        if (container_is_floating(view->container) && (xdg_surface->initial_commit && view->using_csd)) {
             view_update_size(view);
             if (view->container->current.width) {
                 wlr_xdg_toplevel_set_size(view->wlr_xdg_toplevel, view->geometry.width,
