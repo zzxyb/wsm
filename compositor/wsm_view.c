@@ -730,13 +730,7 @@ void view_center_and_clip_surface(struct wsm_view *view) {
     bool clip_to_geometry = true;
 
     if (container_is_floating(con)) {
-        // We always center the current coordinates rather than the next, as the
-        // geometry immediately affects the currently active rendering.
-        int x = (int) fmax(0, (con->current.content_width - view->geometry.width) / 2);
-        int y = (int) fmax(0, (con->current.content_height - view->geometry.height) / 2);
         clip_to_geometry = !view->using_csd;
-
-        wlr_scene_node_set_position(&view->content_tree->node, x, y);
     } else {
         wlr_scene_node_set_position(&view->content_tree->node, 0, 0);
     }
