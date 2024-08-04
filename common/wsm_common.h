@@ -38,6 +38,8 @@ THE SOFTWARE.
 
 #include <wayland-client-protocol.h>
 
+struct timespec;
+
 #ifndef ARRAY_LENGTH
 #define ARRAY_LENGTH(a) (sizeof (a) / sizeof (a)[0])
 #endif
@@ -136,5 +138,7 @@ char *lenient_strncat(char *dest, const char *src, size_t len);
 int lenient_strcmp(const char *a, const char *b);
 void color_to_rgba(float dest[static 4], uint32_t color);
 char* int_to_string(int num);
+int64_t timespec_to_msec(const struct timespec *a);
+int64_t timespec_to_nsec(const struct timespec *a);
 
 #endif

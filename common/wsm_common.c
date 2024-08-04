@@ -30,6 +30,7 @@ THE SOFTWARE.
 #include <string.h>
 
 static const char whitespace[] = " \f\n\r\t\v";
+static const long NSEC_PER_SEC = 1000000000;
 
 void strip_whitespace(char *str) {
     size_t len = strlen(str);
@@ -121,4 +122,12 @@ char* int_to_string(int num) {
     }
     snprintf(str, length + 1, "%d", num);
     return str;
+}
+
+int64_t timespec_to_msec(const struct timespec *a) {
+    return (int64_t)a->tv_sec * 1000 + a->tv_nsec / 1000000;
+}
+
+int64_t timespec_to_nsec(const struct timespec *a) {
+    return (int64_t)a->tv_sec * NSEC_PER_SEC + a->tv_nsec;
 }

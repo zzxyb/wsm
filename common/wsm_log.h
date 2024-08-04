@@ -30,6 +30,8 @@ THE SOFTWARE.
 #include <string.h>
 #include <errno.h>
 
+struct timespec;
+
 typedef enum {
     WSM_SILENT = 0,
     WSM_ERROR = 1,
@@ -51,6 +53,9 @@ typedef void (*terminate_callback_t)(int exit_code);
 // Will log all messages less than or equal to `verbosity`
 // The `terminate` callback is called by `wsm_abort`
 void wsm_log_init(wsm_log_importance_t verbosity, terminate_callback_t terminate);
+
+void timespec_sub(struct timespec *r, const struct timespec *a,
+                  const struct timespec *b);
 
 void _wsm_log(wsm_log_importance_t verbosity, const char *format, ...) ATTRIB_PRINTF(2, 3);
 void _wsm_vlog(wsm_log_importance_t verbosity, const char *format, va_list args) ATTRIB_PRINTF(2, 0);
