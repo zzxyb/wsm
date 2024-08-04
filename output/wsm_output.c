@@ -288,7 +288,7 @@ static int output_repaint_timer_handler(void *data) {
     if (output->gamma_lut_changed) {
         struct wlr_output_state pending;
         wlr_output_state_init(&pending);
-        if (!wlr_scene_output_build_state(output->scene_output, &pending, NULL)) {
+        if (!wsm_scene_output_build_state(output->scene_output, &pending, NULL)) {
             return 0;
         }
 
@@ -312,7 +312,7 @@ static int output_repaint_timer_handler(void *data) {
     }
 
     // TODO: Need to refactor for post effect
-    wlr_scene_output_commit(output->scene_output, NULL);
+    wsm_scene_output_commit(output->scene_output, NULL);
     return 0;
 }
 

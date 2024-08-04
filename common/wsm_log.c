@@ -32,6 +32,7 @@ THE SOFTWARE.
 #include <unistd.h>
 
 static terminate_callback_t log_terminate = exit;
+static const long NSEC_PER_SEC = 1000000000;
 
 void _wsm_abort(const char *format, ...) {
     va_list args;
@@ -76,9 +77,8 @@ static const char *verbosity_headers[] = {
     [WSM_DEBUG] = "[DEBUG]",
 };
 
-static void timespec_sub(struct timespec *r, const struct timespec *a,
+void timespec_sub(struct timespec *r, const struct timespec *a,
                          const struct timespec *b) {
-    const long NSEC_PER_SEC = 1000000000;
     r->tv_sec = a->tv_sec - b->tv_sec;
     r->tv_nsec = a->tv_nsec - b->tv_nsec;
     if (r->tv_nsec < 0) {
