@@ -39,9 +39,6 @@ struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_serv
         return NULL;
     }
 
-    workspace_manager->current.active_workspace = NULL;
-    workspace_manager->current.workspaces = create_list();
-
     return workspace_manager;
 }
 
@@ -50,6 +47,5 @@ void wsm_workspace_manager_destroy(struct wsm_workspace_manager *workspace_manag
         wsm_log(WSM_ERROR, "workspace_manager is NULL!");
     };
 
-    list_free(workspace_manager->current.workspaces);
     free(workspace_manager);
 }

@@ -122,9 +122,9 @@ void workspace_destroy(struct wsm_workspace *workspace) {
 
 void workspace_detach(struct wsm_workspace *workspace) {
     struct wsm_output *output = workspace->output;
-    int index = list_find(output->workspace_manager->current.workspaces, workspace);
+    int index = list_find(output->workspaces, workspace);
     if (index != -1) {
-        list_del(output->workspace_manager->current.workspaces, index);
+        list_del(output->workspaces, index);
     }
     workspace->output = NULL;
 
@@ -187,9 +187,9 @@ void root_for_each_container(void (*f)(struct wsm_container *con, void *data),
 
     // Saved workspaces
     for (int i = 0; i < global_server.wsm_scene->fallback_output->
-                        workspace_manager->current.workspaces->length; ++i) {
+                        workspaces->length; ++i) {
         struct wsm_workspace *ws = global_server.wsm_scene->fallback_output->
-                                   workspace_manager->current.workspaces->items[i];
+                                   workspaces->items[i];
         workspace_for_each_container(ws, f, data);
     }
 }
@@ -404,7 +404,7 @@ void output_add_workspace(struct wsm_output *output,
     if (workspace->output) {
         workspace_detach(workspace);
     }
-    list_add(output->workspace_manager->current.workspaces, workspace);
+    list_add(output->workspaces, workspace);
     workspace->output = output;
     node_set_dirty(&output->node);
     node_set_dirty(&workspace->node);
@@ -427,7 +427,7 @@ static int sort_workspace_cmp_qsort(const void *_a, const void *_b) {
 }
 
 void output_sort_workspaces(struct wsm_output *output) {
-    list_stable_sort(output->workspace_manager->current.workspaces, sort_workspace_cmp_qsort);
+    list_stable_sort(output->workspaces, sort_workspace_cmp_qsort);
 }
 
 void disable_workspace(struct wsm_workspace *ws) {

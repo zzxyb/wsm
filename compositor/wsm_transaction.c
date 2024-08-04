@@ -57,7 +57,7 @@ struct wsm_transaction_instruction {
     struct wsm_transaction *transaction;
     struct wsm_node *node;
     union {
-        struct wsm_workspace_manager_state output_state;
+        struct wsm_output_state output_state;
         struct wsm_workspace_state workspace_state;
         struct wsm_container_state container_state;
     };
@@ -113,13 +113,13 @@ static void transaction_destroy(struct wsm_transaction *transaction) {
 
 static void copy_output_state(struct wsm_output *output,
                               struct wsm_transaction_instruction *instruction) {
-    struct wsm_workspace_manager_state *state = &instruction->output_state;
+    struct wsm_output_state *state = &instruction->output_state;
     if (state->workspaces) {
         state->workspaces->length = 0;
     } else {
         state->workspaces = create_list();
     }
-    list_cat(state->workspaces, output->workspace_manager->current.workspaces);
+    list_cat(state->workspaces, output->workspaces);
 
     state->active_workspace = output_get_active_workspace(output);
 }
@@ -239,9 +239,9 @@ static void transaction_add_node(struct wsm_transaction *transaction,
 }
 
 static void apply_output_state(struct wsm_output *output,
-                               struct wsm_workspace_manager_state *state) {
-    list_free(output->workspace_manager->current.workspaces);
-    memcpy(&output->workspace_manager->current, state, sizeof(struct wsm_workspace_manager_state));
+                               struct wsm_output_state *state) {
+    list_free(output->current.workspaces);
+    memcpy(&output->current, state, sizeof(struct wsm_output_state));
 }
 
 static void apply_workspace_state(struct wsm_workspace *ws,

@@ -53,6 +53,11 @@ enum scale_filter_mode {
     SCALE_FILTER_SMART,
 };
 
+struct wsm_output_state {
+    struct wsm_list *workspaces;
+    struct wsm_workspace *active_workspace;
+};
+
 /**
  * @brief The wsm_output class
  */
@@ -87,7 +92,8 @@ struct wsm_output {
 
     bool enabled;
 
-    struct wsm_workspace_manager *workspace_manager;
+    struct wsm_list *workspaces;
+    struct wsm_output_state current;
 
     struct wl_listener layout_destroy;
     struct wl_listener destroy;
@@ -132,7 +138,6 @@ void wsm_output_damage_whole(struct wsm_output *output);
 void wsm_output_damage_surface(struct wsm_output *output, double ox, double oy,
                            struct wlr_surface *surface, bool whole);
 void wsm_output_damage_box(struct wsm_output *output, struct wlr_box *box);
-struct wsm_workspace *wsm_output_get_active_workspace(struct wsm_output *output);
 struct wlr_box wsm_output_usable_area_in_layout_coords(struct wsm_output *output);
 struct wlr_box wsm_output_usable_area_scaled(struct wsm_output *output);
 void wsm_output_set_enable_adaptive_sync(struct wlr_output *output, bool enabled);
