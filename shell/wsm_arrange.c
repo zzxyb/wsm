@@ -81,7 +81,7 @@ void arrange_root_scene(struct wsm_scene *root) {
     if (fs) {
         for (int i = 0; i < root->outputs->length; i++) {
             struct wsm_output *output = root->outputs->items[i];
-            struct wsm_workspace *ws = output->workspace_manager->current.active_workspace;
+            struct wsm_workspace *ws = output->current.active_workspace;
 
             if (ws) {
                 arrange_workspace_floating(ws);
@@ -128,17 +128,17 @@ void wsm_arrange_output_auto(struct wsm_output *output) {
     output->width = output_box.width;
     output->height = output_box.height;
 
-    for (int i = 0; i < output->workspace_manager->current.workspaces->length; ++i) {
-        struct wsm_workspace *workspace = output->workspace_manager->current.workspaces->items[i];
+    for (int i = 0; i < output->workspaces->length; ++i) {
+        struct wsm_workspace *workspace = output->workspaces->items[i];
         wsm_arrange_workspace_auto(workspace);
     }
 }
 
 void arrange_output_width_size(struct wsm_output *output, int width, int height) {
-    for (int i = 0; i < output->workspace_manager->current.workspaces->length; i++) {
-        struct wsm_workspace *child = output->workspace_manager->current.workspaces->items[i];
+    for (int i = 0; i < output->current.workspaces->length; i++) {
+        struct wsm_workspace *child = output->current.workspaces->items[i];
 
-        bool activated = output->workspace_manager->current.active_workspace == child;
+        bool activated = output->current.active_workspace == child;
 
         wlr_scene_node_reparent(&child->layers.non_fullscreen->node, output->layers.tiling);
         wlr_scene_node_reparent(&child->layers.fullscreen->node, output->layers.fullscreen);
@@ -548,7 +548,7 @@ void arrange_workspace_floating(struct wsm_workspace *ws) {
         } else {
             for (int i = 0; i < global_server.wsm_scene->outputs->length; i++) {
                 struct wsm_output *output = global_server.wsm_scene->outputs->items[i];
-                struct wsm_workspace *active = output->workspace_manager->current.active_workspace;
+                struct wsm_workspace *active = output->current.active_workspace;
 
                 if (active && active->fullscreen &&
                     container_is_transient_for(floater, active->fullscreen)) {

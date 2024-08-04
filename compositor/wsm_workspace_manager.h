@@ -33,18 +33,11 @@ struct wsm_list;
 
 struct wsm_server;
 
-struct wsm_workspace_manager_state {
-    struct wsm_list *workspaces;
-    struct wsm_workspace *active_workspace;
-};
-
 /**
  * @brief workspace management.
  *
  * @details record the status between current workspaces,
- * add and delete workspaces.a wsm_output can only have
- * one wsm_workspace_manager.generally, the size of
- * wsm_workspace is the same as wsm_output.
+ * manage all wsm_output.
  * -------------------------------------------------------------------------
  * |                                                                       |
  * |                     wsm_workspace_manager                             |
@@ -60,7 +53,6 @@ struct wsm_workspace_manager_state {
  * -------------------------------------------------------------------------
  */
 struct wsm_workspace_manager {
-    struct wsm_workspace_manager_state current;
 };
 
 struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_server* server,

@@ -464,12 +464,8 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
     output->detected_subpixel = wlr_output->subpixel;
     output->scale_filter = SCALE_FILTER_NEAREST;
 
-    output->workspace_manager = calloc(1, sizeof(struct wsm_workspace_manager));
-    if (!wsm_assert(output, "Could not create wsm_workspace_manager: allocation failed!")) {
-        goto out;
-    }
-
-    output->workspace_manager->current.workspaces = create_list();
+    output->workspaces = create_list();
+    output->current.workspaces = create_list();
 
     wl_signal_init(&output->events.disable);
 
@@ -520,7 +516,8 @@ void wsm_output_destroy(struct wsm_output *output) {
     }
 
     destroy_scene_layers(output);
-    wsm_workspace_manager_destroy(output->workspace_manager);
+    list_free(output->workspaces);
+    list_free(output->current.workspaces);
     wl_event_source_remove(output->repaint_timer);
     free(output);
 }
@@ -547,8 +544,8 @@ void output_enable(struct wsm_output *output) {
     // Saved workspaces
 
     struct wsm_workspace *ws = NULL;
-    if (!output->workspace_manager->current.workspaces->length) {
-        char *ws_name = int_to_string(output->workspace_manager->current.workspaces->length);
+    if (!output->workspaces->length) {
+        char *ws_name = int_to_string(output->workspaces->length);
         ws = workspace_create(output, ws_name);
         struct wsm_seat *seat = NULL;
         wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
@@ -586,7 +583,7 @@ static void evacuate_sticky(struct wsm_workspace *old_ws,
 }
 
 static void output_evacuate(struct wsm_output *output) {
-    struct wsm_list *workspaces = output->workspace_manager->current.workspaces;
+    struct wsm_list *workspaces = output->workspaces;
     if (!workspaces->length) {
         return;
     }
@@ -670,14 +667,10 @@ void wsm_output_add_workspace(struct wsm_output *output,
     if (workspace->output) {
         workspace_detach(workspace);
     }
-    list_add(output->workspace_manager->current.workspaces, workspace);
+    list_add(output->workspaces, workspace);
     workspace->output = output;
     node_set_dirty(&output->node);
     node_set_dirty(&workspace->node);
-}
-
-struct wsm_workspace *wsm_output_get_active_workspace(struct wsm_output *output) {
-    return output->workspace_manager->current.active_workspace;
 }
 
 struct wsm_output *wsm_wsm_output_nearest_to_cursor() {
@@ -764,10 +757,10 @@ struct wsm_workspace *output_get_active_workspace(struct wsm_output *output) {
     struct wsm_seat *seat = input_manager_current_seat();
     struct wsm_node *focus = seat_get_active_tiling_child(seat, &output->node);
     if (!focus) {
-        if (!output->workspace_manager->current.workspaces->length) {
+        if (!output->workspaces->length) {
             return NULL;
         }
-        return output->workspace_manager->current.workspaces->items[0];
+        return output->workspaces->items[0];
     }
     return focus->wsm_workspace;
 }
@@ -800,8 +793,8 @@ struct wsm_output_non_desktop *output_non_desktop_create(struct wlr_output *wlr_
 
 void output_for_each_container(struct wsm_output *output,
                                void (*f)(struct wsm_container *con, void *data), void *data) {
-    for (int i = 0; i < output->workspace_manager->current.workspaces->length; ++i) {
-        struct wsm_workspace *workspace = output->workspace_manager->current.workspaces->items[i];
+    for (int i = 0; i < output->workspaces->length; ++i) {
+        struct wsm_workspace *workspace = output->workspaces->items[i];
         workspace_for_each_container(workspace, f, data);
     }
 }
