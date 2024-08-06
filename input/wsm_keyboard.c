@@ -24,7 +24,6 @@ THE SOFTWARE.
 
 #include "wsm_log.h"
 #include "wsm_seat.h"
-#include "wsm_list.h"
 #include "wsm_server.h"
 #include "wsm_config.h"
 #include "wsm_input_config.h"

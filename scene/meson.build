@@ -3,7 +3,6 @@ wsm_scene = static_library(
         files(
         'wsm_scene.c',
         'wsm_scene.h',
-        'wsm_view_item.c',
         'node/wsm_node.c',
         'node/wsm_text_node.c',
         'node/wsm_image_node.c',

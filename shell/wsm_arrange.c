@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include "wsm_arrange.h"
 #include "wsm_workspace.h"
 #include "wsm_common.h"
+#include "wsm_titlebar.h"
 #include "wsm_layer_shell.h"
 #include "wsm_workspace_manager.h"
 #include "node/wsm_node_descriptor.h"
@@ -347,8 +348,8 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
     pixman_region32_t text_area;
     pixman_region32_init(&text_area);
 
-    if (con->title_bar.title_text) {
-        struct wsm_text_node *node = con->title_bar.title_text;
+    if (con->title_bar->title_text) {
+        struct wsm_text_node *node = con->title_bar->title_text;
 
         int h_padding;
         if (title_align == ALIGN_RIGHT) {
@@ -379,10 +380,9 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
         return;
     }
 
-    wlr_scene_node_set_enabled(&con->title_bar.background->node, true);
-    wlr_scene_node_set_position(&con->title_bar.background->node, 0, get_max_thickness(con->pending)
+    wlr_scene_node_set_position(&con->title_bar->background->node, 0, get_max_thickness(con->pending)
                                                                          * con->pending.border_top);
-    wlr_scene_rect_set_size(con->title_bar.background, width, height);
+    wlr_scene_rect_set_size(con->title_bar->background, width, height);
 
     container_update(con);
 }
@@ -392,12 +392,12 @@ void wsm_arrange_title_bar(struct wsm_container *con,
     container_update(con);
 
     bool has_title_bar = height > 0;
-    wlr_scene_node_set_enabled(&con->title_bar.tree->node, has_title_bar);
+    wlr_scene_node_set_enabled(&con->title_bar->tree->node, has_title_bar && con->view->enabled);
     if (!has_title_bar) {
         return;
     }
 
-    wlr_scene_node_set_position(&con->title_bar.tree->node, x, y);
+    wlr_scene_node_set_position(&con->title_bar->tree->node, x, y);
 
     con->title_width = width;
     container_arrange_title_bar_node(con);
@@ -481,7 +481,7 @@ void wsm_arrange_container_with_title_bar(struct wsm_container *con,
     } else {
         // make sure to disable the title bar if the parent is not managing it
         if (title_bar) {
-            wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
+            wlr_scene_node_set_enabled(&con->title_bar->tree->node, false);
         }
 
         arrange_children_with_titlebar(con->current.layout, con->current.children,

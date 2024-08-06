@@ -35,6 +35,7 @@ THE SOFTWARE.
 #include "wsm_config.h"
 #include "wsm_common.h"
 #include "wsm_arrange.h"
+#include "wsm_titlebar.h"
 #include "node/wsm_text_node.h"
 #include "wsm_titlebar.h"
 #include "wsm_xdg_decoration.h"
@@ -168,8 +169,9 @@ struct wsm_container *container_create(struct wsm_view *view) {
     bool failed = false;
     c->scene_tree = alloc_scene_tree(global_server.wsm_scene->staging, &failed);
 
-    c->title_bar.tree = alloc_scene_tree(c->scene_tree, &failed);
-    c->title_bar.background = alloc_rect_node(c->title_bar.tree, &failed);
+    c->title_bar = wsm_titlebar_create();
+    c->title_bar->tree = alloc_scene_tree(c->scene_tree, &failed);
+    c->title_bar->background = alloc_rect_node(c->title_bar->tree, &failed);
 
     c->sensing.tree = alloc_scene_tree(c->scene_tree, &failed);
     c->content_tree = alloc_scene_tree(c->sensing.tree, &failed);
@@ -246,6 +248,10 @@ void container_destroy(struct wsm_container *con) {
     }
 
     scene_node_disown_children(con->content_tree);
+    if (con->title_bar) {
+        wsm_titlebar_destroy(con->title_bar);
+        con->title_bar = NULL;
+    }
     wlr_scene_node_destroy(&con->scene_tree->node);
     free(con);
 }
@@ -692,8 +698,8 @@ void container_update_representation(struct wsm_container *con) {
         container_build_representation(con->pending.layout, con->pending.children,
                                        con->formatted_title);
 
-        if (con->title_bar.title_text) {
-            wsm_text_node_set_text(con->title_bar.title_text, con->formatted_title);
+        if (con->title_bar->title_text) {
+            wsm_text_node_set_text(con->title_bar->title_text, con->formatted_title);
             container_arrange_title_bar_node(con);
         } else {
             container_update_title_bar(con);
@@ -761,12 +767,12 @@ void container_update_title_bar(struct wsm_container *con) {
 
     struct border_colors *colors = container_get_current_colors(con);
 
-    if (con->title_bar.title_text) {
-        wlr_scene_node_destroy(con->title_bar.title_text->node);
-        con->title_bar.title_text = NULL;
+    if (con->title_bar->title_text) {
+        wlr_scene_node_destroy(con->title_bar->title_text->node);
+        con->title_bar->title_text = NULL;
     }
 
-    con->title_bar.title_text = wsm_text_node_create(con->title_bar.tree,
+    con->title_bar->title_text = wsm_text_node_create(con->title_bar->tree,
                                                       global_server.wsm_font, con->formatted_title, colors->text, true);
 
     container_arrange_title_bar_node(con);
@@ -1084,7 +1090,7 @@ static void scene_rect_set_color(struct wlr_scene_rect *rect,
 void container_update(struct wsm_container *con) {
     struct border_colors *colors = container_get_current_colors(con);
     float alpha = con->alpha;
-    scene_rect_set_color(con->title_bar.background, colors->background, alpha);
+    scene_rect_set_color(con->title_bar->background, colors->background, alpha);
 
     if (con->view) {
         wlr_scene_rect_set_color(con->sensing.top, global_config.sensing_border_color);
@@ -1093,9 +1099,9 @@ void container_update(struct wsm_container *con) {
         wlr_scene_rect_set_color(con->sensing.right, global_config.sensing_border_color);
     }
 
-    if (con->title_bar.title_text) {
-        wsm_text_node_set_color(con->title_bar.title_text, colors->text);
-        wsm_text_node_set_background(con->title_bar.title_text, global_config.text_background_color);
+    if (con->title_bar->title_text) {
+        wsm_text_node_set_color(con->title_bar->title_text, colors->text);
+        wsm_text_node_set_background(con->title_bar->title_text, global_config.text_background_color);
     }
 }
 

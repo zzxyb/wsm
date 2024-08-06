@@ -78,6 +78,8 @@ struct wsm_view_impl {
     bool (*wants_floating)(struct wsm_view *view);
     bool (*is_transient_for)(struct wsm_view *child,
                              struct wsm_view *ancestor);
+    void (*maximize)(struct wsm_view *view, bool maximize);
+    void (*minimize)(struct wsm_view *view, bool minimize);
     void (*close)(struct wsm_view *view);
     void (*close_popups)(struct wsm_view *view);
     void (*destroy)(struct wsm_view *view);
@@ -135,6 +137,7 @@ struct wsm_view {
     } events;
 
     int max_render_time; // In milliseconds
+    bool enabled;
 };
 
 struct wsm_xdg_shell_view {
@@ -231,8 +234,11 @@ void view_request_urgent(struct wsm_view *view);
 void view_set_csd_from_server(struct wsm_view *view, bool enabled);
 void view_update_csd_from_client(struct wsm_view *view, bool enabled);
 void view_set_tiled(struct wsm_view *view, bool tiled);
+void view_maximize(struct wsm_view *view, bool maximize);
+void view_minimize(struct wsm_view *view, bool minimize);
 void view_close(struct wsm_view *view);
 void view_close_popups(struct wsm_view *view);
+void view_set_enable(struct wsm_view *view, bool enable);
 void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
               bool fullscreen, struct wlr_output *fullscreen_output, bool decoration);
 void view_unmap(struct wsm_view *view);

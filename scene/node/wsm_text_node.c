@@ -292,17 +292,6 @@ struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent, const 
     return &buffer->props;
 }
 
-void wsm_text_node_destroy(struct wsm_text_node *node) {
-    if (!node) {
-        wsm_log(WSM_ERROR, "wsm_text_node is NULL!");
-        return;
-    }
-
-    wlr_scene_node_destroy(node->node);
-
-    free(node);
-}
-
 void wsm_text_node_set_color(struct wsm_text_node *node, float color[4]) {
     if (memcmp(&node->color, color, sizeof(*color) * 4) == 0) {
         return;
