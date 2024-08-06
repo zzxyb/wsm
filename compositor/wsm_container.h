@@ -26,7 +26,6 @@ THE SOFTWARE.
 #define WSM_CONTAINER_H
 
 #include "node/wsm_node.h"
-#include "wsm_titlebar.h"
 
 #include <wayland-server-core.h>
 
@@ -38,6 +37,7 @@ THE SOFTWARE.
 struct wlr_scene_buffer;
 
 struct wsm_view;
+struct wsm_titlebar;
 struct wsm_view_item;
 
 /**
@@ -204,7 +204,7 @@ struct wsm_container {
 
     struct wlr_scene_tree *scene_tree;
 
-    struct wsm_titlebar title_bar;
+    struct wsm_titlebar *title_bar;
 
     struct {
         struct wlr_scene_tree *tree;

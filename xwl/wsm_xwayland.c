@@ -403,6 +403,20 @@ static bool is_transient_for(struct wsm_view *child,
     return false;
 }
 
+static void _maximize(struct wsm_view *view, bool maximize) {
+    if (xwayland_view_from_view(view) == NULL) {
+        return;
+    }
+    wlr_xwayland_surface_set_maximized(view->wlr_xwayland_surface, maximize);
+}
+
+static void _minimize(struct wsm_view *view, bool minimize) {
+    if (xwayland_view_from_view(view) == NULL) {
+        return;
+    }
+    wlr_xwayland_surface_set_minimized(view->wlr_xwayland_surface, minimize);
+}
+
 static void _close(struct wsm_view *view) {
     if (xwayland_view_from_view(view) == NULL) {
         return;
@@ -447,6 +461,8 @@ static const struct wsm_view_impl view_impl = {
     .set_fullscreen = set_fullscreen,
     .wants_floating = wants_floating,
     .is_transient_for = is_transient_for,
+    .maximize = _maximize,
+    .minimize = _minimize,
     .close = _close,
     .destroy = destroy,
 };

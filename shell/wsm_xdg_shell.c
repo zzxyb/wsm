@@ -172,6 +172,17 @@ static void _close(struct wsm_view *view) {
     wlr_xdg_toplevel_send_close(view->wlr_xdg_toplevel);
 }
 
+static void _maximize(struct wsm_view *view, bool maximize) {
+    if (xdg_shell_view_from_view(view) == NULL) {
+        return;
+    }
+    wlr_xdg_toplevel_set_maximized(view->wlr_xdg_toplevel, maximize);
+}
+
+static void _minimize(struct wsm_view *view, bool minimize) {
+    view_set_enable(view, minimize);
+}
+
 static void close_popups(struct wsm_view *view) {
     struct wlr_xdg_popup *popup, *tmp;
     wl_list_for_each_safe(popup, tmp, &view->wlr_xdg_toplevel->base->popups, link) {
@@ -198,6 +209,8 @@ static const struct wsm_view_impl view_impl = {
     .set_resizing = set_resizing,
     .wants_floating = wants_floating,
     .is_transient_for = is_transient_for,
+    .maximize = _maximize,
+    .minimize = _minimize,
     .close = _close,
     .close_popups = close_popups,
     .destroy = destroy,

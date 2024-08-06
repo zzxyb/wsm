@@ -84,6 +84,7 @@ bool view_init(struct wsm_view *view, enum wsm_view_type type,
     view->type = type;
     view->impl = impl;
     view->allow_request_urgent = true;
+    view->enabled = true;
     wl_signal_init(&view->events.unmap);
     return true;
 }
@@ -357,6 +358,18 @@ void view_set_tiled(struct wsm_view *view, bool tiled) {
     }
 }
 
+void view_maximize(struct wsm_view *view, bool maximize) {
+    if (view->impl->maximize) {
+        view->impl->maximize(view, maximize);
+    }
+}
+
+void view_minimize(struct wsm_view *view, bool minimize) {
+    if (view->impl->minimize) {
+        view->impl->minimize(view, minimize);
+    }
+}
+
 void view_close(struct wsm_view *view) {
     if (view->impl->close) {
         view->impl->close(view);
@@ -367,6 +380,31 @@ void view_close_popups(struct wsm_view *view) {
     if (view->impl->close_popups) {
         view->impl->close_popups(view);
     }
+}
+
+void view_set_enable(struct wsm_view *view, bool enable) {
+    if (view->scene_tree) {
+        wlr_scene_node_set_enabled(&view->scene_tree->node, enable);
+
+        if (view->container) {
+            if (view->container->scene_tree) {
+                wlr_scene_node_set_enabled(&view->container->scene_tree->node, enable);
+            }
+
+            if (view->container->title_bar) {
+                wlr_scene_node_set_enabled(&view->container->title_bar->tree->node, enable);
+            }
+
+            if (view->container->sensing.tree) {
+                wlr_scene_node_set_enabled(&view->container->sensing.tree->node, enable);
+            }
+        } else {
+            wsm_log(WSM_ERROR, "wsm_view's container is NULL");
+        }
+    } else {
+        wsm_log(WSM_ERROR, "wsm_view's scene_tree is NULL");
+    }
+    view->enabled = enable;
 }
 
 static void view_populate_pid(struct wsm_view *view) {
@@ -882,8 +920,8 @@ void view_update_title(struct wsm_view *view, bool force) {
     view->container->title = title ? strdup(title) : NULL;
 
     // Update title after the global font height is updated
-    if (view->container->title_bar.title_text && len) {
-        wsm_text_node_set_text(view->container->title_bar.title_text,
+    if (view->container->title_bar->title_text && len) {
+        wsm_text_node_set_text(view->container->title_bar->title_text,
                                 view->container->formatted_title);
         container_arrange_title_bar_node(view->container);
     } else {

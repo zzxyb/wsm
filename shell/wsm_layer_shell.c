@@ -211,13 +211,13 @@ static void handle_node_destroy(struct wl_listener *listener, void *data) {
     struct wsm_seat *seat = input_manager_get_default_seat();
     struct wl_client *client =
         wl_resource_get_client(layer->layer_surface->resource);
-    // if (!server.session_lock.lock) {
+    if (!global_server.session_lock.lock) {
         struct wsm_layer_surface *consider_layer =
             find_mapped_layer_by_client(client, layer->output);
         if (consider_layer) {
             seat_set_focus_layer(seat, consider_layer->layer_surface);
         }
-    // }
+    }
 
     if (layer->output) {
         wsm_arrange_layers(layer->output);
