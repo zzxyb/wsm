@@ -130,10 +130,10 @@ static void handle_tablet_tool_set_cursor(struct wl_listener *listener, void *da
         wl_container_of(listener, tool, set_cursor);
     struct wlr_tablet_v2_event_cursor *event = data;
 
-    // struct wsm_cursor *cursor = tool->seat->cursor;
-    // if (!seatop_allows_set_cursor(cursor->seat)) {
-    //     return;
-    // }
+    struct wsm_cursor *cursor = tool->seat->wsm_cursor;
+    if (!seatop_allows_set_cursor(cursor->wsm_seat)) {
+        return;
+    }
 
     struct wl_client *focused_client = NULL;
     struct wlr_surface *focused_surface = tool->tablet_v2_tool->focused_surface;
@@ -147,8 +147,8 @@ static void handle_tablet_tool_set_cursor(struct wl_listener *listener, void *da
         return;
     }
 
-    // cursor_set_image_surface(cursor, event->surface, event->hotspot_x,
-    //                          event->hotspot_y, focused_client);
+    cursor_set_image_surface(cursor, event->surface, event->hotspot_x,
+                             event->hotspot_y, focused_client);
 }
 
 static void handle_tablet_tool_destroy(struct wl_listener *listener, void *data) {

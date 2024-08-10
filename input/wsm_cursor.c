@@ -67,32 +67,6 @@ static int hide_notify(void *data) {
     return 1;
 }
 
-static void handle_request_cursor(struct wl_listener *listener, void *data) {
-    struct wsm_cursor *cursor = wl_container_of(listener, cursor, request_cursor);
-    struct wsm_seat *seat = cursor->wsm_seat;
-
-    if (!seatop_allows_set_cursor(seat)) {
-        return;
-    }
-
-    struct wlr_seat_pointer_request_set_cursor_event *event = data;
-    struct wl_client *focused_client = NULL;
-    struct wlr_surface *focused_surface =
-        seat->wlr_seat->pointer_state.focused_surface;
-    if (focused_surface != NULL) {
-        focused_client = wl_resource_get_client(focused_surface->resource);
-    }
-
-    if (focused_client == NULL ||
-        event->seat_client->client != focused_client) {
-        wsm_log(WSM_ERROR, "denying request to set cursor from unfocused client");
-        return;
-    }
-
-    cursor_set_image_surface(cursor, event->surface, event->hotspot_x,
-                             event->hotspot_y, focused_client);
-}
-
 static void handle_request_set_shape(struct wl_listener *listener, void *data) {
     const struct wlr_cursor_shape_manager_v1_request_set_shape_event *event = data;
     struct wsm_seat *seat = event->seat_client->seat->data;
@@ -604,18 +578,12 @@ struct wsm_cursor *wsm_cursor_create(const struct wsm_server* server, struct wsm
     if (!wsm_assert(wlr_cursor, "could not allocate wlr_cursor")) {
         return NULL;
     }
-    cursor->wlr_cursor = wlr_cursor;
+
     cursor->previous.x = wlr_cursor->x;
     cursor->previous.y = wlr_cursor->y;
 
     cursor->wsm_seat = seat;
     wlr_cursor_attach_output_layout(wlr_cursor, server->wsm_scene->output_layout);
-
-    wlr_cursor_set_xcursor(cursor->wlr_cursor, global_server.xcursor_manager, "default");
-
-    cursor->request_cursor.notify = handle_request_cursor;
-    wl_signal_add(&seat->wlr_seat->events.request_set_cursor,
-                  &cursor->request_cursor);
 
     struct wlr_cursor_shape_manager_v1 *cursor_shape_manager =
         wlr_cursor_shape_manager_v1_create(server->wl_display,
