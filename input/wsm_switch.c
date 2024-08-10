@@ -25,6 +25,7 @@ THE SOFTWARE.
 #include "wsm_log.h"
 #include "wsm_seat.h"
 #include "wsm_switch.h"
+#include "wsm_input_manager.h"
 
 #include <stdlib.h>
 
@@ -51,15 +52,15 @@ static void handle_switch_toggle(struct wl_listener *listener, void *data) {
     struct wsm_switch *switch_device =
         wl_container_of(listener, switch_device, switch_toggle);
     struct wlr_switch_toggle_event *event = data;
-    // struct wsm_seat *seat = switch_device->seat_device->wsm_seat;
-    // seat_idle_notify_activity(seat, IDLE_SOURCE_SWITCH);
+    struct wsm_seat *seat = switch_device->seat_device->wsm_seat;
+    seat_idle_notify_activity(seat, WLR_INPUT_DEVICE_SWITCH);
 
-    // struct wlr_input_device *wlr_device =
-    //     switch_device->seat_device->input_device->wlr_device;
-    // char *device_identifier = input_device_get_identifier(wlr_device);
-    // wsm_log(WSM_DEBUG, "%s: type %d state %d", device_identifier,
-    //          event->switch_type, event->switch_state);
-    // free(device_identifier);
+    struct wlr_input_device *wlr_device =
+        switch_device->seat_device->input_device->wlr_device;
+    char *device_identifier = input_device_get_identifier(wlr_device);
+    wsm_log(WSM_DEBUG, "%s: type %d state %d", device_identifier,
+             event->switch_type, event->switch_state);
+    free(device_identifier);
 
     switch_device->type = event->switch_type;
     switch_device->state = event->switch_state;
