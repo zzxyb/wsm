@@ -38,6 +38,8 @@ THE SOFTWARE.
 #include "wsm_seatop_default.h"
 #include "wsm_workspace.h"
 #include "wsm_arrange.h"
+#include "wsm_workspace.h"
+#include "wsm_container.h"
 #include "node/wsm_node_descriptor.h"
 
 #include <stdlib.h>
@@ -421,6 +423,26 @@ static void handle_request_set_primary_selection(struct wl_listener *listener,
     wlr_seat_set_primary_selection(seat->wlr_seat, event->source, event->serial);
 }
 
+static void collect_focus_iter(struct wsm_node *node, void *data) {
+    struct wsm_seat *seat = data;
+    struct wsm_seat_node *seat_node = seat_node_from_node(seat, node);
+    if (!seat_node) {
+        return;
+    }
+    wl_list_remove(&seat_node->link);
+    wl_list_insert(&seat->focus_stack, &seat_node->link);
+}
+
+static void collect_focus_workspace_iter(struct wsm_workspace *workspace,
+                                         void *data) {
+    collect_focus_iter(&workspace->node, data);
+}
+
+static void collect_focus_container_iter(struct wsm_container *container,
+                                         void *data) {
+    collect_focus_iter(&container->node, data);
+}
+
 struct wsm_seat *seat_create(const char *seat_name) {
     struct wsm_seat *seat = calloc(1, sizeof(struct wsm_seat));
     if (!wsm_assert(seat, "Could not create wsm_seat: allocation failed!")) {
@@ -467,8 +489,8 @@ struct wsm_seat *seat_create(const char *seat_name) {
     wl_list_init(&seat->focus_stack);
     wl_list_init(&seat->devices);
 
-    // root_for_each_workspace(collect_focus_workspace_iter, seat);
-    // root_for_each_container(collect_focus_container_iter, seat);
+    root_for_each_workspace(collect_focus_workspace_iter, seat);
+    root_for_each_container(collect_focus_container_iter, seat);
 
     seat->deferred_bindings = create_list();
 

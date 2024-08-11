@@ -908,3 +908,11 @@ struct wsm_output *output_by_name_or_id(const char *name_or_id) {
     }
     return NULL;
 }
+
+void output_for_each_workspace(struct wsm_output *output,
+                               void (*f)(struct wsm_workspace *ws, void *data), void *data) {
+    for (int i = 0; i < output->workspaces->length; ++i) {
+        struct wsm_workspace *workspace = output->workspaces->items[i];
+        f(workspace, data);
+    }
+}

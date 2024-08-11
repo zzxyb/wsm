@@ -122,6 +122,8 @@ bool workspace_is_visible(struct wsm_workspace *ws);
 bool workspace_is_empty(struct wsm_workspace *ws);
 void root_for_each_container(void (*f)(struct wsm_container *con, void *data),
                              void *data);
+void root_for_each_workspace(void (*f)(struct wsm_workspace *ws, void *data),
+                             void *data);
 void workspace_update_representation(struct wsm_workspace *ws);
 void workspace_add_floating(struct wsm_workspace *workspace,
                             struct wsm_container *con);

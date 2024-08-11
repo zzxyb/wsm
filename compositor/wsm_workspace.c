@@ -194,6 +194,15 @@ void root_for_each_container(void (*f)(struct wsm_container *con, void *data),
     }
 }
 
+void root_for_each_workspace(void (*f)(struct wsm_workspace *ws, void *data),
+                             void *data) {
+    struct wsm_scene *root = global_server.wsm_scene;
+    for (int i = 0; i < root->outputs->length; ++i) {
+        struct wsm_output *output = root->outputs->items[i];
+        output_for_each_workspace(output, f, data);
+    }
+}
+
 void workspace_update_representation(struct wsm_workspace *ws) {
     size_t len = container_build_representation(ws->layout, ws->tiling, NULL);
     free(ws->representation);

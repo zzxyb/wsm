@@ -515,6 +515,203 @@ static void queue_output_config(struct output_config *oc,
     }
 }
 
+static void dump_output_state(struct wlr_output *wlr_output, struct wlr_output_state *state) {
+    wsm_log(WSM_DEBUG, "Output state for %s", wlr_output->name);
+    if (state->committed & WLR_OUTPUT_STATE_ENABLED) {
+        wsm_log(WSM_DEBUG, "    enabled:       %s", state->enabled ? "yes" : "no");
+    }
+    if (state->committed & WLR_OUTPUT_STATE_RENDER_FORMAT) {
+        wsm_log(WSM_DEBUG, "    render_format: %d", state->render_format);
+    }
+    if (state->committed & WLR_OUTPUT_STATE_MODE) {
+        if (state->mode_type == WLR_OUTPUT_STATE_MODE_CUSTOM) {
+            wsm_log(WSM_DEBUG, "    custom mode:   %dx%d@%dmHz",
+                     state->custom_mode.width, state->custom_mode.height, state->custom_mode.refresh);
+        } else {
+            wsm_log(WSM_DEBUG, "    mode:          %dx%d@%dmHz%s",
+                     state->mode->width, state->mode->height, state->mode->refresh,
+                     state->mode->preferred ? " (preferred)" : "");
+        }
+    }
+    if (state->committed & WLR_OUTPUT_STATE_ADAPTIVE_SYNC_ENABLED) {
+        wsm_log(WSM_DEBUG, "    adaptive_sync: %s",
+                 state->adaptive_sync_enabled ? "enabled": "disabled");
+    }
+}
+
+static bool search_valid_config(struct search_context *ctx, size_t output_idx);
+
+static void reset_output_state(struct wlr_output_state *state) {
+    wlr_output_state_finish(state);
+    wlr_output_state_init(state);
+    state->committed = 0;
+}
+
+static void clear_later_output_states(struct wlr_backend_output_state *states,
+                                      size_t configs_len, size_t output_idx) {
+
+    // Clear and disable all output states after this one to avoid conflict
+    // with previous tests.
+    for (size_t idx = output_idx+1; idx < configs_len; idx++) {
+        struct wlr_backend_output_state *backend_state = &states[idx];
+        struct wlr_output_state *state = &backend_state->base;
+
+        reset_output_state(state);
+        wlr_output_state_set_enabled(state, false);
+    }
+}
+
+static bool search_finish(struct search_context *ctx, size_t output_idx) {
+    struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+    struct wlr_output_state *state = &backend_state->base;
+    struct wlr_output *wlr_output = backend_state->output;
+
+    clear_later_output_states(ctx->states, ctx->configs_len, output_idx);
+    dump_output_state(wlr_output, state);
+    return wlr_output_swapchain_manager_prepare(ctx->swapchain_mgr, ctx->states, ctx->configs_len) &&
+           search_valid_config(ctx, output_idx+1);
+}
+
+static bool render_format_is_bgr(uint32_t fmt) {
+    return fmt == DRM_FORMAT_XBGR2101010 || fmt == DRM_FORMAT_XBGR8888;
+}
+
+static bool search_adaptive_sync(struct search_context *ctx, size_t output_idx) {
+    struct matched_output_config *cfg = &ctx->configs[output_idx];
+    struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+    struct wlr_output_state *state = &backend_state->base;
+
+    if (!backend_state->output->adaptive_sync_supported) {
+        return search_finish(ctx, output_idx);
+    }
+
+    if (cfg->config && cfg->config->adaptive_sync == 1) {
+        wlr_output_state_set_adaptive_sync_enabled(state, true);
+        if (search_finish(ctx, output_idx)) {
+            return true;
+        }
+    }
+
+    wlr_output_state_set_adaptive_sync_enabled(state, false);
+    return search_finish(ctx, output_idx);
+}
+
+static bool config_has_auto_mode(struct output_config *oc) {
+    if (!oc) {
+        return true;
+    }
+    if (oc->drm_mode.type != 0 && oc->drm_mode.type != (uint32_t)-1) {
+        return true;
+    } else if (oc->width > 0 && oc->height > 0) {
+        return true;
+    }
+    return false;
+}
+
+static bool search_mode(struct search_context *ctx, size_t output_idx) {
+    struct matched_output_config *cfg = &ctx->configs[output_idx];
+    struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+    struct wlr_output_state *state = &backend_state->base;
+    struct wlr_output *wlr_output = backend_state->output;
+
+    if (!config_has_auto_mode(cfg->config)) {
+        return search_adaptive_sync(ctx, output_idx);
+    }
+
+    struct wlr_output_mode *preferred_mode = wlr_output_preferred_mode(wlr_output);
+    if (preferred_mode) {
+        wlr_output_state_set_mode(state, preferred_mode);
+        if (search_adaptive_sync(ctx, output_idx)) {
+            return true;
+        }
+    }
+
+    if (wl_list_empty(&wlr_output->modes)) {
+        state->committed &= ~WLR_OUTPUT_STATE_MODE;
+        return search_adaptive_sync(ctx, output_idx);
+    }
+
+    struct wlr_output_mode *mode;
+    wl_list_for_each(mode, &backend_state->output->modes, link) {
+        if (mode == preferred_mode) {
+            continue;
+        }
+        wlr_output_state_set_mode(state, mode);
+        if (search_adaptive_sync(ctx, output_idx)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool search_render_format(struct search_context *ctx, size_t output_idx) {
+    struct matched_output_config *cfg = &ctx->configs[output_idx];
+    struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+    struct wlr_output_state *state = &backend_state->base;
+    struct wlr_output *wlr_output = backend_state->output;
+
+    uint32_t fmts[] = {
+        DRM_FORMAT_XRGB2101010,
+        DRM_FORMAT_XBGR2101010,
+        DRM_FORMAT_XRGB8888,
+        DRM_FORMAT_INVALID,
+    };
+    if (render_format_is_bgr(wlr_output->render_format)) {
+        // Start with BGR in the unlikely event that we previously required it.
+        fmts[0] = DRM_FORMAT_XBGR2101010;
+        fmts[1] = DRM_FORMAT_XRGB2101010;
+    }
+
+    const struct wlr_drm_format_set *primary_formats =
+        wlr_output_get_primary_formats(wlr_output, WLR_BUFFER_CAP_DMABUF);
+    bool need_10bit = cfg->config && cfg->config->render_bit_depth == RENDER_BIT_DEPTH_10;
+    for (size_t idx = 0; fmts[idx] != DRM_FORMAT_INVALID; idx++) {
+        if (!need_10bit && render_format_is_10bit(fmts[idx])) {
+            continue;
+        }
+        if (!wlr_drm_format_set_get(primary_formats, fmts[idx])) {
+            // This is not a supported format for this output
+            continue;
+        }
+        wlr_output_state_set_render_format(state, fmts[idx]);
+        if (search_mode(ctx, output_idx)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool search_valid_config(struct search_context *ctx, size_t output_idx) {
+    if (output_idx >= ctx->configs_len) {
+        // We reached the end of the search, all good!
+        return true;
+    }
+
+    struct matched_output_config *cfg = &ctx->configs[output_idx];
+    struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+    struct wlr_output_state *state = &backend_state->base;
+    struct wlr_output *wlr_output = backend_state->output;
+
+    if (!output_config_is_disabling(cfg->config)) {
+        // Search through our possible configurations, doing a depth-first
+        // through render_format, modes, adaptive_sync and the next output's
+        // config.
+        queue_output_config(cfg->config, cfg->output, &backend_state->base);
+        if (search_render_format(ctx, output_idx)) {
+            return true;
+        } else if (!ctx->degrade_to_off) {
+            return false;
+        }
+        wsm_log(WSM_DEBUG, "Unable to find valid config with output %s, disabling",
+                 wlr_output->name);
+        reset_output_state(state);
+    }
+
+    wlr_output_state_set_enabled(state, false);
+    return search_finish(ctx, output_idx);
+}
+
 bool apply_output_configs(struct matched_output_config *configs,
                           size_t configs_len, bool test_only, bool degrade_to_off) {
     struct wlr_backend_output_state *states = calloc(configs_len, sizeof(struct wlr_backend_output_state));
@@ -541,21 +738,20 @@ bool apply_output_configs(struct matched_output_config *configs,
     bool ok = wlr_output_swapchain_manager_prepare(&swapchain_mgr, states, configs_len);
     if (!ok) {
         wsm_log(WSM_ERROR, "Requested backend configuration failed, searching for valid fallbacks");
-        // struct search_context ctx = {
-        //     .swapchain_mgr = &swapchain_mgr,
-        //     .states = states,
-        //     .configs = configs,
-        //     .configs_len = configs_len,
-        //     .degrade_to_off = degrade_to_off,
-        // };
-        // if (!search_valid_config(&ctx, 0)) {
-        //     wsm_log(WSM_ERROR, "Search for valid config failed");
-        //     goto out;
-        // }
+        struct search_context ctx = {
+            .swapchain_mgr = &swapchain_mgr,
+            .states = states,
+            .configs = configs,
+            .configs_len = configs_len,
+            .degrade_to_off = degrade_to_off,
+        };
+        if (!search_valid_config(&ctx, 0)) {
+            wsm_log(WSM_ERROR, "Search for valid config failed");
+            goto out;
+        }
     }
 
     if (test_only) {
-        // The swapchain manager already did a test for us
         goto out;
     }
 
@@ -602,11 +798,7 @@ out:
     }
     free(states);
 
-    // Reconfigure all devices, since input config may have been applied before
-    // this output came online, and some config items (like map_to_output) are
-    // dependent on an output being present.
     input_manager_configure_all_input_mappings();
-    // Reconfigure the cursor images, since the scale may have changed.
     input_manager_configure_xcursor();
 
     struct wsm_seat *seat;
