@@ -8,6 +8,7 @@ wsm_config = static_library(
 	'wsm_config',
         files(
         'wsm_config.c',
+        'wsm_path.c',
         'wsm_output_config.c',
         'wsm_output_manager_config.c',
         'wsm_input_config.c',

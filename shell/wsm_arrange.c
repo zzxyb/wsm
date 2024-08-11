@@ -31,10 +31,12 @@ THE SOFTWARE.
 #include "wsm_arrange.h"
 #include "wsm_workspace.h"
 #include "wsm_common.h"
+#include "wsm_path.h"
 #include "wsm_layer_shell.h"
 #include "wsm_workspace_manager.h"
 #include "node/wsm_node_descriptor.h"
 #include "node/wsm_text_node.h"
+#include "node/wsm_image_node.h"
 
 #include <wlr/types/wlr_scene.h>
 
@@ -383,6 +385,20 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
     wlr_scene_node_set_position(&con->title_bar.background->node, 0, get_max_thickness(con->pending)
                                                                          * con->pending.border_top);
     wlr_scene_rect_set_size(con->title_bar.background, width, height);
+
+    const char *identifier = view_get_app_id(con->view);
+    char *icon_path = find_theme_identifier_path(identifier);
+    if (icon_path != NULL) {
+        if (con->title_bar.icon) {
+            wlr_scene_node_destroy(con->title_bar.icon->node);
+            con->title_bar.icon = NULL;
+        }
+
+        int size = height - global_config.titlebar_v_padding;
+        con->title_bar.icon = wsm_image_node_create(con->title_bar.tree,
+                                                    size, size, icon_path, con->alpha);
+        wlr_scene_node_set_position(con->title_bar.icon->node, global_config.titlebar_v_padding, global_config.titlebar_v_padding);
+    }
 
     container_update(con);
 }
