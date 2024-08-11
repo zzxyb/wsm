@@ -161,5 +161,7 @@ void output_for_each_container(struct wsm_output *output,
 void request_modeset();
 struct udev_device *wsm_output_get_device_handle(struct wsm_output *output);
 struct wsm_output *output_by_name_or_id(const char *name_or_id);
+void output_for_each_workspace(struct wsm_output *output,
+                               void (*f)(struct wsm_workspace *ws, void *data), void *data);
 
 #endif
