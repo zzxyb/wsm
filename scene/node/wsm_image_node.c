@@ -285,9 +285,6 @@ cairo_surface_t *create_cairo_surface_frome_file(const char *file_path) {
             .height= out_height,
         };
         rsvg_handle_render_document(handle, cr, &vieport, &error);
-
-        // cairo_surface_write_to_png(surface, "output.png");
-
         g_object_unref(handle);
         cairo_destroy(cr);
     } else if (is_target_image(file_path, ".xpm", ".XPM")) {
@@ -369,6 +366,10 @@ struct wlr_texture *create_texture_from_file_v1(struct wlr_renderer *renderer, c
 
 void wsm_image_node_load(struct wsm_image_node *node, const char *file_path) {
     struct image_buffer *image_buffer = wl_container_of(node, image_buffer, props);
+    if (image_buffer->path != NULL &&
+        strcmp(file_path, image_buffer->path) == 0) {
+        return;
+    }
 
     char *new_path = strdup(file_path);
     if (!new_path) {
@@ -399,6 +400,10 @@ void wsm_image_node_load(struct wsm_image_node *node, const char *file_path) {
 void wsm_image_node_set_size(struct wsm_image_node *node, int width, int height) {
     struct image_buffer *image_buffer = wl_container_of(node, image_buffer, props);
     assert(image_buffer);
+    if (image_buffer->buffer_node->dst_width == width &&
+        image_buffer->buffer_node->dst_height == height) {
+        return;
+    }
     wlr_scene_buffer_set_dest_size(image_buffer->buffer_node,
                                    width, height);
 }
