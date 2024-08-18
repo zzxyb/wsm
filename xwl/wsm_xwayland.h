@@ -51,6 +51,10 @@ enum atom_name {
     NET_WM_WINDOW_TYPE_TOOLTIP,
     NET_WM_WINDOW_TYPE_NOTIFICATION,
     NET_WM_STATE_MODAL,
+    NET_WM_ICON,
+    NET_WM_WINDOW_OPACITY,
+    GTK_APPLICATION_ID,
+    UTF8_STRING,
     ATOM_LAST,
 };
 
@@ -59,11 +63,14 @@ struct wsm_xwayland {
     struct wlr_xcursor_manager *xcursor_manager;
 
     xcb_atom_t atoms[ATOM_LAST];
+    xcb_connection_t *xcb_conn;
 };
 
 bool xwayland_start(struct wsm_server *server);
 struct wsm_view *view_from_wlr_xwayland_surface(
     struct wlr_xwayland_surface *xsurface);
+const char *get_xwayland_surface_app_id(xcb_get_property_reply_t *reply);
+
 #endif
 
 #endif

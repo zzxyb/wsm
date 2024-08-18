@@ -34,12 +34,12 @@ THE SOFTWARE.
 #include "wsm_xdg_decoration_manager.h"
 #include "wsm_layer_shell.h"
 #include "wsm_output.h"
-#include "wsm_font.h"
 #include "wsm_list.h"
 #include "wsm_seat.h"
 #include "wsm_config.h"
 #include "wsm_cursor.h"
 #include "wsm_session_lock.h"
+#include "wsm_desktop.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -248,7 +248,7 @@ static void detect_proprietary(struct wlr_backend *backend, void *data) {
  */
 bool wsm_server_init(struct wsm_server *server)
 {
-    server->wsm_font = wsm_font_create();
+    server->desktop_interface = wsm_desktop_interface_create();
     wsm_config_init();
 
     server->wl_display = wl_display_create();

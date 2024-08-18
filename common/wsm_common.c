@@ -131,3 +131,14 @@ int64_t timespec_to_msec(const struct timespec *a) {
 int64_t timespec_to_nsec(const struct timespec *a) {
     return (int64_t)a->tv_sec * NSEC_PER_SEC + a->tv_nsec;
 }
+
+bool ends_with_str(const char *src, const char * dst) {
+    size_t str_len = strlen(src);
+    size_t suffix_len = strlen(dst);
+
+    if (str_len < suffix_len) {
+        return false;
+    }
+
+    return strcmp(src + str_len - suffix_len, dst) == 0;
+}

@@ -55,7 +55,6 @@ struct image_buffer {
     struct wsm_image_node props;
 
     bool visible;
-    float scale;
     enum wl_output_subpixel subpixel;
 
     struct wl_listener outputs_update;
@@ -104,8 +103,8 @@ static void update_source_box(struct image_buffer *buffer) {
     struct wlr_fbox source_box = {
         .x = 0,
         .y = 0,
-        .width = ceil(width * buffer->scale),
-        .height = ceil(height * buffer->scale),
+        .width = width,
+        .height = height,
     };
 
     wlr_scene_buffer_set_source_box(buffer->buffer_node, &source_box);
@@ -119,11 +118,7 @@ static void render_backing_buffer(struct image_buffer *buffer) {
     struct cairo_buffer *cairo_buffer =  buffer->buffer;
     if (!cairo_buffer->surface)
         return;
-    wlr_buffer_init(&cairo_buffer->base, &cairo_buffer_impl,
-                    cairo_image_surface_get_width(cairo_buffer->surface),
-                    cairo_image_surface_get_height(cairo_buffer->surface));
-    wlr_scene_buffer_set_buffer(buffer->buffer_node, &cairo_buffer->base);
-    wlr_buffer_drop(&cairo_buffer->base);
+
     update_source_box(buffer);
 }
 
@@ -165,8 +160,7 @@ static void handle_outputs_update(struct wl_listener *listener, void *data) {
 
     buffer->visible = event->size > 0;
 
-    if (scale != buffer->scale || subpixel != buffer->subpixel) {
-        buffer->scale = scale;
+    if (subpixel != buffer->subpixel) {
         buffer->subpixel = subpixel;
         render_backing_buffer(buffer);
     }
@@ -395,6 +389,12 @@ void wsm_image_node_load(struct wsm_image_node *node, const char *file_path) {
     }
 
     cairo_surface_flush(image_buffer->buffer->surface);
+
+    wlr_buffer_init(&image_buffer->buffer->base, &cairo_buffer_impl,
+                    cairo_image_surface_get_width(image_buffer->buffer->surface),
+                    cairo_image_surface_get_height(image_buffer->buffer->surface));
+    wlr_scene_buffer_set_buffer(image_buffer->buffer_node, &image_buffer->buffer->base);
+    wlr_buffer_drop(&image_buffer->buffer->base);
 }
 
 void wsm_image_node_set_size(struct wsm_image_node *node, int width, int height) {

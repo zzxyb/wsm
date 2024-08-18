@@ -7,7 +7,7 @@ wsm_common = static_library(
             'wsm_list.c',
             'wsm_cairo.c',
             'wsm_pango.c',
-            'wsm_font.c',
+            'wsm_desktop.c',
 	),
 	dependencies: [
             cairo,
