@@ -11,6 +11,9 @@ wsm_shell = static_library(
         xcb,
         wlroots,
         server_protos,
+        cairo,
+        pango,
+        pangocairo,
         ],
         include_directories:[common_inc, compositor_inc, output_inc, scene_inc, input_inc, xwl_inc, decoration_inc, config_inc]
 )

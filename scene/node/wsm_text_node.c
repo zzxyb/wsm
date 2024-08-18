@@ -24,10 +24,10 @@ THE SOFTWARE.
 
 #include "wsm_text_node.h"
 #include "wsm_log.h"
-#include "wsm_font.h"
 #include "wsm_cairo.h"
 #include "wsm_pango.h"
 #include "wsm_server.h"
+#include "wsm_desktop.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -163,9 +163,9 @@ static void render_backing_buffer(struct text_buffer *buffer) {
     cairo_fill(cairo);
 
     cairo_set_source_rgba(cairo, color[0], color[1], color[2], color[3]);
-    cairo_move_to(cairo, 0, (global_server.wsm_font->font_baseline - buffer->props.baseline) * scale);
+    cairo_move_to(cairo, 0, (global_server.desktop_interface->font_baseline - buffer->props.baseline) * scale);
 
-    render_text(cairo, global_server.wsm_font->font_description, scale, buffer->props.pango_markup,
+    render_text(cairo, global_server.desktop_interface->font_description, scale, buffer->props.pango_markup,
                 "%s", buffer->text);
 
     cairo_surface_flush(surface);
@@ -247,7 +247,7 @@ static void text_calc_size(struct text_buffer *buffer) {
     }
 
     cairo_set_antialias(c, CAIRO_ANTIALIAS_BEST);
-    get_text_size(c, global_server.wsm_font->font_description, &props->width, NULL,
+    get_text_size(c, global_server.desktop_interface->font_description, &props->width, NULL,
                   &props->baseline, 1, props->pango_markup, "%s", buffer->text);
     cairo_destroy(c);
 
@@ -255,7 +255,7 @@ static void text_calc_size(struct text_buffer *buffer) {
                                    get_text_width(props), props->height);
 }
 
-struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent, const struct wsm_font *font,
+struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent, const struct wsm_desktop_interface *font,
                                              char *text, float color[4], bool pango_markup) {
     struct text_buffer *buffer = calloc(1, sizeof(*buffer));
     if (!buffer) {

@@ -81,6 +81,7 @@ struct wsm_transaction;
 struct wsm_session_lock;
 struct wsm_input_manager;
 struct wsm_output_manager;
+struct wsm_desktop_interface;
 struct wsm_xdg_decoration_manager;
 struct wsm_server_decoration_manager;
 
@@ -142,7 +143,6 @@ struct wsm_server {
     struct wlr_xcursor_manager *xcursor_manager;
 #endif
 
-    struct wsm_font *wsm_font;
     struct wsm_scene *wsm_scene;
     struct wsm_xdg_shell *wsm_xdg_shell;
     struct wsm_layer_shell *wsm_layer_shell;
@@ -151,6 +151,8 @@ struct wsm_server {
     struct wsm_server_decoration_manager *wsm_server_decoration_manager;
     struct wsm_xdg_decoration_manager *wsm_xdg_decoration_manager;
     struct wsm_idle_inhibit_manager_v1 wsm_idle_inhibit_manager_v1;
+
+    struct wsm_desktop_interface *desktop_interface;
 
     struct wl_listener drm_lease_request;
 

@@ -140,5 +140,6 @@ void color_to_rgba(float dest[static 4], uint32_t color);
 char* int_to_string(int num);
 int64_t timespec_to_msec(const struct timespec *a);
 int64_t timespec_to_nsec(const struct timespec *a);
+bool ends_with_str(const char *src, const char * dst);
 
 #endif

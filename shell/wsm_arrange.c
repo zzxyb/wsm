@@ -33,9 +33,11 @@ THE SOFTWARE.
 #include "wsm_common.h"
 #include "wsm_titlebar.h"
 #include "wsm_layer_shell.h"
+#include "wsm_desktop.h"
 #include "wsm_workspace_manager.h"
 #include "node/wsm_node_descriptor.h"
 #include "node/wsm_text_node.h"
+#include "node/wsm_image_node.h"
 
 #include <wlr/types/wlr_scene.h>
 
@@ -383,6 +385,23 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
     wlr_scene_node_set_position(&con->title_bar->background->node, 0, get_max_thickness(con->pending)
                                                                          * con->pending.border_top);
     wlr_scene_rect_set_size(con->title_bar->background, width, height);
+    if (!con->title_bar->icon && con->view && con->current.border == B_NORMAL) {
+        const char *app_id = view_get_app_id(con->view);
+        char *icon_path = find_app_icon_frome_app_id(global_server.desktop_interface, app_id);
+        if (icon_path) {
+            int size = height - global_config.titlebar_v_padding;
+            con->title_bar->icon = wsm_image_node_create(con->title_bar->tree,
+                                                         size, size, icon_path, con->alpha);
+        }
+    }
+
+    if (con->title_bar->icon) {
+        int size = height - global_config.titlebar_v_padding;
+        wsm_image_node_set_size(con->title_bar->icon, size, size);
+        wlr_scene_node_set_position(con->title_bar->icon->node, ((height - size) >> 1),
+                                    ((height - size) >> 1) + get_max_thickness(con->pending)
+                                                                 * con->pending.border_top);
+    }
 
     container_update(con);
 }

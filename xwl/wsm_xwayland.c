@@ -45,15 +45,15 @@ THE SOFTWARE.
 #include <assert.h>
 #include <float.h>
 
+#include <wayland-util.h>
+
 #include <xcb/xcb.h>
 #include <xcb/xcb_icccm.h>
+
 #include <wlr/xwayland.h>
 #include <wlr/xwayland/xwayland.h>
 #include <wlr/xwayland/server.h>
 #include <wlr/xwayland/shell.h>
-
-#include <wayland-util.h>
-
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_xcursor_manager.h>
@@ -71,7 +71,13 @@ static const char *atom_map[ATOM_LAST] = {
     [NET_WM_WINDOW_TYPE_TOOLTIP] = "_NET_WM_WINDOW_TYPE_TOOLTIP",
     [NET_WM_WINDOW_TYPE_NOTIFICATION] = "_NET_WM_WINDOW_TYPE_NOTIFICATION",
     [NET_WM_STATE_MODAL] = "_NET_WM_STATE_MODAL",
+    [NET_WM_ICON] = "_NET_WM_ICON",
+    [NET_WM_WINDOW_OPACITY] = "_NET_WM_WINDOW_OPACITY",
+    [GTK_APPLICATION_ID] = "_KDE_NET_WM_DESKTOP_FILE",
+    [UTF8_STRING] = "UTF8_STRING",
 };
+
+static const long MAX_PROP_SIZE = 100000;
 
 static void unmanaged_handle_request_configure(struct wl_listener *listener,
                                                void *data) {
@@ -262,6 +268,23 @@ static struct wsm_xwayland_view *xwayland_view_from_view(
     return (struct wsm_xwayland_view *)view;
 }
 
+const char *get_xwayland_surface_app_id(xcb_get_property_reply_t *reply) {
+    struct wsm_xwayland *xwayland = &global_server.xwayland;
+    if (reply->type != XCB_ATOM_STRING &&
+        reply->type != xwayland->atoms[UTF8_STRING]) {
+        return NULL;
+    }
+
+    size_t len = xcb_get_property_value_length(reply);
+    char *class = xcb_get_property_value(reply);
+
+    if (len > 0) {
+        return strndup(class, len);
+    } else {
+        return NULL;
+    }
+}
+
 static const char *get_string_prop(struct wsm_view *view, enum wsm_view_prop prop) {
     if (xwayland_view_from_view(view) == NULL) {
         return NULL;
@@ -271,6 +294,19 @@ static const char *get_string_prop(struct wsm_view *view, enum wsm_view_prop pro
         return view->wlr_xwayland_surface->title;
     case VIEW_PROP_CLASS:
         return view->wlr_xwayland_surface->class;
+    case VIEW_PROP_APP_ID: {
+        struct wsm_xwayland *xwayland = &global_server.xwayland;
+        xcb_get_property_cookie_t cookies = xcb_get_property(xwayland->xcb_conn, 0, view->wlr_xwayland_surface->window_id,
+                                                             xwayland->atoms[GTK_APPLICATION_ID],
+                                                             xwayland->atoms[UTF8_STRING], 0, MAX_PROP_SIZE);
+        xcb_get_property_reply_t *reply =
+            xcb_get_property_reply(xwayland->xcb_conn, cookies, NULL);
+        if (reply->type == 0 && reply->format == 0) {
+            return view->wlr_xwayland_surface->instance;
+        } else {
+            return get_xwayland_surface_app_id(reply);
+        }
+    }
     case VIEW_PROP_INSTANCE:
         return view->wlr_xwayland_surface->instance;
     case VIEW_PROP_WINDOW_ROLE:
@@ -924,8 +960,8 @@ void handle_xwayland_ready(struct wl_listener *listener, void *data) {
         wl_container_of(listener, server, xwayland_ready);
     struct wsm_xwayland *xwayland = &server->xwayland;
 
-    xcb_connection_t *xcb_conn = xcb_connect(NULL, NULL);
-    int err = xcb_connection_has_error(xcb_conn);
+    xwayland->xcb_conn = xcb_connect(NULL, NULL);
+    int err = xcb_connection_has_error(xwayland->xcb_conn);
     if (err) {
         wsm_log(WSM_ERROR, "XCB connect failed: %d", err);
         return;
@@ -934,12 +970,12 @@ void handle_xwayland_ready(struct wl_listener *listener, void *data) {
     xcb_intern_atom_cookie_t cookies[ATOM_LAST];
     for (size_t i = 0; i < ATOM_LAST; i++) {
         cookies[i] =
-            xcb_intern_atom(xcb_conn, 0, strlen(atom_map[i]), atom_map[i]);
+            xcb_intern_atom(xwayland->xcb_conn, 0, strlen(atom_map[i]), atom_map[i]);
     }
     for (size_t i = 0; i < ATOM_LAST; i++) {
         xcb_generic_error_t *error = NULL;
         xcb_intern_atom_reply_t *reply =
-            xcb_intern_atom_reply(xcb_conn, cookies[i], &error);
+            xcb_intern_atom_reply(xwayland->xcb_conn, cookies[i], &error);
         if (reply != NULL && error == NULL) {
             xwayland->atoms[i] = reply->atom;
         }
@@ -952,8 +988,6 @@ void handle_xwayland_ready(struct wl_listener *listener, void *data) {
             break;
         }
     }
-
-    xcb_disconnect(xcb_conn);
 }
 
 /**

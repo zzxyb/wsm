@@ -36,10 +36,12 @@ THE SOFTWARE.
 #include "wsm_common.h"
 #include "wsm_arrange.h"
 #include "wsm_titlebar.h"
+#include "wsm_desktop.h"
 #include "node/wsm_text_node.h"
 #include "wsm_titlebar.h"
 #include "wsm_xdg_decoration.h"
 #include "node/wsm_node_descriptor.h"
+#include "node/wsm_image_node.h"
 
 #include <stdlib.h>
 #include <float.h>
@@ -773,7 +775,7 @@ void container_update_title_bar(struct wsm_container *con) {
     }
 
     con->title_bar->title_text = wsm_text_node_create(con->title_bar->tree,
-                                                      global_server.wsm_font, con->formatted_title, colors->text, true);
+                                                      global_server.desktop_interface, con->formatted_title, colors->text, true);
 
     container_arrange_title_bar_node(con);
 }
