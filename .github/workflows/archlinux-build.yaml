@@ -34,10 +34,8 @@ jobs:
 
     - name: Install dep
       run: |
-        pacman -S --noconfirm base-devel meson pkgconfig systemd libxcb xcb-util-wm libxml2 cairo pango libxpm libjpeg-turbo librsvg
+        pacman -S --noconfirm base-devel meson pkgconfig wlroots wayland wayland-protocols libdrm systemd libxcb xcb-util-wm libxml2 cairo pango libxpm libjpeg-turbo librsvg
         pacman -S --noconfirm clang ninja cppcheck doxygen graphviz libxslt xmlto
-        pacman -S --noconfirm wayland wayland-protocols libdrm pixman libdisplay-info libglvnd libinput libliftoff seatd systemd libxkbcommon xcb-util-errors  xcb-util-renderutil xcb-util-wm 
-        pacman -S --noconfirm vulkan-icd-loader vulkan-headers glslang hwdata xcb-util-image lcms2 wlroots
 
     - name: Build with Meson
       run: |
