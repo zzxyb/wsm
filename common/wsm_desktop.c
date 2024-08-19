@@ -115,7 +115,7 @@ void set_icon_theme(struct wsm_desktop_interface *desktop, char *icon_theme) {
     }
 
     free(desktop->icon_theme);
-    desktop->icon_theme = icon_theme;
+    desktop->icon_theme = new_text;
     wl_signal_emit_mutable(&desktop->events.icon_theme_change, desktop);
 }
 
@@ -130,7 +130,7 @@ void set_font_name(struct wsm_desktop_interface *desktop, char *font_name) {
     }
 
     free(desktop->font_name);
-    desktop->font_name = font_name;
+    desktop->font_name = new_text;
 
     PangoFontDescription *font_description = pango_font_description_from_string(desktop->font_name);
 
@@ -209,7 +209,7 @@ void get_home_directory(char *home_dir, size_t size) {
     if (home) {
         strncpy(home_dir, home, size - 1);
     } else {
-        fprintf(stderr, "Could not get home directory\n");
+        wsm_log(WSM_ERROR, "Could not get home directory");
         exit(EXIT_FAILURE);
     }
 }
