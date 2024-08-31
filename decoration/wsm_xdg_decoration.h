@@ -39,18 +39,18 @@ struct wlr_xdg_toplevel_decoration_v1;
 struct wsm_view;
 
 struct wsm_xdg_decoration {
-    struct wlr_xdg_toplevel_decoration_v1 *wlr_xdg_decoration;
-    struct wl_list link;
+	struct wlr_xdg_toplevel_decoration_v1 *wlr_xdg_decoration;
+	struct wl_list link;
 
-    struct wsm_view *view;
+	struct wsm_view *view;
 
-    struct wl_listener destroy;
-    struct wl_listener request_mode;
+	struct wl_listener destroy;
+	struct wl_listener request_mode;
 };
 
 void handle_xdg_decoration(struct wl_listener *listener, void *data);
 struct wsm_xdg_decoration *wsm_server_decoration_from_surface(
-    struct wlr_surface *surface);
+	struct wlr_surface *surface);
 void set_xdg_decoration_mode(struct wsm_xdg_decoration *deco);
 
 #endif

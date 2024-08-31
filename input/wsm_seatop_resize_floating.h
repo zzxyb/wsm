@@ -31,6 +31,6 @@ struct wsm_seat;
 struct wsm_container;
 
 void seatop_begin_resize_floating(struct wsm_seat *seat,
-                                  struct wsm_container *con, enum wlr_edges edge);
+	struct wsm_container *con, enum wlr_edges edge);
 
 #endif

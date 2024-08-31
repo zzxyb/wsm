@@ -71,7 +71,7 @@ void transaction_commit_dirty_client(void);
  * ready.
  */
 bool transaction_notify_view_ready_by_serial(struct wsm_view *view,
-                                             uint32_t serial);
+	uint32_t serial);
 
 /**
  * Notify the transaction system that a view is ready for the new layout, but
@@ -83,6 +83,6 @@ bool transaction_notify_view_ready_by_serial(struct wsm_view *view,
  * ready.
  */
 bool transaction_notify_view_ready_by_geometry(struct wsm_view *view,
-                                               double x, double y, int width, int height);
+	double x, double y, int width, int height);
 
 #endif

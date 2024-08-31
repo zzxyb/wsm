@@ -35,15 +35,15 @@ struct wlr_scene_tree;
 typedef struct _cairo_surface cairo_surface_t;
 
 struct wsm_image_node {
-    int width;
-    int height;
-    float alpha;
+	int width;
+	int height;
+	float alpha;
 
-    struct wlr_scene_node *node;
+	struct wlr_scene_node *node;
 };
 
 struct wsm_image_node *wsm_image_node_create(struct wlr_scene_tree *parent,
-                                           int width, int height, char *path, float alpha);
+	int width, int height, char *path, float alpha);
 void wsm_image_node_update_alpha(struct wsm_image_node *node, float alpha);
 cairo_surface_t *create_cairo_surface_frome_file(const char *file_path);
 struct wlr_texture *create_texture_from_cairo_surface(struct wlr_renderer *renderer, cairo_surface_t *surface);
