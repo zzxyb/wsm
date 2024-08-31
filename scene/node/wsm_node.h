@@ -42,30 +42,30 @@ struct wsm_container;
 struct wsm_transaction_instruction;
 
 enum wsm_node_type {
-    N_ROOT,
-    N_OUTPUT,
-    N_WORKSPACE,
-    N_CONTAINER,
+	N_ROOT,
+	N_OUTPUT,
+	N_WORKSPACE,
+	N_CONTAINER,
 };
 
 struct wsm_node {
-    enum wsm_node_type type;
-    union {
-        struct wsm_root *wsm_root;
-        struct wsm_output *wsm_output;
-        struct wsm_workspace *wsm_workspace;
-        struct wsm_container *wsm_container;
-    };
-
-    size_t id;
-    size_t ntxnrefs;
-    struct wsm_transaction_instruction *instruction;
-    bool destroying;
-    bool dirty;
-
-    struct {
-        struct wl_signal destroy;
-    } events;
+	enum wsm_node_type type;
+	union {
+		struct wsm_root *wsm_root;
+		struct wsm_output *wsm_output;
+		struct wsm_workspace *wsm_workspace;
+		struct wsm_container *wsm_container;
+	};
+	
+	size_t id;
+	size_t ntxnrefs;
+	struct wsm_transaction_instruction *instruction;
+	bool destroying;
+	bool dirty;
+	
+	struct {
+		struct wl_signal destroy;
+	} events;
 };
 
 void node_init(struct wsm_node *node, enum wsm_node_type type, void *thing);
@@ -81,6 +81,6 @@ struct wsm_list *node_get_children(struct wsm_node *node);
 void scene_node_disown_children(struct wlr_scene_tree *tree);
 bool node_has_ancestor(struct wsm_node *node, struct wsm_node *ancestor);
 struct wlr_scene_tree *alloc_scene_tree(struct wlr_scene_tree *parent,
-                                        bool *failed);
+										bool *failed);
 
 #endif

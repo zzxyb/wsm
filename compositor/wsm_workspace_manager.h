@@ -56,7 +56,7 @@ struct wsm_workspace_manager {
 };
 
 struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_server* server,
-                                                           struct wsm_output *output);
+														   struct wsm_output *output);
 void wsm_workspace_manager_destroy(struct wsm_workspace_manager *workspace_manager);
 void workspaces_switch_to(struct wsm_workspace *target, bool update_focus);
 void workspaces_switch_pre(struct wsm_workspace *target, bool update_focus);

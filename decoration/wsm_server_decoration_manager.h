@@ -30,9 +30,9 @@ THE SOFTWARE.
 struct wsm_server;
 
 struct wsm_server_decoration_manager {
-    struct wlr_server_decoration_manager *server_decoration_manager;
-    struct wl_listener server_decoration;
-    struct wl_list decorations;
+	struct wlr_server_decoration_manager *server_decoration_manager;
+	struct wl_listener server_decoration;
+	struct wl_list decorations;
 };
 
 void decoration_manager_init();

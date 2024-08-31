@@ -64,7 +64,7 @@ struct timespec;
  */
 #define WL_CONNECT_SIGNAL(src, dest, name) \
 (dest)->name.notify = handle_##name; \
-    wl_signal_add(&(src)->events.name, &(dest)->name)
+		wl_signal_add(&(src)->events.name, &(dest)->name)
 
 /**
  * @brief minimum of two values.
@@ -89,44 +89,44 @@ struct timespec;
  *
  */
 #define W_UNUSED(x) (void)x;
-
-/**
- * @brief safe_strtoint Convert string to integer
- * Parses a base-10 number from the given string.  Checks that the
- * string is not blank, contains only numerical characters, and is
- * within the range of INT32_MIN to INT32_MAX.  If the validation is
- * successful the result is stored in *value; otherwise *value is
- * unchanged and errno is set appropriately.
- * @param str input string
- * @param value Convert string to integer
- * @return return true if the number parsed successfully, false on error
- */
-static inline bool safe_strtoint(const char *str, int32_t *value) {
-    long ret;
-    char *end;
-
-    assert(str != NULL);
-
-    errno = 0;
-    ret = strtol(str, &end, 10);
-    if (errno != 0) {
-        return false;
-    } else if (end == str || *end != '\0') {
-        errno = EINVAL;
-        return false;
-    }
-
-    if ((long)((int32_t)ret) != ret) {
-        errno = ERANGE;
-        return false;
-    }
-    *value = (int32_t)ret;
-
-    return true;
+		
+		/**
+		 * @brief safe_strtoint Convert string to integer
+		 * Parses a base-10 number from the given string.  Checks that the
+		 * string is not blank, contains only numerical characters, and is
+		 * within the range of INT32_MIN to INT32_MAX.  If the validation is
+		 * successful the result is stored in *value; otherwise *value is
+		 * unchanged and errno is set appropriately.
+		 * @param str input string
+		 * @param value Convert string to integer
+		 * @return return true if the number parsed successfully, false on error
+		 */
+		static inline bool safe_strtoint(const char *str, int32_t *value) {
+	long ret;
+	char *end;
+	
+	assert(str != NULL);
+	
+	errno = 0;
+	ret = strtol(str, &end, 10);
+	if (errno != 0) {
+		return false;
+	} else if (end == str || *end != '\0') {
+		errno = EINVAL;
+		return false;
+	}
+	
+	if ((long)((int32_t)ret) != ret) {
+		errno = ERANGE;
+		return false;
+	}
+	*value = (int32_t)ret;
+	
+	return true;
 }
 
 static inline const char *yesno(bool cond) {
-    return cond ? "yes" : "no";
+	return cond ? "yes" : "no";
 }
 
 void strip_whitespace(char *str);

@@ -39,64 +39,64 @@ struct wlr_input_popup_surface_v2;
 struct wsm_seat;
 
 struct wsm_input_method_relay {
-    struct wsm_seat *seat;
-
-    struct wl_list text_inputs; // wsm_text_input::link
-    struct wl_list input_popups; // wsm_input_popup::link
-    struct wlr_input_method_v2 *input_method; // doesn't have to be present
-
-    struct wl_listener text_input_new;
-
-    struct wl_listener input_method_new;
-    struct wl_listener input_method_commit;
-    struct wl_listener input_method_new_popup_surface;
-    struct wl_listener input_method_grab_keyboard;
-    struct wl_listener input_method_destroy;
-
-    struct wl_listener input_method_keyboard_grab_destroy;
+	struct wsm_seat *seat;
+	
+	struct wl_list text_inputs; // wsm_text_input::link
+	struct wl_list input_popups; // wsm_input_popup::link
+	struct wlr_input_method_v2 *input_method; // doesn't have to be present
+	
+	struct wl_listener text_input_new;
+	
+	struct wl_listener input_method_new;
+	struct wl_listener input_method_commit;
+	struct wl_listener input_method_new_popup_surface;
+	struct wl_listener input_method_grab_keyboard;
+	struct wl_listener input_method_destroy;
+	
+	struct wl_listener input_method_keyboard_grab_destroy;
 };
 
 struct wsm_input_popup {
-    struct wsm_input_method_relay *relay;
-
-    struct wlr_scene_tree *scene_tree;
-    struct wsm_popup_desc desc;
-    struct wlr_input_popup_surface_v2 *popup_surface;
-
-    struct wl_list link;
-
-    struct wl_listener popup_destroy;
-    struct wl_listener popup_surface_commit;
-
-    struct wl_listener focused_surface_unmap;
+	struct wsm_input_method_relay *relay;
+	
+	struct wlr_scene_tree *scene_tree;
+	struct wsm_popup_desc desc;
+	struct wlr_input_popup_surface_v2 *popup_surface;
+	
+	struct wl_list link;
+	
+	struct wl_listener popup_destroy;
+	struct wl_listener popup_surface_commit;
+	
+	struct wl_listener focused_surface_unmap;
 };
 
 struct wsm_text_input {
-    struct wsm_input_method_relay *relay;
-
-    struct wlr_text_input_v3 *input;
-    // The surface getting seat's focus. Stored for when text-input cannot
-    // be sent an enter event immediately after getting focus, e.g. when
-    // there's no input method available. Cleared once text-input is entered.
-    struct wlr_surface *pending_focused_surface;
-
-    struct wl_list link;
-
-    struct wl_listener pending_focused_surface_destroy;
-
-    struct wl_listener text_input_enable;
-    struct wl_listener text_input_commit;
-    struct wl_listener text_input_disable;
-    struct wl_listener text_input_destroy;
+	struct wsm_input_method_relay *relay;
+	
+	struct wlr_text_input_v3 *input;
+	// The surface getting seat's focus. Stored for when text-input cannot
+	// be sent an enter event immediately after getting focus, e.g. when
+	// there's no input method available. Cleared once text-input is entered.
+	struct wlr_surface *pending_focused_surface;
+	
+	struct wl_list link;
+	
+	struct wl_listener pending_focused_surface_destroy;
+	
+	struct wl_listener text_input_enable;
+	struct wl_listener text_input_commit;
+	struct wl_listener text_input_disable;
+	struct wl_listener text_input_destroy;
 };
 
 void wsm_input_method_relay_init(struct wsm_seat *seat,
-                                  struct wsm_input_method_relay *relay);
+								 struct wsm_input_method_relay *relay);
 void wsm_input_method_relay_finish(struct wsm_input_method_relay *relay);
 void wsm_input_method_relay_set_focus(struct wsm_input_method_relay *relay,
-                                       struct wlr_surface *surface);
+									  struct wlr_surface *surface);
 struct wsm_text_input *wsm_text_input_create(
-    struct wsm_input_method_relay *relay,
-    struct wlr_text_input_v3 *text_input);
+		struct wsm_input_method_relay *relay,
+		struct wlr_text_input_v3 *text_input);
 
 #endif

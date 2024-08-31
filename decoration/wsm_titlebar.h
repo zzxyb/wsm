@@ -38,60 +38,60 @@ struct wsm_image_node;
 struct wsm_image_button;
 
 enum wsm_titlebar_state {
-    WSM_ACTIVE = 0,
-    WSM_INACTIVE,
-    WSM_FOCUS_IN,
-    WSM_FOCUS_OUT,
+	WSM_ACTIVE = 0,
+	WSM_INACTIVE,
+	WSM_FOCUS_IN,
+	WSM_FOCUS_OUT,
 };
 
 enum ssd_part_type {
-    SSD_NONE = 0,
-    SSD_BUTTON_CLOSE,
-    SSD_BUTTON_MAXIMIZE,
-    SSD_BUTTON_MINIMIZE,
-    SSD_BUTTON_ICONIFY,
-    SSD_PART_TITLEBAR,
-    SSD_PART_TITLE,
-    SSD_PART_TOP_LEFT,
-    SSD_PART_TOP_RIGHT,
-    SSD_PART_BOTTOM_RIGHT,
-    SSD_PART_BOTTOM_LEFT,
-    SSD_PART_TOP,
-    SSD_PART_RIGHT,
-    SSD_PART_BOTTOM,
-    SSD_PART_LEFT,
-    SSD_CLIENT,
-    SSD_FRAME,
-    SSD_ROOT,
-    SSD_MENU,
-    SSD_OSD,
-    SSD_LAYER_SURFACE,
-    SSD_LAYER_SUBSURFACE,
-    SSD_UNMANAGED,
-    SSD_END_MARKER
+	SSD_NONE = 0,
+	SSD_BUTTON_CLOSE,
+	SSD_BUTTON_MAXIMIZE,
+	SSD_BUTTON_MINIMIZE,
+	SSD_BUTTON_ICONIFY,
+	SSD_PART_TITLEBAR,
+	SSD_PART_TITLE,
+	SSD_PART_TOP_LEFT,
+	SSD_PART_TOP_RIGHT,
+	SSD_PART_BOTTOM_RIGHT,
+	SSD_PART_BOTTOM_LEFT,
+	SSD_PART_TOP,
+	SSD_PART_RIGHT,
+	SSD_PART_BOTTOM,
+	SSD_PART_LEFT,
+	SSD_CLIENT,
+	SSD_FRAME,
+	SSD_ROOT,
+	SSD_MENU,
+	SSD_OSD,
+	SSD_LAYER_SURFACE,
+	SSD_LAYER_SUBSURFACE,
+	SSD_UNMANAGED,
+	SSD_END_MARKER
 };
 
 struct wsm_titlebar {
-    struct wlr_scene_tree *tree;
-
-    struct wlr_scene_rect *background;
-    struct wsm_image_node *icon;
-    struct wsm_text_node *title_text;
-
-    struct wsm_image_button *min_button;
-    struct wsm_image_button *max_button;
-    struct wsm_image_button *close_button;
-    bool active;
-
-    struct {
-        struct wl_signal double_click;
-        struct wl_signal request_state;
-    } events;
+	struct wlr_scene_tree *tree;
+	
+	struct wlr_scene_rect *background;
+	struct wsm_image_node *icon;
+	struct wsm_text_node *title_text;
+	
+	struct wsm_image_button *min_button;
+	struct wsm_image_button *max_button;
+	struct wsm_image_button *close_button;
+	bool active;
+	
+	struct {
+		struct wl_signal double_click;
+		struct wl_signal request_state;
+	} events;
 };
 
 struct wsm_titlebar_event_request_state {
-    struct wsm_titlebar *titlebar;
-    enum wsm_titlebar_state state;
+	struct wsm_titlebar *titlebar;
+	enum wsm_titlebar_state state;
 };
 
 struct wsm_titlebar* wsm_titlebar_create();

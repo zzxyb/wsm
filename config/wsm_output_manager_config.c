@@ -36,15 +36,15 @@
 #define DEFAULT_OUTPUT_CONFIG "/home/xyb/Documents/Code/Github/wsm/config/data/default_output_config.xml"
 
 struct wsm_output_manager_config *wsm_output_manager_config_create(struct wsm_output_manager *output_manager) {
-    struct wsm_output_manager_config *outputs_manager_config = calloc(1, sizeof(struct wsm_output_manager_config));
-    if (!wsm_assert(outputs_manager_config, "Could not create wsm_output_manager: allocation failed!")) {
-        return NULL;
-    }
-
-    outputs_manager_config->configs = create_list();
-    return outputs_manager_config;
+	struct wsm_output_manager_config *outputs_manager_config = calloc(1, sizeof(struct wsm_output_manager_config));
+	if (!wsm_assert(outputs_manager_config, "Could not create wsm_output_manager: allocation failed!")) {
+		return NULL;
+	}
+	
+	outputs_manager_config->configs = create_list();
+	return outputs_manager_config;
 }
 
 void wwsm_output_manager_config_destory(struct wsm_output_manager_config *config) {
-
+	
 }

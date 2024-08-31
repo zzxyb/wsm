@@ -36,10 +36,10 @@ struct wsm_list;
 struct wsm_output_manager;
 
 struct wsm_output_manager_config {
-    struct wsm_output_manager *output_manager;
-    // xmlDocPtr doc;
-    // xmlTextWriterPtr writer;
-    struct wsm_list *configs;
+	struct wsm_output_manager *output_manager;
+	// xmlDocPtr doc;
+	// xmlTextWriterPtr writer;
+	struct wsm_list *configs;
 };
 
 struct wsm_output_manager_config *wsm_output_manager_config_create(struct wsm_output_manager *output_manager);
