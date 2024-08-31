@@ -37,25 +37,25 @@ struct wsm_output;
  * the /sys/class/backlight directory
  */
 enum wsm_backlight_type {
-    /**< default value. */
-    WSM_BACKLIGHT_UNKNOW,
-    /**< low-level interface for direct control of backlight hardware. */
-    WSM_BACKLIGHT_RAM,
-    /**< the backlight control interface related to the specific hardware
-     * platform may provide higher-level control through some abstraction layers. */
-    WSM_BACKLIGHT_PLATFORM,
-    /**< backlighting controlled by system firmware (such as BIOS or UEFI). */
-    WSM_BACKLIGHT_FIRMWARE,
-    /**< specific backlight control devices. Such devices are usually provided
-     * by the hardware manufacturer and may include some customized control mechanisms. */
-    WSM_BACKLIGHT_VENDOR,
+	/**< default value. */
+	WSM_BACKLIGHT_UNKNOW,
+	/**< low-level interface for direct control of backlight hardware. */
+	WSM_BACKLIGHT_RAM,
+	/**< the backlight control interface related to the specific hardware
+	 * platform may provide higher-level control through some abstraction layers. */
+	WSM_BACKLIGHT_PLATFORM,
+	/**< backlighting controlled by system firmware (such as BIOS or UEFI). */
+	WSM_BACKLIGHT_FIRMWARE,
+	/**< specific backlight control devices. Such devices are usually provided
+	 * by the hardware manufacturer and may include some customized control mechanisms. */
+	WSM_BACKLIGHT_VENDOR,
 };
 
 struct wsm_backlight {
-    struct wsm_output* wsm_output;
-    int max_brightness;
-    int brightness;
-    enum wsm_backlight_type type;
+	struct wsm_output* wsm_output;
+	int max_brightness;
+	int brightness;
+	enum wsm_backlight_type type;
 };
 
 struct wsm_backlight *wsm_backlight_create(struct wsm_output *output);

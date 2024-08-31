@@ -1,8 +1,8 @@
 project(
 	'wsm',
 	'c',
-        version: '0.1-dev',
-        license: 'MIT',
+	version: '0.1-dev',
+	license: 'MIT',
 	meson_version: '>=0.60.0',
 	default_options: [
 		'c_std=c11',
@@ -13,9 +13,8 @@ project(
 
 add_project_arguments(
 	[
-                '-DWLR_USE_UNSTABLE',
-                '-D_POSIX_C_SOURCE=200809L',
-
+		'-DWLR_USE_UNSTABLE',
+		'-D_POSIX_C_SOURCE=200809L',
 		'-Wno-unused-parameter',
 		'-Wno-unused-result',
 		'-Wno-missing-braces',
@@ -37,22 +36,22 @@ if is_freebsd
 endif
 
 wlroots_version = ['>=0.18.0', '<0.20.0']
-#subproject(
-#        'wlroots',
-#        default_options: ['examples=false'],
-#        required: false,
-#        version: wlroots_version,
-#)
+# subproject(
+# 	'wlroots',
+# 	default_options: ['examples=false'],
+# 	required: false,
+# 	version: wlroots_version,
+# )
 wlroots = dependency('wlroots-0.18', version: wlroots_version, fallback: 'wlroots')
 wlroots_features = {
-        'xwayland': get_option('xwayland').enabled(),
-        'libinput_backend': true,
-        'session': true,
+	'xwayland': get_option('xwayland').enabled(),
+	'libinput_backend': true,
+	'session': true,
 }
 foreach name, _ : wlroots_features
-        var_name = 'have_' + name.underscorify()
-        have = wlroots.get_variable(pkgconfig: var_name, internal: var_name) == 'true'
-        wlroots_features += { name: have }
+	var_name = 'have_' + name.underscorify()
+	have = wlroots.get_variable(pkgconfig: var_name, internal: var_name) == 'true'
+	wlroots_features += { name: have }
 endforeach
 
 null_dep = dependency('', required: false)
@@ -81,7 +80,7 @@ math = cc.find_library('m')
 rt = cc.find_library('rt')
 
 if get_option('xwayland').enabled() and not wlroots_features['xwayland']
-        error('Cannot enable Xwayland in wsm: wlroots has been built without Xwayland support')
+	error('Cannot enable Xwayland in wsm: wlroots has been built without Xwayland support')
 endif
 have_xwayland = xcb.found() and xcb_icccm.found() and wlroots_features['xwayland'] and get_option('xwayland').enabled() and get_option('mobile').disabled()
 
@@ -122,7 +121,7 @@ if cc.has_argument('-fmacro-prefix-map=/prefix/to/hide=')
 	)
 else
 	add_project_arguments(
-                '-DWSM_REL_SRC_DIR="@0@"'.format(relative_dir),
+		'-DWSM_REL_SRC_DIR="@0@"'.format(relative_dir),
 		language: 'c',
 	)
 endif
@@ -149,27 +148,27 @@ subdir('decoration')
 subdir('shell')
 
 if get_option('documentation').enabled()
-        subdir('doc')
+	subdir('doc')
 endif
 
 wsm_sources = files(
-        'main.c',
+	'main.c',
 )
 
 wsm_deps = [
-        wlroots,
-        drm_full,
-        systemd_dep,
-        wayland_server,
-        cairo,
-        pango,
-        pangocairo,
-        xpm,
-        jpeg,
-        svg,
-        xcb,
-        xcb_icccm,
-        libudev,
+	wlroots,
+	drm_full,
+	systemd_dep,
+	wayland_server,
+	cairo,
+	pango,
+	pangocairo,
+	xpm,
+	jpeg,
+	svg,
+	xcb,
+	xcb_icccm,
+	libudev,
 ]
 
 dir_prefix = get_option('prefix')
@@ -190,17 +189,17 @@ conf.set('sysconfdir', join_paths(get_option('prefix'), get_option('sysconfdir')
 configure_file(output: 'config.h', configuration: conf)
 
 wsm_manpage = configure_file(
-    input: 'man/wsm.man',
-    output: 'wsm.1',
-    configuration: conf,
+	input: 'man/wsm.man',
+	output: 'wsm.1',
+	configuration: conf,
 )
 install_man(wsm_manpage)
 
 executable(
-        'wsm',
-        wsm_sources,
-        dependencies: wsm_deps,
-        link_with: [wsm_common, wsm_compositor, wsm_input, wsm_config, wsm_xwl, wsm_output, wsm_scene, wsm_decoration, wsm_shell],
-        include_directories:[common_inc, compositor_inc, xwl_inc, output_inc, config_inc, scene_inc, decoration_inc],
-        install: true
+	'wsm',
+	wsm_sources,
+	dependencies: wsm_deps,
+	link_with: [wsm_common, wsm_compositor, wsm_input, wsm_config, wsm_xwl, wsm_output, wsm_scene, wsm_decoration, wsm_shell],
+	include_directories:[common_inc, compositor_inc, xwl_inc, output_inc, config_inc, scene_inc, decoration_inc],
+	install: true
 )

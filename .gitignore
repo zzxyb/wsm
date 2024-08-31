@@ -54,3 +54,6 @@ dkms.conf
 # build
 *.user
 build/
+
+#kdevelop
+*.kdev4

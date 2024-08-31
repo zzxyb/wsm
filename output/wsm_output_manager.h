@@ -52,19 +52,19 @@ struct wsm_server;
 struct wsm_output_manager_config;
 
 struct wsm_output_manager {
-    struct wlr_output_manager_v1 *wlr_output_manager_v1;
-    struct wlr_output_power_manager_v1 *wlr_output_power_manager_v1;
-    struct wlr_gamma_control_manager_v1 *wlr_gamma_control_manager_v1;
-    struct wsm_output_manager_config *wsm_output_manager_config;
+	struct wlr_output_manager_v1 *wlr_output_manager_v1;
+	struct wlr_output_power_manager_v1 *wlr_output_power_manager_v1;
+	struct wlr_gamma_control_manager_v1 *wlr_gamma_control_manager_v1;
+	struct wsm_output_manager_config *wsm_output_manager_config;
 
-    struct wl_list outputs;
+	struct wl_list outputs;
 
-    struct wl_listener new_output;
-    struct wl_listener output_layout_change;
-    struct wl_listener output_manager_apply;
-    struct wl_listener output_manager_test;
-    struct wl_listener wsm_output_power_manager_set_mode;
-    struct wl_listener gamma_control_set_gamma;
+	struct wl_listener new_output;
+	struct wl_listener output_layout_change;
+	struct wl_listener output_manager_apply;
+	struct wl_listener output_manager_test;
+	struct wl_listener wsm_output_power_manager_set_mode;
+	struct wl_listener gamma_control_set_gamma;
 };
 
 struct wsm_output_manager *wsm_output_manager_create(const struct wsm_server *server);

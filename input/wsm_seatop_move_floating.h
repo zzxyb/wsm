@@ -29,6 +29,6 @@ struct wsm_seat;
 struct wsm_container;
 
 void seatop_begin_move_floating(struct wsm_seat *seat,
-                                struct wsm_container *con);
+	struct wsm_container *con);
 
 #endif

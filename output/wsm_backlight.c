@@ -31,17 +31,17 @@ THE SOFTWARE.
 #include <wlr/backend/drm.h>
 
 struct wsm_backlight *wsm_backlight_create(struct wsm_output *output) {
-    if (!wlr_output_is_drm(output->wlr_output)) {
-        wsm_log(WSM_ERROR, "Failed init wsm_backlight， only support drm output!");
-        return NULL;
-    }
+	if (!wlr_output_is_drm(output->wlr_output)) {
+		wsm_log(WSM_ERROR, "Failed init wsm_backlight， only support drm output!");
+		return NULL;
+	}
 
-    struct wsm_backlight *backlight = calloc(1, sizeof(struct wsm_backlight));
-    if (!wsm_assert(output, "Could not create wsm_backlight: allocation failed!")) {
-        return NULL;
-    }
+	struct wsm_backlight *backlight = calloc(1, sizeof(struct wsm_backlight));
+	if (!wsm_assert(output, "Could not create wsm_backlight: allocation failed!")) {
+		return NULL;
+	}
 
-    return backlight;
+	return backlight;
 }
 
 // void wsm_backlight_destroy(struct wsm_backlight *backlight) {

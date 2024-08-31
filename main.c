@@ -43,209 +43,155 @@ THE SOFTWARE.
 struct wsm_server global_server = {0};
 
 /**
- * @brief registerDbusComponent call dbus to notify other components that wsm is ready,
- * now wayland client can start connecting
- */
-void registerDbusComponent() {
-    int ret = 0;
-    sd_bus *bus = NULL;
-    ret = sd_bus_open_user(&bus);
-    if (ret < 0) {
-        wsm_log(WSM_ERROR, "Failed to connect to system bus: %s", strerror(-ret));
-        return;
-    }
-
-    sd_bus_message *msg = NULL;
-    ret = sd_bus_message_new_method_call(bus, &msg,
-                                         "org.lychee.Startup",
-                                         "/Startup",
-                                         "org.lychee.Startup",
-                                         "registerComponent");
-    if (ret < 0) {
-        wsm_log(WSM_ERROR, "Failed to create D-Bus message: %s", strerror(-ret));
-        sd_bus_unref(bus);
-        return;
-    }
-
-    const char *param = "wsm";
-    ret = sd_bus_message_append(msg, "s", param);
-    if (ret < 0) {
-        wsm_log(WSM_ERROR, "Failed to append string parameter: %s", strerror(-ret));
-        sd_bus_message_unref(msg);
-        sd_bus_unref(bus);
-        return;
-    }
-
-    sd_bus_message *reply = NULL;
-    ret = sd_bus_call(bus, msg, 0, NULL, &reply);
-    if (ret < 0) {
-        wsm_log(WSM_ERROR, "Failed to call D-Bus method: %s", strerror(-ret));
-        sd_bus_message_unref(msg);
-        sd_bus_unref(bus);
-        return;
-    }
-
-    if (ret >= 0)
-        wsm_log(WSM_INFO, "registerComponent successfully");
-
-    // Clean up resources
-    sd_bus_message_unref(reply);
-    sd_bus_message_unref(msg);
-    sd_bus_unref(bus);
-}
-
-/**
  * @brief usage printf help information,understand the command options of wsm
  * @param error_code
  */
 static void usage(int error_code) {
-    FILE *out = error_code == EXIT_SUCCESS ? stdout : stderr;
+	FILE *out = error_code == EXIT_SUCCESS ? stdout : stderr;
 
-    fprintf(out,
-            "Usage: wsm [OPTIONS]\n\n"
-            "This is wsm version " VERSION ", the Lychee's Wayland compositor.\n"
-            "different options will be accepted.\n\n"
-
-            "Core options:\n\n"
+	fprintf(out,
+		"Usage: wsm [OPTIONS]\n\n"
+		"This is wsm version " VERSION ", the Lychee's Wayland compositor.\n"
+		"different options will be accepted.\n\n"
+		"Core options:\n\n"
 #if HAVE_XWAYLAND
-            "  --xwayland\t\tLoad the xwayland module\n"
+		"  --xwayland\t\tLoad the xwayland module\n"
 #endif
-            "  -l, --log-level\tSet log output level, default value is 1 only ERROR logs, 3 output all logs, 0 disabled log\n"
-            "  -h, --help\t\tThis help message\n\n");
-    exit(error_code);
+		"   -l, --log-level\tSet log output level, default value is 1 only ERROR logs, 3 output all logs, 0 disabled log\n"
+		"  -h, --help\t\tThis help message\n\n");
+	exit(error_code);
 }
 
 static char *copy_command_line(int argc, char * const argv[]) {
-    FILE *fp;
-    char *str = NULL;
-    size_t size = 0;
-    int i;
+	FILE *fp;
+	char *str = NULL;
+	size_t size = 0;
+	int i;
 
-    fp = open_memstream(&str, &size);
-    if (!fp)
-        return NULL;
+	fp = open_memstream(&str, &size);
+	if (!fp) {
+		return NULL;
+	}
 
-    fprintf(fp, "%s", argv[0]);
-    for (i = 1; i < argc; i++)
-        fprintf(fp, " %s", argv[i]);
-    fclose(fp);
+	fprintf(fp, "%s", argv[0]);
+	for (i = 1; i < argc; i++)
+		fprintf(fp, " %s", argv[i]);
+	fclose(fp);
 
-    return str;
+	return str;
 }
 
 void wsm_terminate(int exit_code) {
-    if (!global_server.wl_display) {
-        exit(exit_code);
-    } else {
-        wl_display_terminate(global_server.wl_display);
-    }
+	if (!global_server.wl_display) {
+		exit(exit_code);
+	} else {
+		wl_display_terminate(global_server.wl_display);
+	}
 }
 
 void sig_handler(int signal) {
-    wsm_log(WSM_INFO, "sig_handler: %d", signal);
-    wsm_terminate(EXIT_SUCCESS);
+	wsm_log(WSM_INFO, "sig_handler: %d", signal);
+	wsm_terminate(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv) {
-    char *startup_cmd = NULL;
-    char *cmdline = NULL;
-    bool xwayland = false;
-    bool help = 0;
-    int32_t log_level = WSM_ERROR;
+	char *startup_cmd = NULL;
+	char *cmdline = NULL;
+	bool xwayland = false;
+	bool help = 0;
+	int32_t log_level = WSM_ERROR;
 
-    const struct wsm_option core_options[] = {
+	const struct wsm_option core_options[] = {
 #if HAVE_XWAYLAND
-        { WSM_OPTION_BOOLEAN, "xwayland", 0, &xwayland },
+		{ WSM_OPTION_BOOLEAN, "xwayland", 0, &xwayland },
 #endif
-        { WSM_OPTION_INTEGER, "log-level", 'l', &log_level },
-        { WSM_OPTION_BOOLEAN, "help", 'h', &help },
-    };
+		{ WSM_OPTION_INTEGER, "log-level", 'l', &log_level },
+		{ WSM_OPTION_BOOLEAN, "help", 'h', &help },
+	};
 
-    cmdline = copy_command_line(argc, argv);
-    parse_options(core_options, ARRAY_LENGTH(core_options), &argc, argv);
+	cmdline = copy_command_line(argc, argv);
+	parse_options(core_options, ARRAY_LENGTH(core_options), &argc, argv);
 
-    if (help) {
-        free(cmdline);
-        usage(EXIT_SUCCESS);
-    }
+	if (help) {
+		free(cmdline);
+		usage(EXIT_SUCCESS);
+	}
 
-    wsm_log(WSM_DEBUG, "Command line: %s", cmdline);
-    free(cmdline);
+	wsm_log(WSM_DEBUG, "Command line: %s", cmdline);
+	free(cmdline);
 
-    wlr_log_init(log_level, NULL);
-    wsm_log_init(log_level, NULL);
+	wlr_log_init(log_level, NULL);
+	wsm_log_init(log_level, NULL);
 
-    int c;
-    while ((c = getopt(argc, argv, "s:")) != -1) {
-        switch (c) {
-        case 's':
-            startup_cmd = optarg;
-            break;
-        default:
-            wsm_log(WSM_ERROR, "usage: %s [-s startup-command]", argv[0]);
-            goto shutdown;
-        }
-    }
-    if (optind < argc) {
-        wsm_log(WSM_ERROR, "usage: %s [-s startup-command]", argv[0]);
-        goto shutdown;
-    }
-
-#if HAVE_XWAYLAND
-    global_server.xwayland_enabled = xwayland;
-#endif
-    // handle SIGTERM signals
-    signal(SIGTERM, sig_handler);
-    signal(SIGINT, sig_handler);
-
-    // prevent ipc from crashing
-    signal(SIGPIPE, SIG_IGN);
-    wsm_server_init(&global_server);
-
-    const char *socket = wl_display_add_socket_auto(global_server.wl_display);
-    if (!socket) {
-        wl_display_destroy(global_server.wl_display);
-        goto shutdown;
-    }
-
-    if (!xwayland) {
-        wsm_log(WSM_DEBUG, "Command disabled xwayland!");
-    }
+	int c;
+	while ((c = getopt(argc, argv, "s:")) != -1) {
+		switch (c) {
+		case 's':
+			startup_cmd = optarg;
+			break;
+		default:
+			wsm_log(WSM_ERROR, "usage: %s [-s startup-command]", argv[0]);
+			goto shutdown;
+		}
+	}
+	if (optind < argc) {
+		wsm_log(WSM_ERROR, "usage: %s [-s startup-command]", argv[0]);
+		goto shutdown;
+	}
 
 #if HAVE_XWAYLAND
-    if (xwayland ) {
-        if (!xwayland_start(&global_server)) {
-            wsm_log(WSM_ERROR, "xwayland start failed!");
-            goto shutdown;
-        }
-    }
+	global_server.xwayland_enabled = xwayland;
+#endif
+	// handle SIGTERM signals
+	signal(SIGTERM, sig_handler);
+	signal(SIGINT, sig_handler);
+
+	signal(SIGPIPE, SIG_IGN);
+	wsm_server_init(&global_server);
+	
+	const char *socket = wl_display_add_socket_auto(global_server.wl_display);
+	if (!socket) {
+		wl_display_destroy(global_server.wl_display);
+		goto shutdown;
+	}
+
+	if (!xwayland) {
+		wsm_log(WSM_DEBUG, "Command disabled xwayland!");
+	}
+
+#if HAVE_XWAYLAND
+	if (xwayland ) {
+		if (!xwayland_start(&global_server)) {
+			wsm_log(WSM_ERROR, "xwayland start failed!");
+			goto shutdown;
+		}
+	}
 #endif
 
-    if (!wlr_backend_start(global_server.backend)) {
-        wl_display_destroy(global_server.wl_display);
-        wsm_log(WSM_ERROR, "backend start failed!");
-        goto shutdown;
-    }
+	if (!wlr_backend_start(global_server.backend)) {
+		wl_display_destroy(global_server.wl_display);
+		wsm_log(WSM_ERROR, "backend start failed!");
+		goto shutdown;
+	}
 
-    setenv("WAYLAND_DISPLAY", socket, true);
-    if (startup_cmd != NULL) {
-        if (fork() == 0) {
-            execl("/bin/sh", "/bin/sh", "-c", startup_cmd, (void *)NULL);
-        }
-    }
+	setenv("WAYLAND_DISPLAY", socket, true);
+	if (startup_cmd != NULL) {
+		if (fork() == 0) {
+			execl("/bin/sh", "/bin/sh", "-c", startup_cmd, (void *)NULL);
+		}
+	}
 
-    wsm_log(WSM_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s",socket);
+	wsm_log(WSM_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s",socket);
+	
+	wl_display_run(global_server.wl_display);
+	wl_display_destroy_clients(global_server.wl_display);
+	wl_display_destroy(global_server.wl_display);
 
-    registerDbusComponent();
-
-    wl_display_run(global_server.wl_display);
-    wl_display_destroy_clients(global_server.wl_display);
-    wl_display_destroy(global_server.wl_display);
-    return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 
 shutdown:
-    wsm_log(WSM_ERROR, "Shutting down wsm");
-    server_finish(&global_server);
+	wsm_log(WSM_ERROR, "Shutting down wsm");
+	server_finish(&global_server);
 
-    return EXIT_FAILURE;
+	return EXIT_FAILURE;
 }

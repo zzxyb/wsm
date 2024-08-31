@@ -30,7 +30,7 @@ publican_install_prefix = join_paths(
 	get_option('datadir'),
 	'doc',
 	meson.project_name(),
-        'wsm', 'en-US'
+	'wsm', 'en-US'
 )
 
 publican_html_dir = 'html'

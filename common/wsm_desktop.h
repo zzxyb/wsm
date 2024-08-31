@@ -31,32 +31,30 @@ THE SOFTWARE.
 #include <pango/pangocairo.h>
 
 enum wsm_color_scheme {
-    Light,
-    Dark,
+	Light,
+	Dark,
 };
 
 struct wsm_desktop_interface {
-    PangoFontDescription *font_description;
-    GSettings *settings;
+	PangoFontDescription *font_description;
+	GSettings *settings;
 
-    char *style_name;
-    char *icon_theme;
-    char *font_name;
-    char *cursor_theme;
-    int cursor_size;
-    int font_height;
-    int font_baseline;
-    enum wsm_color_scheme color_scheme;
+	char *style_name;
+	char *icon_theme;
+	char *font_name;
+	char *cursor_theme;
+	int cursor_size;
+	int font_height;
+	int font_baseline;
+	enum wsm_color_scheme color_scheme;
 
-    bool is_light;
-
-    struct {
-        struct wl_signal icon_theme_change;
-        struct wl_signal font_change;
-        struct wl_signal cursor_size_change;
-        struct wl_signal color_theme_change;
-        struct wl_signal destroy;
-    } events;
+	struct {
+		struct wl_signal icon_theme_change;
+		struct wl_signal font_change;
+		struct wl_signal cursor_size_change;
+		struct wl_signal color_theme_change;
+		struct wl_signal destroy;
+	} events;
 };
 
 struct wsm_desktop_interface *wsm_desktop_interface_create();
