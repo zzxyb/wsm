@@ -61,11 +61,6 @@ enum seat_keyboard_grouping {
 };
 
 struct wsm_config {
-	struct wsm_list *input_configs;
-	struct wsm_list *input_type_configs;
-
-	bool reloading;
-
 	struct {
 		struct border_colors focused;
 		struct border_colors focused_inactive;
@@ -78,6 +73,10 @@ struct wsm_config {
 	float text_background_color[4];
 	float sensing_border_color[4];
 
+	struct wsm_list *input_configs;
+	struct wsm_list *input_type_configs;
+
+	size_t urgent_timeout;
 	enum wsm_container_border border;
 	enum wsm_container_border floating_border;
 	int floating_border_thickness;
@@ -90,21 +89,22 @@ struct wsm_config {
 
 	int font_height;
 	int font_baseline;
-	bool pango_markup;
 	int titlebar_h_padding;
 	int titlebar_v_padding;
 
 	enum alignment title_align;
-	bool tiling_drag;
+
 	int tiling_drag_threshold;
 
 	enum xwayland_mode xwayland;
 
-	size_t urgent_timeout;
 	enum wsm_fowa focus_on_window_activation;
 	enum wsm_popup_during_fullscreen popup_during_fullscreen;
 
 	bool primary_selection;
+	bool tiling_drag;
+	bool pango_markup;
+	bool reloading;
 };
 
 void wsm_config_init();

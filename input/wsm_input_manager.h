@@ -43,6 +43,13 @@ struct input_config;
 struct wsm_input_device;
 
 struct wsm_input_manager {
+	struct wl_listener new_input;
+	struct wl_listener inhibit_activate;
+	struct wl_listener inhibit_deactivate;
+	struct wl_listener keyboard_shortcuts_inhibit_new_inhibitor;
+	struct wl_listener virtual_keyboard_new;
+	struct wl_listener virtual_pointer_new;
+
 	struct wl_list devices;
 	struct wl_list seats;
 
@@ -50,13 +57,6 @@ struct wsm_input_manager {
 	struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard;
 	struct wlr_virtual_pointer_manager_v1 *virtual_pointer;
 	struct wlr_pointer_gestures_v1 *pointer_gestures;
-
-	struct wl_listener new_input;
-	struct wl_listener inhibit_activate;
-	struct wl_listener inhibit_deactivate;
-	struct wl_listener keyboard_shortcuts_inhibit_new_inhibitor;
-	struct wl_listener virtual_keyboard_new;
-	struct wl_listener virtual_pointer_new;
 };
 
 struct wsm_input_manager *wsm_input_manager_create(const struct wsm_server* server);

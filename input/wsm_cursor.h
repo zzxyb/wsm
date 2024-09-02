@@ -67,27 +67,9 @@ enum seat_config_hide_cursor_when_typing {
 };
 
 struct wsm_cursor {
-	struct wsm_seat *wsm_seat;
-	struct wlr_cursor *wlr_cursor;
-	struct {
-		double x, y;
-	} previous;
-	struct wl_list tablets;
-	struct wl_list tablet_pads;
-
-	const char *image;
-	struct wl_client *image_client;
-	struct wlr_surface *image_surface;
-	int hotspot_x, hotspot_y;
-
-	struct wlr_pointer_constraint_v1 *active_constraint;
-	pixman_region32_t confine; // invalid if active_constraint == NULL
-	bool active_confine_requires_warp;
-
 	struct wl_listener request_cursor;
 	struct wl_listener request_set_shape;
 
-	struct wlr_pointer_gestures_v1 *pointer_gestures;
 	struct wl_listener hold_begin;
 	struct wl_listener hold_end;
 	struct wl_listener pinch_begin;
@@ -108,28 +90,49 @@ struct wsm_cursor {
 	struct wl_listener touch_cancel;
 	struct wl_listener touch_motion;
 	struct wl_listener touch_frame;
-	bool simulating_pointer_from_touch;
-	bool pointer_touch_up;
-	int32_t pointer_touch_id;
 
 	struct wl_listener tool_axis;
 	struct wl_listener tool_tip;
 	struct wl_listener tool_proximity;
 	struct wl_listener tool_button;
-	bool simulating_pointer_from_tool_tip;
-	bool simulating_pointer_from_tool_button;
-	uint32_t tool_buttons;
 
 	struct wl_listener request_set_cursor;
 	struct wl_listener image_surface_destroy;
 
 	struct wl_listener constraint_commit;
 
+	pixman_region32_t confine; // invalid if active_constraint == NULL
+
+	struct wl_list tablets;
+	struct wl_list tablet_pads;
+	struct {
+		double x, y;
+	} previous;
+
+	struct wsm_seat *wsm_seat;
+	struct wlr_cursor *wlr_cursor;
+
+	const char *image;
+	struct wl_client *image_client;
+	struct wlr_surface *image_surface;
+
+	struct wlr_pointer_constraint_v1 *active_constraint;
+
+	struct wlr_pointer_gestures_v1 *pointer_gestures;
+
 	struct wl_event_source *hide_source;
-	bool hidden;
-	enum seat_config_hide_cursor_when_typing hide_when_typing;
 
 	size_t pressed_button_count;
+	int32_t pointer_touch_id;
+	uint32_t tool_buttons;
+	int hotspot_x, hotspot_y;
+	enum seat_config_hide_cursor_when_typing hide_when_typing;
+	bool active_confine_requires_warp;
+	bool simulating_pointer_from_touch;
+	bool pointer_touch_up;
+	bool simulating_pointer_from_tool_tip;
+	bool simulating_pointer_from_tool_button;
+	bool hidden;
 };
 
 struct wsm_cursor *wsm_cursor_create(const struct wsm_server* server, struct wsm_seat *seat);

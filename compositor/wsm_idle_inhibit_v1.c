@@ -72,7 +72,7 @@ void handle_idle_inhibitor_v1(struct wl_listener *listener, void *data) {
 }
 
 void wsm_idle_inhibit_v1_user_inhibitor_register(struct wsm_view *view,
-	enum wsm_idle_inhibit_mode mode) {
+		enum wsm_idle_inhibit_mode mode) {
 	struct wsm_idle_inhibit_manager_v1 *manager =
 		&global_server.wsm_idle_inhibit_manager_v1;
 	struct wsm_idle_inhibitor_v1 *inhibitor =
@@ -92,7 +92,7 @@ void wsm_idle_inhibit_v1_user_inhibitor_register(struct wsm_view *view,
 }
 
 struct wsm_idle_inhibitor_v1 *wsm_idle_inhibit_v1_user_inhibitor_for_view(
-	struct wsm_view *view) {
+		struct wsm_view *view) {
 	struct wsm_idle_inhibit_manager_v1 *manager = &global_server.wsm_idle_inhibit_manager_v1;
 	struct wsm_idle_inhibitor_v1 *inhibitor;
 	wl_list_for_each(inhibitor, &manager->inhibitors, link) {
@@ -105,7 +105,7 @@ struct wsm_idle_inhibitor_v1 *wsm_idle_inhibit_v1_user_inhibitor_for_view(
 }
 
 struct wsm_idle_inhibitor_v1 *wsm_idle_inhibit_v1_application_inhibitor_for_view(
-	struct wsm_view *view) {
+		struct wsm_view *view) {
 	struct wsm_idle_inhibit_manager_v1 *manager = &global_server.wsm_idle_inhibit_manager_v1;
 	struct wsm_idle_inhibitor_v1 *inhibitor;
 	wl_list_for_each(inhibitor, &manager->inhibitors, link) {
@@ -118,7 +118,7 @@ struct wsm_idle_inhibitor_v1 *wsm_idle_inhibit_v1_application_inhibitor_for_view
 }
 
 void wsm_idle_inhibit_v1_user_inhibitor_destroy(
-	struct wsm_idle_inhibitor_v1 *inhibitor) {
+		struct wsm_idle_inhibitor_v1 *inhibitor) {
 	if (!inhibitor) {
 		return;
 	}

@@ -45,6 +45,6 @@ struct wsm_server_decoration_manager *wsm_server_decoration_manager_create(const
 	decoration_manager->server_decoration.notify = handle_server_decoration;
 	wl_signal_add(&decoration_manager->server_decoration_manager->events.new_decoration,
 		&decoration_manager->server_decoration);
-	
+
 	return decoration_manager;
 }

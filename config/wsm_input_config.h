@@ -65,46 +65,46 @@ struct wsm_touchpad_safe_area {
 
 struct wsm_keyboard_state {
 	struct wl_list link;
-	bool enable;
 	int delay;
 	int speed;
 	enum wsm_numlock_state numlock_mode;
 	enum wsm_hold_key_action hold_key_action;
+	bool enable;
 };
 
 struct wsm_mouse_state {
 	struct wl_list link;
-	bool enable;
-	enum wsm_mouse_handled_mode handled_mode;
-	bool middle_btn_click_emulation; // click left btn and right btn to simulate midle btn
 	int speed;
-	enum wsm_pointer_acceleration_profile acceleration_profile;
-	bool natural_scoll;
 	int scroll_factor;
+	enum wsm_pointer_acceleration_profile acceleration_profile;
+	enum wsm_mouse_handled_mode handled_mode;
+	bool enable;
+	bool middle_btn_click_emulation; // click left btn and right btn to simulate midle btn
+	bool natural_scoll;
 };
 
 struct wsm_touchpad_state {
 	struct wl_list link;
+	struct wsm_touchpad_safe_area safe_area;
+	int speed;
+	int scroll_factor;
+	enum wsm_pointer_acceleration_profile acceleration_profile;
+	enum wsm_mouse_handled_mode handled_mode;
 	bool enable;
 	bool disable_while_typing;
-	enum wsm_mouse_handled_mode handled_mode;
 	bool middle_btn_emulation;
-	int speed;
-	enum wsm_pointer_acceleration_profile acceleration_profile;
 	bool tap_to_click;
 	bool tap_and_drag;
 	bool tap_drag_lock;
 	bool right_btn_click_emulation; // two finger tap trigger emulation right btn click
 	bool tow_finger_scroll;
 	bool natural_scoll;
-	int scroll_factor;
 	bool middle_btn_click_emulation; // Click the bottom right corner of the touchpad to trigger emulation right btn click
-	struct wsm_touchpad_safe_area safe_area;
 };
 
 struct calibration_matrix {
-	bool configured;
 	float matrix[6];
+	bool configured;
 };
 
 struct input_config_mapped_from_region {
@@ -120,11 +120,22 @@ enum input_config_mapped_to {
 };
 
 struct input_config {
+	struct calibration_matrix calibration_matrix;
+	struct wlr_box region;
+	struct wsm_list *tools;
+	struct input_config_mapped_from_region *mapped_from_region;
+	struct wlr_box *mapped_to_region;
 	char *identifier;
 	const char *input_type;
+	char *xkb_layout;
+	char *xkb_model;
+	char *xkb_options;
+	char *xkb_rules;
+	char *xkb_variant;
+	char *xkb_file;
+	char *mapped_to_output;
 
 	int accel_profile;
-	struct calibration_matrix calibration_matrix;
 	int click_method;
 	int clickfinger_button_map;
 	int drag;
@@ -146,28 +157,13 @@ struct input_config {
 	int tap;
 	int tap_button_map;
 
-	char *xkb_layout;
-	char *xkb_model;
-	char *xkb_options;
-	char *xkb_rules;
-	char *xkb_variant;
-	char *xkb_file;
-
-	bool xkb_file_is_set;
-
 	int xkb_numlock;
 	int xkb_capslock;
 
-	struct input_config_mapped_from_region *mapped_from_region;
-
 	enum input_config_mapped_to mapped_to;
-	char *mapped_to_output;
-	struct wlr_box *mapped_to_region;
-
-	struct wsm_list *tools;
 
 	bool capturable;
-	struct wlr_box region;
+	bool xkb_file_is_set;
 };
 
 struct wsm_graphics_tablet_state {

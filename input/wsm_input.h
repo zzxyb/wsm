@@ -35,12 +35,13 @@ struct wlr_input_device;
 struct libinput_device;
 
 struct wsm_input_device {
+	struct wl_listener device_destroy;
+	struct wl_list link;
+
 	char *identifier;
 	struct wlr_input_device *wlr_device;
-	struct wl_list link;
-	struct wl_listener device_destroy;
-	bool is_virtual;
 	const struct wsm_input_device_impl *input_device_impl;
+	bool is_virtual;
 };
 
 struct wsm_input_device_impl {

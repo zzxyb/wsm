@@ -86,7 +86,18 @@ struct wsm_view_impl {
 };
 
 struct wsm_view {
-	enum wsm_view_type type;
+	struct wl_listener foreign_activate_request;
+	struct wl_listener foreign_fullscreen_request;
+	struct wl_listener foreign_close_request;
+	struct wl_listener foreign_destroy;
+
+	struct {
+		struct wl_signal unmap;
+	} events;
+
+	struct wlr_box geometry;
+	struct timespec urgent;
+
 	const struct wsm_view_impl *impl;
 
 	struct wlr_scene_tree *scene_tree;
@@ -97,27 +108,11 @@ struct wsm_view {
 	struct wlr_surface *surface; // NULL for unmapped views
 	struct wsm_xdg_decoration *xdg_decoration;
 
-	pid_t pid;
-
-	int natural_width, natural_height;
 	char *title_format;
-	bool using_csd;
 
-	struct timespec urgent;
-	bool allow_request_urgent;
 	struct wl_event_source *urgent_timer;
-
-	struct wlr_box geometry;
-
 	struct wlr_ext_foreign_toplevel_handle_v1 *ext_foreign_toplevel;
-
 	struct wlr_foreign_toplevel_handle_v1 *foreign_toplevel;
-	struct wl_listener foreign_activate_request;
-	struct wl_listener foreign_fullscreen_request;
-	struct wl_listener foreign_close_request;
-	struct wl_listener foreign_destroy;
-
-	bool destroying;
 
 	union {
 		struct wlr_xdg_toplevel *wlr_xdg_toplevel;
@@ -125,13 +120,14 @@ struct wsm_view {
 		struct wlr_xwayland_surface *wlr_xwayland_surface;
 #endif
 	};
-
-	struct {
-		struct wl_signal unmap;
-	} events;
-
+	pid_t pid;
+	enum wsm_view_type type;
+	int natural_width, natural_height;
 	int max_render_time; // In milliseconds
+	bool using_csd;
 	bool enabled;
+	bool destroying;
+	bool allow_request_urgent;
 };
 
 struct wsm_xdg_shell_view {
@@ -152,8 +148,6 @@ struct wsm_xdg_shell_view {
 #if HAVE_XWAYLAND
 struct wsm_xwayland_view {
 	struct wsm_view view;
-
-	struct wlr_scene_tree *surface_tree;
 
 	struct wl_listener commit;
 	struct wl_listener request_move;
@@ -178,6 +172,8 @@ struct wsm_xwayland_view {
 	struct wl_listener override_redirect;
 
 	struct wl_listener surface_tree_destroy;
+
+	struct wlr_scene_tree *surface_tree;
 };
 
 struct wsm_xwayland_unmanaged {

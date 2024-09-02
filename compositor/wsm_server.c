@@ -105,7 +105,7 @@ THE SOFTWARE.
 #define WINDOW_TITLE "Wsm Compositor"
 
 static void handle_pointer_constraint_set_region(struct wl_listener *listener,
-	void *data) {
+		void *data) {
 	struct wsm_pointer_constraint *wsm_constraint =
 		wl_container_of(listener, wsm_constraint, set_region);
 	struct wsm_cursor *cursor = wsm_constraint->cursor;
@@ -182,7 +182,7 @@ static bool is_privileged(const struct wl_global *global, const struct wsm_serve
 }
 
 static bool filter_global(const struct wl_client *client,
-	const struct wl_global *global, void *data) {
+		const struct wl_global *global, void *data) {
 	struct wsm_server *server = data;
 #if HAVE_XWAYLAND
 	if (global_server.xwayland_enabled) {
@@ -271,7 +271,7 @@ bool wsm_server_init(struct wsm_server *server)
 
 	if (wlr_renderer_get_texture_formats(server->wlr_renderer, WLR_BUFFER_CAP_DMABUF) != NULL) {
 		server->linux_dmabuf_v1 = wlr_linux_dmabuf_v1_create_with_renderer(
-				server->wl_display, 4, server->wlr_renderer);
+			server->wl_display, 4, server->wlr_renderer);
 		// wlr_drm_create(server->wl_display, server->wlr_renderer);
 	}
 
@@ -374,7 +374,7 @@ bool wsm_server_init(struct wsm_server *server)
 	if (!server->txn_timeout_ms) {
 		server->txn_timeout_ms = 200;
 	}
-	
+
 	server->dirty_nodes = create_list();
 	server->wsm_input_manager = wsm_input_manager_create(server);
 	input_manager_get_default_seat();

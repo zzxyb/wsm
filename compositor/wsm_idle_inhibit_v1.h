@@ -49,18 +49,17 @@ enum wsm_idle_inhibit_mode {
 };
 
 struct wsm_idle_inhibit_manager_v1 {
-	struct wlr_idle_inhibit_manager_v1 *wlr_manager;
 	struct wl_listener new_idle_inhibitor_v1;
 	struct wl_list inhibitors;
+	struct wlr_idle_inhibit_manager_v1 *wlr_manager;
 };
 
 struct wsm_idle_inhibitor_v1 {
+	struct wl_listener destroy;
+	struct wl_list link;
 	struct wlr_idle_inhibitor_v1 *wlr_inhibitor;
 	struct wsm_view *view;
 	enum wsm_idle_inhibit_mode mode;
-	
-	struct wl_list link;
-	struct wl_listener destroy;
 };
 
 bool wsm_idle_inhibit_v1_is_active(

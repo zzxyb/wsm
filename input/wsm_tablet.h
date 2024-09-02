@@ -51,33 +51,34 @@ enum wsm_tablet_tool_mode {
 };
 
 struct wsm_tablet_tool {
+	struct wl_listener set_cursor;
+	struct wl_listener tool_destroy;
+
 	struct wsm_seat *seat;
 	struct wsm_tablet *tablet;
 	struct wlr_tablet_v2_tablet_tool *tablet_v2_tool;
 
-	enum wsm_tablet_tool_mode mode;
 	double tilt_x, tilt_y;
-
-	struct wl_listener set_cursor;
-	struct wl_listener tool_destroy;
+	enum wsm_tablet_tool_mode mode;
 };
 
 struct wsm_tablet_pad {
+	struct wl_listener attach;
+	struct wl_listener button;
+	struct wl_listener ring;
+	struct wl_listener strip;
+
+	struct wl_listener surface_destroy;
+
+	struct wl_listener tablet_destroy;
+
 	struct wl_list link;
 	struct wsm_seat_device *seat_device;
 	struct wsm_tablet *tablet;
 	struct wlr_tablet_pad *wlr;
 	struct wlr_tablet_v2_tablet_pad *tablet_v2_pad;
 
-	struct wl_listener attach;
-	struct wl_listener button;
-	struct wl_listener ring;
-	struct wl_listener strip;
-
 	struct wlr_surface *current_surface;
-	struct wl_listener surface_destroy;
-
-	struct wl_listener tablet_destroy;
 };
 
 struct wsm_tablet *wsm_tablet_create(struct wsm_seat *seat,

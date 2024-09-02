@@ -26,9 +26,9 @@ THE SOFTWARE.
 #define WSM_LIST_H
 
 struct wsm_list {
+	void **items;
 	int capacity;
 	int length;
-	void **items;
 };
 
 struct wsm_list *create_list(void);

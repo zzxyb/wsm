@@ -112,7 +112,7 @@ static void transaction_destroy(struct wsm_transaction *transaction) {
 }
 
 static void copy_output_state(struct wsm_output *output,
-	struct wsm_transaction_instruction *instruction) {
+		struct wsm_transaction_instruction *instruction) {
 	struct wsm_output_state *state = &instruction->output_state;
 	if (state->workspaces) {
 		state->workspaces->length = 0;
@@ -125,7 +125,7 @@ static void copy_output_state(struct wsm_output *output,
 }
 
 static void copy_workspace_state(struct wsm_workspace *ws,
-	struct wsm_transaction_instruction *instruction) {
+		struct wsm_transaction_instruction *instruction) {
 	struct wsm_workspace_state *state = &instruction->workspace_state;
 
 	state->fullscreen = ws->fullscreen;
@@ -162,7 +162,7 @@ static void copy_workspace_state(struct wsm_workspace *ws,
 }
 
 static void copy_container_state(struct wsm_container *container,
-	struct wsm_transaction_instruction *instruction) {
+		struct wsm_transaction_instruction *instruction) {
 	struct wsm_container_state *state = &instruction->container_state;
 
 	if (state->children) {
@@ -183,19 +183,19 @@ static void copy_container_state(struct wsm_container *container,
 
 	if (!container->view) {
 		struct wsm_node *focus =
-				seat_get_active_tiling_child(seat, &container->node);
+			seat_get_active_tiling_child(seat, &container->node);
 		state->focused_inactive_child = focus ? focus->wsm_container : NULL;
 	}
 }
 
 static void transaction_add_node(struct wsm_transaction *transaction,
-	struct wsm_node *node, bool server_request) {
+		struct wsm_node *node, bool server_request) {
 	struct wsm_transaction_instruction *instruction = NULL;
 
 	if (node->ntxnrefs > 0) {
 		for (int idx = 0; idx < transaction->instructions->length; idx++) {
 			struct wsm_transaction_instruction *other =
-					transaction->instructions->items[idx];
+				transaction->instructions->items[idx];
 			if (other->node == node) {
 				instruction = other;
 				break;
@@ -211,7 +211,7 @@ static void transaction_add_node(struct wsm_transaction *transaction,
 		instruction->transaction = transaction;
 		instruction->node = node;
 		instruction->server_request = server_request;
-		
+
 		list_add(transaction->instructions, instruction);
 		node->ntxnrefs++;
 	} else if (server_request) {
@@ -234,20 +234,20 @@ static void transaction_add_node(struct wsm_transaction *transaction,
 }
 
 static void apply_output_state(struct wsm_output *output,
-	struct wsm_output_state *state) {
+		struct wsm_output_state *state) {
 	list_free(output->current.workspaces);
 	memcpy(&output->current, state, sizeof(struct wsm_output_state));
 }
 
 static void apply_workspace_state(struct wsm_workspace *ws,
-	struct wsm_workspace_state *state) {
+		struct wsm_workspace_state *state) {
 	list_free(ws->current.floating);
 	list_free(ws->current.tiling);
 	memcpy(&ws->current, state, sizeof(struct wsm_workspace_state));
 }
 
 static void apply_container_state(struct wsm_container *container,
-	struct wsm_container_state *state) {
+		struct wsm_container_state *state) {
 	struct wsm_view *view = container->view;
 	list_free(container->current.children);
 
@@ -330,7 +330,7 @@ static int handle_timeout(void *data) {
 }
 
 static bool should_configure(struct wsm_node *node,
-	struct wsm_transaction_instruction *instruction) {
+		struct wsm_transaction_instruction *instruction) {
 	if (!node_is_view(node)) {
 		return false;
 	}
@@ -420,7 +420,7 @@ static void transaction_commit_pending(void) {
 }
 
 static void set_instruction_ready(
-	struct wsm_transaction_instruction *instruction) {
+		struct wsm_transaction_instruction *instruction) {
 	struct wsm_transaction *transaction = instruction->transaction;
 
 	if (instruction->waiting && transaction->num_waiting > 0 &&
@@ -434,7 +434,7 @@ static void set_instruction_ready(
 }
 
 bool transaction_notify_view_ready_by_serial(struct wsm_view *view,
-	uint32_t serial) {
+		uint32_t serial) {
 	struct wsm_transaction_instruction *instruction =
 		view->container->node.instruction;
 	if (instruction != NULL && instruction->serial == serial) {
@@ -445,7 +445,7 @@ bool transaction_notify_view_ready_by_serial(struct wsm_view *view,
 }
 
 bool transaction_notify_view_ready_by_geometry(struct wsm_view *view,
-	double x, double y, int width, int height) {
+		double x, double y, int width, int height) {
 	struct wsm_transaction_instruction *instruction =
 		view->container->node.instruction;
 	if (instruction != NULL &&

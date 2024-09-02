@@ -62,8 +62,6 @@ struct wsm_output_state {
  * @brief The wsm_output class
  */
 struct wsm_output {
-	struct wsm_node node;
-
 	struct {
 		struct wlr_scene_tree *shell_background;
 		struct wlr_scene_tree *shell_bottom;
@@ -77,23 +75,7 @@ struct wsm_output {
 		struct wlr_scene_tree *black_screen;
 	} layers;
 
-	struct wlr_scene_rect *fullscreen_background;
-
-	struct wlr_output *wlr_output;
-	struct wlr_scene_output *scene_output;
-	struct wl_list link;
-
-	struct wlr_box usable_area;
-
-	int lx, ly; // layout coords
-	int width, height; // transformed buffer size
-	enum wl_output_subpixel detected_subpixel;
-	enum scale_filter_mode scale_filter;
-
-	bool enabled;
-
-	struct wsm_list *workspaces;
-	struct wsm_output_state current;
+	struct wsm_node node;
 
 	struct wl_listener layout_destroy;
 	struct wl_listener destroy;
@@ -102,24 +84,41 @@ struct wsm_output {
 	struct wl_listener frame;
 	struct wl_listener request_state;
 
+	struct wl_list link;
+	struct wlr_box usable_area;
+	struct wsm_output_state current;
+
 	struct {
 		struct wl_signal disable;
 	} events;
 
+	struct timespec last_presentation;
+	struct wsm_list *workspaces;
+
+	struct wlr_scene_rect *fullscreen_background;
+
+	struct wlr_output *wlr_output;
+	struct wlr_scene_output *scene_output;
+
 	struct wlr_color_transform *color_transform;
 
-	struct timespec last_presentation;
+	struct wl_event_source *repaint_timer;
+
 	uint32_t refresh_nsec;
 	int max_render_time; // In milliseconds
-	struct wl_event_source *repaint_timer;
+	int lx, ly; // layout coords
+	int width, height; // transformed buffer size
+	enum wl_output_subpixel detected_subpixel;
+	enum scale_filter_mode scale_filter;
+
+	bool enabled;
 	bool gamma_lut_changed;
 	bool leased;
 };
 
 struct wsm_output_non_desktop {
-	struct wlr_output *wlr_output;
-
 	struct wl_listener destroy;
+	struct wlr_output *wlr_output;
 };
 
 struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output);

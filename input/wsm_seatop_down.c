@@ -43,24 +43,24 @@ THE SOFTWARE.
 #include <wlr/types/wlr_tablet_v2.h>
 
 struct seatop_touch_point_event {
+	struct wl_list link;
 	double ref_lx, ref_ly;         // touch's x/y at start of op
 	double ref_con_lx, ref_con_ly; // container's x/y at start of op
 	int32_t touch_id;
-	struct wl_list link;
 };
 
 struct seatop_down_event {
+	struct wl_listener surface_destroy;
+	struct wl_list point_events;   // seatop_touch_point_event::link
 	struct wsm_container *con;
 	struct wsm_seat *seat;
-	struct wl_listener surface_destroy;
 	struct wlr_surface *surface;
 	double ref_lx, ref_ly;         // cursor's x/y at start of op
 	double ref_con_lx, ref_con_ly; // container's x/y at start of op
-	struct wl_list point_events;   // seatop_touch_point_event::link
 };
 
 static void handle_touch_motion(struct wsm_seat *seat,
-	struct wlr_touch_motion_event *event, double lx, double ly) {
+		struct wlr_touch_motion_event *event, double lx, double ly) {
 	struct seatop_down_event *e = seat->seatop_data;
 
 	struct seatop_touch_point_event *point_event;
@@ -85,7 +85,7 @@ static void handle_touch_motion(struct wsm_seat *seat,
 }
 
 static void handle_touch_up(struct wsm_seat *seat,
-	struct wlr_touch_up_event *event) {
+		struct wlr_touch_up_event *event) {
 	struct seatop_down_event *e = seat->seatop_data;
 	struct seatop_touch_point_event *point_event, *tmp;
 
@@ -105,7 +105,7 @@ static void handle_touch_up(struct wsm_seat *seat,
 }
 
 static void handle_touch_down(struct wsm_seat *seat,
-	struct wlr_touch_down_event *event, double lx, double ly) {
+		struct wlr_touch_down_event *event, double lx, double ly) {
 	struct seatop_down_event *e = seat->seatop_data;
 	double sx, sy;
 	struct wlr_surface *surface = NULL;
@@ -138,7 +138,7 @@ static void handle_touch_down(struct wsm_seat *seat,
 }
 
 static void handle_touch_cancel(struct wsm_seat *seat,
-	struct wlr_touch_cancel_event *event) {
+		struct wlr_touch_cancel_event *event) {
 	struct seatop_down_event *e = seat->seatop_data;
 	struct seatop_touch_point_event *point_event, *tmp;
 
@@ -164,7 +164,7 @@ static void handle_touch_cancel(struct wsm_seat *seat,
 }
 
 static void handle_pointer_axis(struct wsm_seat *seat,
-	struct wlr_pointer_axis_event *event) {
+		struct wlr_pointer_axis_event *event) {
 	float scroll_factor = 1.0f;
 
 	wlr_seat_pointer_notify_axis(seat->wlr_seat, event->time_msec,
@@ -174,8 +174,8 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 }
 
 static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
-	struct wlr_input_device *device, uint32_t button,
-	enum wl_pointer_button_state state) {
+		struct wlr_input_device *device, uint32_t button,
+		enum wl_pointer_button_state state) {
 	seat_pointer_notify_button(seat, time_msec, button, state);
 
 	if (seat->wsm_cursor->pressed_button_count == 0) {
@@ -195,8 +195,8 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 }
 
 static void handle_tablet_tool_tip(struct wsm_seat *seat,
-	struct wsm_tablet_tool *tool, uint32_t time_msec,
-	enum wlr_tablet_tool_tip_state state) {
+		struct wsm_tablet_tool *tool, uint32_t time_msec,
+		enum wlr_tablet_tool_tip_state state) {
 	if (state == WLR_TABLET_TOOL_TIP_UP) {
 		wlr_tablet_v2_tablet_tool_notify_up(tool->tablet_v2_tool);
 		seatop_begin_default(seat);
@@ -204,7 +204,7 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 }
 
 static void handle_tablet_tool_motion(struct wsm_seat *seat,
-	struct wsm_tablet_tool *tool, uint32_t time_msec) {
+		struct wsm_tablet_tool *tool, uint32_t time_msec) {
 	struct seatop_down_event *e = seat->seatop_data;
 	if (seat_is_input_allowed(seat, e->surface)) {
 		double moved_x = seat->wsm_cursor->wlr_cursor->x - e->ref_lx;
@@ -251,7 +251,7 @@ static const struct wsm_seatop_impl seatop_impl = {
 };
 
 void seatop_begin_down(struct wsm_seat *seat, struct wsm_container *con,
-	double sx, double sy) {
+		double sx, double sy) {
 	seatop_begin_down_on_surface(seat, con->view->surface, sx, sy);
 	struct seatop_down_event *e = seat->seatop_data;
 	e->con = con;
@@ -261,14 +261,14 @@ void seatop_begin_down(struct wsm_seat *seat, struct wsm_container *con,
 }
 
 void seatop_begin_touch_down(struct wsm_seat *seat,
-	struct wlr_surface *surface, struct wlr_touch_down_event *event,
-	double sx, double sy, double lx, double ly) {
+		struct wlr_surface *surface, struct wlr_touch_down_event *event,
+		double sx, double sy, double lx, double ly) {
 	seatop_begin_down_on_surface(seat, surface, sx, sy);
 	handle_touch_down(seat, event, lx, ly);
 }
 
 void seatop_begin_down_on_surface(struct wsm_seat *seat,
-	struct wlr_surface *surface, double sx, double sy) {
+		struct wlr_surface *surface, double sx, double sy) {
 	seatop_end(seat);
 
 	struct seatop_down_event *e =

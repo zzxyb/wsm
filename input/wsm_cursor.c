@@ -161,8 +161,8 @@ static void handle_pointer_swipe_end(struct wl_listener *listener, void *data) {
 }
 
 void pointer_motion(struct wsm_cursor *cursor, uint32_t time_msec,
-	struct wlr_input_device *device, double dx, double dy,
-	double dx_unaccel, double dy_unaccel) {
+		struct wlr_input_device *device, double dx, double dy,
+		double dx_unaccel, double dy_unaccel) {
 	wlr_relative_pointer_manager_v1_send_relative_motion(
 		global_server.wlr_relative_pointer_manager,
 		cursor->wsm_seat->wlr_seat, (uint64_t)time_msec * 1000,
@@ -193,7 +193,7 @@ void pointer_motion(struct wsm_cursor *cursor, uint32_t time_msec,
 }
 
 static void handle_pointer_motion_relative(
-	struct wl_listener *listener, void *data) {
+		struct wl_listener *listener, void *data) {
 	struct wsm_cursor *cursor = wl_container_of(listener, cursor, motion);
 	struct wlr_pointer_motion_event *e = data;
 	cursor_handle_activity_from_device(cursor, &e->pointer->base);
@@ -203,7 +203,7 @@ static void handle_pointer_motion_relative(
 }
 
 static void handle_pointer_motion_absolute(
-	struct wl_listener *listener, void *data) {
+		struct wl_listener *listener, void *data) {
 	struct wsm_cursor *cursor =
 		wl_container_of(listener, cursor, motion_absolute);
 	struct wlr_pointer_motion_absolute_event *event = data;
@@ -336,9 +336,8 @@ static void handle_touch_frame(struct wl_listener *listener, void *data) {
 }
 
 static void handle_tablet_tool_position(struct wsm_cursor *cursor,
-	struct wsm_tablet_tool *tool, bool change_x, bool change_y,
-	double x, double y, double dx, double dy, int32_t time_msec) {
-
+		struct wsm_tablet_tool *tool, bool change_x, bool change_y,
+		double x, double y, double dx, double dy, int32_t time_msec) {
 	if (!change_x && !change_y) {
 		return;
 	}
@@ -465,7 +464,7 @@ static void handle_tool_tip(struct wl_listener *listener, void *data) {
 }
 
 static struct wsm_tablet *get_tablet_for_device(struct wsm_cursor *cursor,
-	struct wlr_input_device *device) {
+		struct wlr_input_device *device) {
 	struct wsm_tablet *tablet;
 	wl_list_for_each(tablet, &cursor->tablets, link) {
 		if (tablet->seat_device->input_device->wlr_device == device) {
@@ -491,7 +490,7 @@ static void handle_tool_proximity(struct wl_listener *listener, void *data) {
 		}
 		wsm_tablet_tool_configure(tablet, tool);
 	}
-	
+
 	struct wsm_tablet_tool *wsm_tool = tool->data;
 	if (!wsm_tool) {
 		wsm_log(WSM_ERROR, "tablet tool not initialized");
@@ -734,7 +733,7 @@ static void set_image_surface(struct wsm_cursor *cursor, struct wlr_surface *sur
 }
 
 void cursor_set_image(struct wsm_cursor *cursor, const char *image,
-	struct wl_client *client) {
+		struct wl_client *client) {
 	if (!(cursor->wsm_seat->wlr_seat->capabilities & WL_SEAT_CAPABILITY_POINTER)) {
 		return;
 	}
@@ -758,8 +757,8 @@ void cursor_set_image(struct wsm_cursor *cursor, const char *image,
 }
 
 void cursor_set_image_surface(struct wsm_cursor *cursor,
-	struct wlr_surface *surface, int32_t hotspot_x, int32_t hotspot_y,
-	struct wl_client *client) {
+		struct wlr_surface *surface, int32_t hotspot_x, int32_t hotspot_y,
+		struct wl_client *client) {
 	if (!(cursor->wsm_seat->wlr_seat->capabilities & WL_SEAT_CAPABILITY_POINTER)) {
 		return;
 	}
@@ -783,12 +782,12 @@ void cursor_rebase(struct wsm_cursor *cursor) {
 }
 
 void cursor_handle_activity_from_device(struct wsm_cursor *cursor,
-	struct wlr_input_device *device) {
+		struct wlr_input_device *device) {
 	cursor_handle_activity_from_idle_source(cursor, device->type);
 }
 
 void cursor_handle_activity_from_idle_source(struct wsm_cursor *cursor,
-	enum wlr_input_device_type idle_source) {
+		enum wlr_input_device_type idle_source) {
 	seat_idle_notify_activity(cursor->wsm_seat, idle_source);
 	if (idle_source != WLR_INPUT_DEVICE_TOUCH) {
 		cursor_unhide(cursor);
@@ -814,7 +813,7 @@ void cursor_unhide(struct wsm_cursor *cursor) {
 }
 
 void dispatch_cursor_axis(struct wsm_cursor *cursor,
-	struct wlr_pointer_axis_event *event) {
+		struct wlr_pointer_axis_event *event) {
 	seatop_pointer_axis(cursor->wsm_seat, event);
 }
 
@@ -839,7 +838,7 @@ cursor_update_image(struct wsm_cursor *cursor, struct wsm_node *node) {
 }
 
 void cursor_warp_to_container(struct wsm_cursor *cursor,
-	struct wsm_container *container, bool force) {
+		struct wsm_container *container, bool force) {
 	if (!container) {
 		return;
 	}
@@ -859,7 +858,7 @@ void cursor_warp_to_container(struct wsm_cursor *cursor,
 }
 
 void cursor_warp_to_workspace(struct wsm_cursor *cursor,
-	struct wsm_workspace *workspace) {
+		struct wsm_workspace *workspace) {
 	if (!workspace) {
 		return;
 	}
@@ -908,7 +907,7 @@ static void check_constraint_region(struct wsm_cursor *cursor) {
 }
 
 static void handle_constraint_commit(struct wl_listener *listener,
-	void *data) {
+		void *data) {
 	struct wsm_cursor *cursor =
 		wl_container_of(listener, cursor, constraint_commit);
 	struct wlr_pointer_constraint_v1 *constraint = cursor->active_constraint;
@@ -918,7 +917,7 @@ static void handle_constraint_commit(struct wl_listener *listener,
 }
 
 void wsm_cursor_constrain(struct wsm_cursor *cursor,
-	struct wlr_pointer_constraint_v1 *constraint) {
+		struct wlr_pointer_constraint_v1 *constraint) {
 	if (cursor->active_constraint == constraint) {
 		return;
 	}
@@ -975,8 +974,8 @@ void warp_to_constraint_cursor_hint(struct wsm_cursor *cursor) {
 }
 
 struct wsm_node *node_at_coords(
-	struct wsm_seat *seat, double lx, double ly,
-	struct wlr_surface **surface, double *sx, double *sy) {
+		struct wsm_seat *seat, double lx, double ly,
+		struct wlr_surface **surface, double *sx, double *sy) {
 	struct wlr_scene_node *scene_node = NULL;
 	struct wlr_scene_node *node;
 
@@ -1050,7 +1049,7 @@ struct wsm_node *node_at_coords(
 	}
 
 	struct wlr_output *wlr_output = wlr_output_layout_output_at(
-			global_server.wsm_scene->output_layout, lx, ly);
+		global_server.wsm_scene->output_layout, lx, ly);
 	if (wlr_output == NULL) {
 		return NULL;
 	}
@@ -1069,8 +1068,8 @@ struct wsm_node *node_at_coords(
 }
 
 void dispatch_cursor_button(struct wsm_cursor *cursor,
-	struct wlr_input_device *device, uint32_t time_msec, uint32_t button,
-	enum wl_pointer_button_state state) {
+		struct wlr_input_device *device, uint32_t time_msec, uint32_t button,
+		enum wl_pointer_button_state state) {
 	if (time_msec == 0) {
 		time_msec = get_current_time_msec();
 	}

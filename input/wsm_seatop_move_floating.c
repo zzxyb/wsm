@@ -46,16 +46,16 @@ static void finalize_move(struct wsm_seat *seat) {
 }
 
 static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
-	struct wlr_input_device *device, uint32_t button,
-	enum wl_pointer_button_state state) {
+		struct wlr_input_device *device, uint32_t button,
+		enum wl_pointer_button_state state) {
 	if (seat->wsm_cursor->pressed_button_count == 0) {
 		finalize_move(seat);
 	}
 }
 
 static void handle_tablet_tool_tip(struct wsm_seat *seat,
-	struct wsm_tablet_tool *tool, uint32_t time_msec,
-	enum wlr_tablet_tool_tip_state state) {
+		struct wsm_tablet_tool *tool, uint32_t time_msec,
+		enum wlr_tablet_tool_tip_state state) {
 	if (state == WLR_TABLET_TOOL_TIP_UP) {
 		finalize_move(seat);
 	}
@@ -82,7 +82,7 @@ static const struct wsm_seatop_impl seatop_impl = {
 };
 
 void seatop_begin_move_floating(struct wsm_seat *seat,
-	struct wsm_container *con) {
+		struct wsm_container *con) {
 	seatop_end(seat);
 
 	struct wsm_cursor *cursor = seat->wsm_cursor;

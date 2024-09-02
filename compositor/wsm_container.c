@@ -103,7 +103,7 @@ static struct border_colors *container_get_current_colors(
 }
 
 static struct wlr_scene_rect *alloc_rect_node(struct wlr_scene_tree *parent,
-	bool *failed) {
+		bool *failed) {
 	if (*failed) {
 		return NULL;
 	}
@@ -118,8 +118,7 @@ static struct wlr_scene_rect *alloc_rect_node(struct wlr_scene_tree *parent,
 	return rect;
 }
 
-static void handle_output_enter(
-	struct wl_listener *listener, void *data) {
+static void handle_output_enter(struct wl_listener *listener, void *data) {
 	struct wsm_container *con = wl_container_of(
 		listener, con, output_enter);
 	struct wlr_scene_output *output = data;
@@ -130,8 +129,7 @@ static void handle_output_enter(
 	}
 }
 
-static void handle_output_leave(
-	struct wl_listener *listener, void *data) {
+static void handle_output_leave(struct wl_listener *listener, void *data) {
 	struct wsm_container *con = wl_container_of(
 		listener, con, output_leave);
 	struct wlr_scene_output *output = data;
@@ -277,7 +275,7 @@ void container_get_box(struct wsm_container *container, struct wlr_box *box) {
 }
 
 struct wsm_container *container_find_child(struct wsm_container *container,
-	bool (*test)(struct wsm_container *view, void *data), void *data) {
+		bool (*test)(struct wsm_container *view, void *data), void *data) {
 	if (!container->pending.children) {
 		return NULL;
 	}
@@ -295,7 +293,7 @@ struct wsm_container *container_find_child(struct wsm_container *container,
 }
 
 void container_for_each_child(struct wsm_container *container,
-	void (*f)(struct wsm_container *container, void *data), void *data) {
+		void (*f)(struct wsm_container *container, void *data), void *data) {
 	if (container->pending.children)  {
 		for (int i = 0; i < container->pending.children->length; ++i) {
 			struct wsm_container *child = container->pending.children->items[i];
@@ -326,8 +324,7 @@ bool container_is_scratchpad_hidden_or_child(struct wsm_container *con) {
 	return con->scratchpad && !con->pending.workspace;
 }
 
-struct wsm_container *container_toplevel_ancestor(
-	struct wsm_container *container) {
+struct wsm_container *container_toplevel_ancestor(struct wsm_container *container) {
 	while (container->pending.parent) {
 		container = container->pending.parent;
 	}
@@ -493,7 +490,7 @@ void container_floating_move_to_center(struct wsm_container *con) {
 }
 
 void container_floating_translate(struct wsm_container *con,
-	double x_amount, double y_amount) {
+		double x_amount, double y_amount) {
 	con->pending.x += x_amount;
 	con->pending.y += y_amount;
 	con->pending.content_x += x_amount;
@@ -599,7 +596,7 @@ void container_end_mouse_operation(struct wsm_container *container) {
 }
 
 bool container_has_ancestor(struct wsm_container *descendant,
-	struct wsm_container *ancestor) {
+		struct wsm_container *ancestor) {
 	while (descendant) {
 		descendant = descendant->pending.parent;
 		if (descendant == ancestor) {
@@ -685,7 +682,7 @@ void container_update_representation(struct wsm_container *con) {
 }
 
 size_t container_build_representation(enum wsm_container_layout layout,
-	struct wsm_list *children, char *buffer) {
+		struct wsm_list *children, char *buffer) {
 	size_t len = 2;
 	switch (layout) {
 	case L_HORIZ:
@@ -764,7 +761,7 @@ void container_handle_fullscreen_reparent(struct wsm_container *con) {
 }
 
 void floating_fix_coordinates(struct wsm_container *con,
-	struct wlr_box *old, struct wlr_box *new) {
+		struct wlr_box *old, struct wlr_box *new) {
 	if (!old->width || !old->height) {
 		container_floating_move_to_center(con);
 	} else {
@@ -846,8 +843,7 @@ static void container_fullscreen_global(struct wsm_container *con) {
 	container_end_mouse_operation(con);
 }
 
-void container_set_fullscreen(struct wsm_container *con,
-	enum wsm_fullscreen_mode mode) {
+void container_set_fullscreen(struct wsm_container *con, enum wsm_fullscreen_mode mode) {
 	if (con->pending.fullscreen_mode == mode) {
 		return;
 	}
@@ -907,7 +903,7 @@ void root_scratchpad_remove_container(struct wsm_container *con) {
 }
 
 void container_add_sibling(struct wsm_container *parent,
-	struct wsm_container *child, bool after) {
+		struct wsm_container *child, bool after) {
 	if (child->pending.workspace) {
 		container_detach(child);
 	}
@@ -1017,7 +1013,7 @@ void container_floating_set_default_size(struct wsm_container *con) {
 }
 
 void container_add_child(struct wsm_container *parent,
-						 struct wsm_container *child) {
+		struct wsm_container *child) {
 	if (child->pending.workspace) {
 		container_detach(child);
 	}
@@ -1046,7 +1042,7 @@ bool container_is_transient_for(struct wsm_container *child,
 }
 
 static void scene_rect_set_color(struct wlr_scene_rect *rect,
-	const float color[4], float opacity) {
+		const float color[4], float opacity) {
 	const float premultiplied[] = {
 		color[0] * color[3] * opacity,
 		color[1] * color[3] * opacity,
@@ -1109,7 +1105,7 @@ void container_set_resizing(struct wsm_container *con, bool resizing) {
 }
 
 void floating_calculate_constraints(int *min_width, int *max_width,
-	int *min_height, int *max_height) {
+		int *min_height, int *max_height) {
 	if (global_config.floating_minimum_width == -1) { // no minimum
 		*min_width = 0;
 	} else if (global_config.floating_minimum_width == 0) { // automatic

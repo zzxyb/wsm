@@ -59,7 +59,7 @@ THE SOFTWARE.
 #define CONFIGURE_TIMEOUT_MS 100
 
 static struct wsm_xdg_shell_view *xdg_shell_view_from_view(
-	struct wsm_view *view) {
+		struct wsm_view *view) {
 	if (!wsm_assert(view->type == WSM_VIEW_XDG_SHELL,
 			"Expected xdg_shell view")) {
 		return NULL;
@@ -68,7 +68,7 @@ static struct wsm_xdg_shell_view *xdg_shell_view_from_view(
 }
 
 static void get_constraints(struct wsm_view *view, double *min_width,
-	double *max_width, double *min_height, double *max_height) {
+		double *max_width, double *min_height, double *max_height) {
 	struct wlr_xdg_toplevel_state *state =
 		&view->wlr_xdg_toplevel->current;
 	*min_width = state->min_width > 0 ? state->min_width : DBL_MIN;
@@ -78,7 +78,7 @@ static void get_constraints(struct wsm_view *view, double *min_width,
 }
 
 static const char *get_string_prop(struct wsm_view *view,
-	enum wsm_view_prop prop) {
+		enum wsm_view_prop prop) {
 	if (xdg_shell_view_from_view(view) == NULL) {
 		return NULL;
 	}
@@ -93,7 +93,7 @@ static const char *get_string_prop(struct wsm_view *view,
 }
 
 static uint32_t configure(struct wsm_view *view, double lx, double ly,
-	int width, int height) {
+		int width, int height) {
 	struct wsm_xdg_shell_view *xdg_shell_view =
 		xdg_shell_view_from_view(view);
 	if (xdg_shell_view == NULL) {
@@ -146,14 +146,14 @@ static void set_resizing(struct wsm_view *view, bool resizing) {
 static bool wants_floating(struct wsm_view *view) {
 	struct wlr_xdg_toplevel *toplevel = view->wlr_xdg_toplevel;
 	struct wlr_xdg_toplevel_state *state = &toplevel->current;
-	return (state->min_width != 0 && state->min_height != 0
-			&& (state->min_width == state->max_width
-				|| state->min_height == state->max_height))
-		   || toplevel->parent;
+	return (state->min_width != 0 && state->min_height != 0 &&
+		(state->min_width == state->max_width ||
+		state->min_height == state->max_height)) ||
+		toplevel->parent;
 }
 
 static bool is_transient_for(struct wsm_view *child,
-	struct wsm_view *ancestor) {
+		struct wsm_view *ancestor) {
 	if (xdg_shell_view_from_view(child) == NULL) {
 		return false;
 	}
@@ -247,7 +247,8 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 
 	if (new_size) {
 		memcpy(&view->geometry, &new_geo, sizeof(struct wlr_box));
-		if (container_is_floating(view->container) && (xdg_surface->initial_commit && view->using_csd)) {
+		if (container_is_floating(view->container) &&
+				(xdg_surface->initial_commit && view->using_csd)) {
 			view_update_size(view);
 			if (view->container->current.width) {
 				wlr_xdg_toplevel_set_size(view->wlr_xdg_toplevel, view->geometry.width,
@@ -271,14 +272,14 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 
 static void handle_set_title(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_shell_view *xdg_shell_view =
-			wl_container_of(listener, xdg_shell_view, set_title);
+		wl_container_of(listener, xdg_shell_view, set_title);
 	struct wsm_view *view = &xdg_shell_view->view;
 	view_update_title(view, false);
 }
 
 static void handle_set_app_id(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_shell_view *xdg_shell_view =
-			wl_container_of(listener, xdg_shell_view, set_app_id);
+		wl_container_of(listener, xdg_shell_view, set_app_id);
 	struct wsm_view *view = &xdg_shell_view->view;
 	view_update_app_id(view);
 }
@@ -287,7 +288,7 @@ static void handle_new_popup(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_shell_view *xdg_shell_view =
 		wl_container_of(listener, xdg_shell_view, new_popup);
 	struct wlr_xdg_popup *wlr_popup = data;
-	
+
 	struct wsm_xdg_popup *popup = wsm_xdg_popup_create(wlr_popup,
 		&xdg_shell_view->view, global_server.wsm_scene->layers.popup);
 	if (!popup) {
@@ -301,7 +302,7 @@ static void handle_new_popup(struct wl_listener *listener, void *data) {
 
 static void handle_request_maximize(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_shell_view *xdg_shell_view =
-			wl_container_of(listener, xdg_shell_view, request_maximize);
+		wl_container_of(listener, xdg_shell_view, request_maximize);
 	struct wlr_xdg_toplevel *toplevel = xdg_shell_view->view.wlr_xdg_toplevel;
 	wlr_xdg_surface_schedule_configure(toplevel->base);
 }
@@ -475,7 +476,8 @@ void handle_xdg_shell_toplevel(struct wl_listener *listener, void *data) {
 
 	struct wsm_xdg_shell_view *xdg_shell_view =
 		calloc(1, sizeof(struct wsm_xdg_shell_view));
-	if (!wsm_assert(xdg_shell_view, "Could not create wsm_xdg_shell_view: allocation failed!")) {
+	if (!wsm_assert(xdg_shell_view,
+      "Could not create wsm_xdg_shell_view: allocation failed!")) {
 		return;
 	}
 
@@ -508,7 +510,7 @@ void xdg_activation_v1_handle_new_token(struct wl_listener *listener, void *data
 }
 
 void xdg_activation_v1_handle_request_activate(struct wl_listener *listener,
-	void *data) {
+		void *data) {
 	const struct wlr_xdg_activation_v1_request_activate_event *event = data;
 
 	struct wlr_xdg_surface *xdg_surface =
@@ -525,7 +527,8 @@ void xdg_activation_v1_handle_request_activate(struct wl_listener *listener,
 
 struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server) {
 	struct wsm_xdg_shell *shell = calloc(1, sizeof(struct wsm_xdg_shell));
-	if (!wsm_assert(shell, "Could not create wsm_xdg_shell: allocation failed!")) {
+	if (!wsm_assert(shell,
+			"Could not create wsm_xdg_shell: allocation failed!")) {
 		return NULL;
 	}
 
@@ -535,7 +538,8 @@ struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server) {
 		&shell->xdg_shell_toplevel);
 
 	shell->xdg_activation_v1 = wlr_xdg_activation_v1_create(server->wl_display);
-	if (!wsm_assert(shell->xdg_activation_v1, "unable to create wlr_xdg_activation_v1 interface")) {
+	if (!wsm_assert(shell->xdg_activation_v1,
+			"unable to create wlr_xdg_activation_v1 interface")) {
 		return NULL;
 	}
 

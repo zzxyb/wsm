@@ -50,16 +50,16 @@ struct cairo_buffer {
 };
 
 struct image_buffer {
-	struct wlr_scene_buffer *buffer_node;
-	char *path;
-	struct wsm_image_node props;
-
-	bool visible;
-	enum wl_output_subpixel subpixel;
-
 	struct wl_listener outputs_update;
 	struct wl_listener destroy;
+	struct wsm_image_node props;
+	struct wlr_scene_buffer *buffer_node;
 	struct cairo_buffer *buffer;
+	char *path;
+
+	enum wl_output_subpixel subpixel;
+
+	bool visible;
 };
 
 static void cairo_buffer_handle_destroy(struct wlr_buffer *wlr_buffer) {
@@ -70,7 +70,7 @@ static void cairo_buffer_handle_destroy(struct wlr_buffer *wlr_buffer) {
 }
 
 static bool cairo_buffer_handle_begin_data_ptr_access(struct wlr_buffer *wlr_buffer,
-	uint32_t flags, void **data, uint32_t *format, size_t *stride) {
+		uint32_t flags, void **data, uint32_t *format, size_t *stride) {
 	struct cairo_buffer *buffer = wl_container_of(wlr_buffer, buffer, base);
 	*data = cairo_image_surface_get_data(buffer->surface);
 	*stride = cairo_image_surface_get_stride(buffer->surface);
@@ -166,7 +166,7 @@ static void handle_outputs_update(struct wl_listener *listener, void *data) {
 }
 
 struct wsm_image_node *wsm_image_node_create(struct wlr_scene_tree *parent,
-	int width, int height, char *path, float alpha) {
+		int width, int height, char *path, float alpha) {
 	struct image_buffer *buffer = calloc(1, sizeof(struct image_buffer));
 	if (!buffer) {
 		return NULL;
@@ -272,10 +272,10 @@ cairo_surface_t *create_cairo_surface_frome_file(const char *file_path) {
 		cairo_t *cr = cairo_create(surface);
 		error = NULL;
 		RsvgRectangle vieport = {
-				.x = 0,
-				.y = 0,
-				.width = out_width,
-				.height= out_height,
+			.x = 0,
+			.y = 0,
+			.width = out_width,
+			.height= out_height,
 		};
 		rsvg_handle_render_document(handle, cr, &vieport, &error);
 		g_object_unref(handle);
@@ -335,13 +335,13 @@ struct wlr_texture *create_texture_from_cairo_surface(struct wlr_renderer *rende
 	unsigned char *data = cairo_image_surface_get_data(surface);
 
 	struct wlr_texture *texture = wlr_texture_from_pixels(
-			renderer,
-			DRM_FORMAT_ARGB8888,
-			stride,
-			width,
-			height,
-			data
-			);
+		renderer,
+		DRM_FORMAT_ARGB8888,
+		stride,
+		width,
+		height,
+		data
+	);
 
 	return texture;
 }

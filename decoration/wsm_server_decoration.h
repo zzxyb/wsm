@@ -31,11 +31,12 @@ struct wlr_surface;
 struct wlr_server_decoration;
 
 struct wsm_server_decoration {
-	struct wlr_server_decoration *wlr_server_decoration;
-	struct wl_list link;
-
 	struct wl_listener destroy;
 	struct wl_listener mode;
+
+	struct wl_list link;
+
+	struct wlr_server_decoration *wlr_server_decoration;
 };
 
 void handle_server_decoration(struct wl_listener *listener, void *data);

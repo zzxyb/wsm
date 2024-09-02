@@ -44,10 +44,10 @@ struct wlr_surface;
 struct wsm_cursor;
 
 struct wsm_seatop_event {
-	struct wlr_scene_node *previous_node;
 	uint32_t pressed_buttons[WSM_CURSOR_PRESSED_BUTTONS_CAP];
-	size_t pressed_button_count;
 	struct wsm_gesture_tracker gestures;
+	struct wlr_scene_node *previous_node;
+	size_t pressed_button_count;
 };
 
 void seatop_begin_default(struct wsm_seat *seat);

@@ -78,7 +78,7 @@ static const char *verbosity_headers[] = {
 };
 
 void timespec_sub(struct timespec *r, const struct timespec *a,
-	const struct timespec *b) {
+		const struct timespec *b) {
 	r->tv_sec = a->tv_sec - b->tv_sec;
 	r->tv_nsec = a->tv_nsec - b->tv_nsec;
 	if (r->tv_nsec < 0) {
@@ -95,7 +95,7 @@ static void init_start_time(void) {
 }
 
 static void wsm_log_stderr(wsm_log_importance_t verbosity, const char *fmt,
-	va_list args) {
+		va_list args) {
 	init_start_time();
 
 	if (verbosity > log_importance) {

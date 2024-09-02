@@ -197,7 +197,7 @@ bool node_has_ancestor(struct wsm_node *node, struct wsm_node *ancestor) {
 }
 
 struct wlr_scene_tree *alloc_scene_tree(struct wlr_scene_tree *parent,
-										bool *failed) {
+		bool *failed) {
 	if (*failed) {
 		return NULL;
 	}

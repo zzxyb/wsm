@@ -66,14 +66,6 @@ struct wsm_server;
  *
  */
 struct wsm_scene {
-	struct wsm_node node;
-	struct wlr_output_layout *output_layout;
-
-	struct wlr_scene *root_scene;
-	struct wlr_scene_tree *staging;
-
-	struct wlr_scene_tree *layer_tree;
-
 	struct {
 		struct wlr_scene_tree *shell_background;
 		struct wlr_scene_tree *shell_bottom;
@@ -91,10 +83,20 @@ struct wsm_scene {
 		struct wlr_scene_tree *session_lock;
 	} layers;
 
+	struct wsm_node node;
+
+	struct {
+		struct wl_signal new_node;
+	} events;
+
 	struct wl_list all_outputs;
 
-	double x, y;
-	double width, height;
+	struct wlr_output_layout *output_layout;
+
+	struct wlr_scene *root_scene;
+	struct wlr_scene_tree *staging;
+
+	struct wlr_scene_tree *layer_tree;
 
 	struct wsm_list *outputs;
 	struct wsm_list *non_desktop_outputs;
@@ -103,9 +105,8 @@ struct wsm_scene {
 	struct wsm_output *fallback_output;
 	struct wsm_container *fullscreen_global;
 
-	struct {
-		struct wl_signal new_node;
-	} events;
+	double x, y;
+	double width, height;
 };
 
 struct wsm_scene *wsm_scene_create(const struct wsm_server* server);

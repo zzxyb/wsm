@@ -86,7 +86,7 @@ void list_qsort(struct wsm_list *list, int compare(const void *left, const void 
 }
 
 int list_seq_find(struct wsm_list *list,
-	int compare(const void *item, const void *data), const void *data) {
+		int compare(const void *item, const void *data), const void *data) {
 	for (int i = 0; i < list->length; i++) {
 		void *item = list->items[i];
 		if (compare(item, data) == 0) {
@@ -139,7 +139,7 @@ static void list_rotate(struct wsm_list *list, int from, int to) {
 }
 
 static void list_inplace_merge(struct wsm_list *list, int left,
-	int last, int mid, int compare(const void *a, const void *b)) {
+		int last, int mid, int compare(const void *a, const void *b)) {
 	int right = mid + 1;
 
 	if (compare(&list->items[mid], &list->items[right]) <= 0) {
@@ -159,7 +159,7 @@ static void list_inplace_merge(struct wsm_list *list, int left,
 }
 
 static void list_inplace_sort(struct wsm_list *list, int first,
-	int last, int compare(const void *a, const void *b)) {
+		int last, int compare(const void *a, const void *b)) {
 	if (first >= last) {
 		return;
 	} else if ((last - first) == 1) {
@@ -176,7 +176,7 @@ static void list_inplace_sort(struct wsm_list *list, int first,
 }
 
 void list_stable_sort(struct wsm_list *list,
-	int compare(const void *a, const void *b)) {
+		int compare(const void *a, const void *b)) {
 	if (list->length > 1) {
 		list_inplace_sort(list, 0, list->length - 1, compare);
 	}

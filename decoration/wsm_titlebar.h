@@ -72,6 +72,11 @@ enum ssd_part_type {
 };
 
 struct wsm_titlebar {
+	struct {
+		struct wl_signal double_click;
+		struct wl_signal request_state;
+	} events;
+
 	struct wlr_scene_tree *tree;
 
 	struct wlr_scene_rect *background;
@@ -82,11 +87,6 @@ struct wsm_titlebar {
 	struct wsm_image_button *max_button;
 	struct wsm_image_button *close_button;
 	bool active;
-
-	struct {
-		struct wl_signal double_click;
-		struct wl_signal request_state;
-	} events;
 };
 
 struct wsm_titlebar_event_request_state {

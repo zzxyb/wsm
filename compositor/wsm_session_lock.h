@@ -35,15 +35,15 @@ struct wlr_session_lock_v1;
 struct wsm_output;
 
 struct wsm_session_lock {
-	struct wlr_session_lock_v1 *lock;
-	struct wlr_surface *focused;
-	bool abandoned;
-
-	struct wl_list outputs; // struct wsm_session_lock_output
-
 	struct wl_listener new_surface;
 	struct wl_listener unlock;
 	struct wl_listener destroy;
+
+	struct wl_list outputs; // struct wsm_session_lock_output
+
+	struct wlr_session_lock_v1 *lock;
+	struct wlr_surface *focused;
+	bool abandoned;
 };
 
 void wsm_session_lock_init(void);

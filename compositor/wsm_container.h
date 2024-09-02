@@ -82,19 +82,19 @@ struct border_colors {
 };
 
 struct wsm_container_state {
-	enum wsm_container_layout layout;
-	double x, y;
-	double width, height;
-
-	enum wsm_fullscreen_mode fullscreen_mode;
-
+	struct wsm_list *children;
 	struct wsm_workspace *workspace;
 	struct wsm_container *parent;
-	struct wsm_list *children;
 
 	struct wsm_container *focused_inactive_child;
-	bool focused;
 
+	double x, y;
+	double width, height;
+	double content_x, content_y;
+	double content_width, content_height;
+
+	enum wsm_container_layout layout;
+	enum wsm_fullscreen_mode fullscreen_mode;
 	enum wsm_container_border border;
 	int border_thickness;
 	int sensing_thickness;
@@ -102,9 +102,7 @@ struct wsm_container_state {
 	bool border_bottom;
 	bool border_left;
 	bool border_right;
-
-	double content_x, content_y;
-	double content_width, content_height;
+	bool focused;
 };
 
 /**
@@ -198,12 +196,10 @@ struct wsm_container_state {
  * --------------------------------------------
  */
 struct wsm_container {
+	struct wsm_container_state current;
+	struct wsm_container_state pending;
+
 	struct wsm_node node;
-	struct wsm_view *view;
-
-	struct wlr_scene_tree *scene_tree;
-
-	struct wsm_titlebar *title_bar;
 
 	struct {
 		struct wlr_scene_tree *tree;
@@ -214,32 +210,37 @@ struct wsm_container {
 		struct wlr_scene_rect *right;
 	} sensing;
 
-	struct wlr_scene_tree *content_tree;
-	struct wlr_scene_buffer *output_handler;
-
 	struct wl_listener output_enter;
 	struct wl_listener output_leave;
 
-	struct wsm_container_state current;
-	struct wsm_container_state pending;
+	struct wlr_box transform;
+
+	struct wsm_view *view;
+
+	struct wlr_scene_tree *scene_tree;
+
+	struct wsm_titlebar *title_bar;
+
+	struct wlr_scene_tree *content_tree;
+	struct wlr_scene_buffer *output_handler;
 
 	char *title;           // The view's title (unformatted)
 	char *formatted_title; // The title displayed in the title bar
-	int title_width;
 
-	enum wsm_container_layout prev_split_layout;
-	bool is_sticky;
 	double saved_x, saved_y;
 	double saved_width, saved_height;
-	enum wsm_container_border saved_border;
 	double width_fraction;
 	double height_fraction;
 	double child_total_width;
 	double child_total_height;
 
-	bool scratchpad;
-	struct wlr_box transform;
 	float alpha;
+	int title_width;
+	enum wsm_container_layout prev_split_layout;
+	enum wsm_container_border saved_border;
+
+	bool scratchpad;
+	bool is_sticky;
 };
 
 struct wsm_container *container_create(struct wsm_view *view);

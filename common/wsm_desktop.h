@@ -36,6 +36,14 @@ enum wsm_color_scheme {
 };
 
 struct wsm_desktop_interface {
+	struct {
+		struct wl_signal icon_theme_change;
+		struct wl_signal font_change;
+		struct wl_signal cursor_size_change;
+		struct wl_signal color_theme_change;
+		struct wl_signal destroy;
+	} events;
+
 	PangoFontDescription *font_description;
 	GSettings *settings;
 
@@ -47,14 +55,6 @@ struct wsm_desktop_interface {
 	int font_height;
 	int font_baseline;
 	enum wsm_color_scheme color_scheme;
-
-	struct {
-		struct wl_signal icon_theme_change;
-		struct wl_signal font_change;
-		struct wl_signal cursor_size_change;
-		struct wl_signal color_theme_change;
-		struct wl_signal destroy;
-	} events;
 };
 
 struct wsm_desktop_interface *wsm_desktop_interface_create();

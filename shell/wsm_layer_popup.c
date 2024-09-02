@@ -58,7 +58,7 @@ static void popup_handle_commit(struct wl_listener *listener, void *data) {
 }
 
 struct wsm_layer_popup *wsm_layer_popup_create(struct wlr_xdg_popup *wlr_popup,
-	struct wsm_layer_surface *toplevel, struct wlr_scene_tree *parent) {
+		struct wsm_layer_surface *toplevel, struct wlr_scene_tree *parent) {
 	struct wsm_layer_popup *popup = calloc(1, sizeof(struct wsm_layer_popup));
 	if (!wsm_assert(popup, "Could not create wsm_layer_popup: allocation failed!")) {
 		return NULL;
@@ -95,10 +95,10 @@ void wsm_layer_popup_unconstrain(struct wsm_layer_popup *popup) {
 	int lx, ly;
 	wlr_scene_node_coords(&popup->toplevel->scene->tree->node, &lx, &ly);
 	struct wlr_box output_toplevel_sx_box = {
-			.x = output->lx - lx,
-			.y = output->ly - ly,
-			.width = output->width,
-			.height = output->height,
+		.x = output->lx - lx,
+		.y = output->ly - ly,
+		.width = output->width,
+		.height = output->height,
 	};
 
 	wlr_xdg_popup_unconstrain_from_box(wlr_popup, &output_toplevel_sx_box);

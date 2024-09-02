@@ -38,16 +38,16 @@ THE SOFTWARE.
 
 struct seatop_resize_floating_event {
 	struct wsm_container *con;
-	enum wlr_edges edge;
-	bool preserve_ratio;
 	double ref_lx, ref_ly;
 	double ref_width, ref_height;
 	double ref_con_lx, ref_con_ly;
+	enum wlr_edges edge;
+	bool preserve_ratio;
 };
 
 static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
-	struct wlr_input_device *device, uint32_t button,
-	enum wl_pointer_button_state state) {
+		struct wlr_input_device *device, uint32_t button,
+		enum wl_pointer_button_state state) {
 	struct seatop_resize_floating_event *e = seat->seatop_data;
 	struct wsm_container *con = e->con;
 
@@ -173,7 +173,7 @@ static const struct wsm_seatop_impl seatop_impl = {
 };
 
 void seatop_begin_resize_floating(struct wsm_seat *seat,
-	struct wsm_container *con, enum wlr_edges edge) {
+		struct wsm_container *con, enum wlr_edges edge) {
 	seatop_end(seat);
 
 	struct seatop_resize_floating_event *e =

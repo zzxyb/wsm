@@ -66,7 +66,7 @@ THE SOFTWARE.
 #include <wlr/types/wlr_ext_foreign_toplevel_list_v1.h>
 
 bool view_init(struct wsm_view *view, enum wsm_view_type type,
-	const struct wsm_view_impl *impl) {
+		const struct wsm_view_impl *impl) {
 	bool failed = false;
 	view->scene_tree = alloc_scene_tree(global_server.wsm_scene->staging, &failed);
 	view->content_tree = alloc_scene_tree(view->scene_tree, &failed);
@@ -194,7 +194,7 @@ const char *view_get_shell(struct wsm_view *view) {
 }
 
 void view_get_constraints(struct wsm_view *view, double *min_width,
-	double *max_width, double *min_height, double *max_height) {
+		double *max_width, double *min_height, double *max_height) {
 	if (view->impl->get_constraints) {
 		view->impl->get_constraints(view,
 			min_width, max_width, min_height, max_height);
@@ -207,7 +207,7 @@ void view_get_constraints(struct wsm_view *view, double *min_width,
 }
 
 uint32_t view_configure(struct wsm_view *view, double lx, double ly, int width,
-	int height) {
+		int height) {
 	if (view->impl->configure) {
 		return view->impl->configure(view, lx, ly, width, height);
 	}
@@ -470,7 +470,7 @@ static bool should_focus(struct wsm_view *view) {
 }
 
 static void handle_foreign_activate_request(
-	struct wl_listener *listener, void *data) {
+		struct wl_listener *listener, void *data) {
 	struct wsm_view *view = wl_container_of(
 		listener, view, foreign_activate_request);
 	struct wlr_foreign_toplevel_handle_v1_activated_event *event = data;
@@ -546,7 +546,7 @@ static void handle_foreign_destroy(
 }
 
 void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
-	bool fullscreen, struct wlr_output *fullscreen_output, bool decoration) {
+		bool fullscreen, struct wlr_output *fullscreen_output, bool decoration) {
 	if (!wsm_assert(view->surface == NULL, "cannot map mapped view")) {
 		return;
 	}
@@ -994,7 +994,7 @@ void view_remove_saved_buffer(struct wsm_view *view) {
 }
 
 static void view_save_buffer_iterator(struct wlr_scene_buffer *buffer,
-	int sx, int sy, void *data) {
+		int sx, int sy, void *data) {
 	struct wlr_scene_tree *tree = data;
 
 	struct wlr_scene_buffer *sbuf = wlr_scene_buffer_create(tree, NULL);
@@ -1036,7 +1036,7 @@ bool view_is_transient_for(struct wsm_view *child, struct wsm_view *ancestor) {
 }
 
 static void send_frame_done_iterator(struct wlr_scene_buffer *scene_buffer,
-	int x, int y, void *data) {
+		int x, int y, void *data) {
 	struct timespec *when = data;
 	wl_signal_emit_mutable(&scene_buffer->events.frame_done, when);
 }

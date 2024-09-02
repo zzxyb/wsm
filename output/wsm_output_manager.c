@@ -48,7 +48,8 @@ THE SOFTWARE.
 #include <wlr/types/wlr_drm_lease_v1.h>
 
 static void handle_new_output(struct wl_listener *listener, void *data) {
-	struct wsm_output_manager *output_manager = wl_container_of(listener, output_manager, new_output);
+	struct wsm_output_manager *output_manager =
+		wl_container_of(listener, output_manager, new_output);
 	struct wlr_output *wlr_output = data;
 
 	if (wlr_output == global_server.wsm_scene->fallback_output->wlr_output) {
@@ -72,7 +73,7 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
 	}
 
 	if (!wlr_output_init_render(wlr_output, global_server.wlr_allocator,
-								global_server.wlr_renderer)) {
+			global_server.wlr_renderer)) {
 		wsm_log(WSM_ERROR, "Failed to init output render");
 		return;
 	}
@@ -100,8 +101,7 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
 	request_modeset();
 }
 
-void update_output_manager_config(struct wsm_server *server)
-{
+void update_output_manager_config(struct wsm_server *server) {
 	struct wlr_output_configuration_v1 *config =
 		wlr_output_configuration_v1_create();
 
@@ -124,8 +124,8 @@ void update_output_manager_config(struct wsm_server *server)
 }
 
 static struct output_config *output_config_for_config_head(
-	struct wlr_output_configuration_head_v1 *config_head,
-	struct wsm_output *output) {
+		struct wlr_output_configuration_head_v1 *config_head,
+		struct wsm_output *output) {
 	struct output_config *oc = new_output_config(output->wlr_output->name);
 	oc->enabled = config_head->state.enabled;
 	if (!oc->enabled) {
@@ -152,7 +152,7 @@ static struct output_config *output_config_for_config_head(
 }
 
 static void output_manager_apply(struct wsm_server *server,
-	struct wlr_output_configuration_v1 *config, bool test_only) {
+		struct wlr_output_configuration_v1 *config, bool test_only) {
 	struct wsm_scene *root = server->wsm_scene;
 	size_t configs_len = wl_list_length(&root->all_outputs);
 	struct matched_output_config *configs = calloc(configs_len, sizeof(struct matched_output_config));
