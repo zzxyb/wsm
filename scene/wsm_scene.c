@@ -51,15 +51,13 @@ THE SOFTWARE.
 #define HIGHLIGHT_DAMAGE_FADEOUT_TIME 250
 
 struct render_data {
+	pixman_region32_t damage;
+	struct wlr_box logical;
+	struct wlr_scene_output *output;
+	struct wlr_render_pass *render_pass;
 	enum wl_output_transform transform;
 	float scale;
-	struct wlr_box logical;
 	int trans_width, trans_height;
-
-	struct wlr_scene_output *output;
-
-	struct wlr_render_pass *render_pass;
-	pixman_region32_t damage;
 };
 
 struct render_list_constructor_data {
@@ -72,9 +70,9 @@ struct render_list_constructor_data {
 
 struct render_list_entry {
 	struct wlr_scene_node *node;
+	int x, y;
 	bool sent_dmabuf_feedback;
 	bool highlight_transparent_region;
-	int x, y;
 };
 
 struct highlight_region {
@@ -138,7 +136,7 @@ struct wsm_scene *wsm_scene_create(const struct wsm_server* server) {
 }
 
 bool wsm_scene_output_commit(struct wlr_scene_output *scene_output,
-	const struct wlr_scene_output_state_options *options) {
+		const struct wlr_scene_output_state_options *options) {
 	if (!scene_output->output->needs_frame && !pixman_region32_not_empty(
 			&scene_output->damage_ring.current)) {
 		return true;
@@ -164,7 +162,7 @@ out:
 }
 
 static void output_pending_resolution(struct wlr_output *output,
-	const struct wlr_output_state *state, int *width, int *height) {
+		const struct wlr_output_state *state, int *width, int *height) {
 	if (state->committed & WLR_OUTPUT_STATE_MODE) {
 		switch (state->mode_type) {
 		case WLR_OUTPUT_STATE_MODE_FIXED:
@@ -184,7 +182,7 @@ static void output_pending_resolution(struct wlr_output *output,
 }
 
 static void scene_node_get_size(struct wlr_scene_node *node,
-	int *width, int *height) {
+		int *width, int *height) {
 	*width = 0;
 	*height = 0;
 
@@ -211,10 +209,10 @@ static void scene_node_get_size(struct wlr_scene_node *node,
 }
 
 typedef bool (*scene_node_box_iterator_func_t)(struct wlr_scene_node *node,
-	int sx, int sy, void *data);
+		int sx, int sy, void *data);
 
 static bool _scene_nodes_in_box(struct wlr_scene_node *node, struct wlr_box *box,
-	scene_node_box_iterator_func_t iterator, void *user_data, int lx, int ly) {
+		scene_node_box_iterator_func_t iterator, void *user_data, int lx, int ly) {
 	if (!node->enabled) {
 		return false;
 	}
@@ -233,7 +231,7 @@ static bool _scene_nodes_in_box(struct wlr_scene_node *node, struct wlr_box *box
 	case WLR_SCENE_NODE_BUFFER:;
 		struct wlr_box node_box = { .x = lx, .y = ly };
 		scene_node_get_size(node, &node_box.width, &node_box.height);
-		
+
 		if (wlr_box_intersection(&node_box, &node_box, box) &&
 			iterator(node, lx, ly, user_data)) {
 			return true;
@@ -245,7 +243,7 @@ static bool _scene_nodes_in_box(struct wlr_scene_node *node, struct wlr_box *box
 }
 
 static bool scene_nodes_in_box(struct wlr_scene_node *node, struct wlr_box *box,
-	scene_node_box_iterator_func_t iterator, void *user_data) {
+		scene_node_box_iterator_func_t iterator, void *user_data) {
 	int x, y;
 	wlr_scene_node_coords(node, &x, &y);
 
@@ -269,7 +267,7 @@ static bool scene_node_invisible(struct wlr_scene_node *node) {
 }
 
 static bool construct_render_list_iterator(struct wlr_scene_node *node,
-	int lx, int ly, void *_data) {
+		int lx, int ly, void *_data) {
 	struct render_list_constructor_data *data = _data;
 
 	if (scene_node_invisible(node)) {
@@ -277,10 +275,10 @@ static bool construct_render_list_iterator(struct wlr_scene_node *node,
 	}
 
 	if (node->type == WLR_SCENE_NODE_RECT && data->calculate_visibility &&
-		(!data->fractional_scale || data->render_list->size == 0)) {
+			(!data->fractional_scale || data->render_list->size == 0)) {
 		struct wlr_scene_rect *rect = wlr_scene_rect_from_node(node);
 		float *black = (float[4]){ 0.f, 0.f, 0.f, 1.f };
-		
+
 		if (memcmp(rect->color, black, sizeof(float) * 4) == 0) {
 			return false;
 		}
@@ -339,8 +337,8 @@ static bool array_realloc(struct wl_array *arr, size_t size) {
 }
 
 static void scene_buffer_send_dmabuf_feedback(const struct wlr_scene *scene,
-	struct wlr_scene_buffer *scene_buffer,
-	const struct wlr_linux_dmabuf_feedback_v1_init_options *options) {
+		struct wlr_scene_buffer *scene_buffer,
+		const struct wlr_linux_dmabuf_feedback_v1_init_options *options) {
 	if (!scene->linux_dmabuf_v1) {
 		return;
 	}
@@ -372,7 +370,7 @@ static void transform_output_damage(pixman_region32_t *damage, const struct rend
 }
 
 static void output_state_apply_damage(const struct render_data *data,
-	struct wlr_output_state *state) {
+		struct wlr_output_state *state) {
 	struct wlr_scene_output *output = data->output;
 
 	pixman_region32_t frame_damage;
@@ -387,7 +385,7 @@ static void output_state_apply_damage(const struct render_data *data,
 }
 
 static bool scene_entry_try_direct_scanout(struct render_list_entry *entry,
-	struct wlr_output_state *state, const struct render_data *data) {
+		struct wlr_output_state *state, const struct render_data *data) {
 	struct wlr_scene_output *scene_output = data->output;
 	struct wlr_scene_node *node = entry->node;
 
@@ -423,7 +421,7 @@ static bool scene_entry_try_direct_scanout(struct render_list_entry *entry,
 	};
 
 	if (!wlr_fbox_empty(&buffer->src_box) &&
-		!wlr_fbox_equal(&buffer->src_box, &default_box)) {
+			!wlr_fbox_equal(&buffer->src_box, &default_box)) {
 		return false;
 	}
 
@@ -479,7 +477,7 @@ static void highlight_region_destroy(struct highlight_region *damage) {
 }
 
 static void scene_node_opaque_region(struct wlr_scene_node *node, int x, int y,
-	pixman_region32_t *opaque) {
+		pixman_region32_t *opaque) {
 	int width, height;
 	scene_node_get_size(node, &width, &height);
 
@@ -490,7 +488,7 @@ static void scene_node_opaque_region(struct wlr_scene_node *node, int x, int y,
 		}
 	} else if (node->type == WLR_SCENE_NODE_BUFFER) {
 		struct wlr_scene_buffer *scene_buffer = wlr_scene_buffer_from_node(node);
-		
+
 		if (!scene_buffer->buffer) {
 			return;
 		}
@@ -512,16 +510,17 @@ static void scene_node_opaque_region(struct wlr_scene_node *node, int x, int y,
 }
 
 static void scene_buffer_set_texture(struct wlr_scene_buffer *scene_buffer,
-									 struct wlr_texture *texture);
+		struct wlr_texture *texture);
 
 static void scene_buffer_handle_renderer_destroy(struct wl_listener *listener,
-												 void *data) {
-	struct wlr_scene_buffer *scene_buffer = wl_container_of(listener, scene_buffer, renderer_destroy);
+		void *data) {
+	struct wlr_scene_buffer *scene_buffer =
+		wl_container_of(listener, scene_buffer, renderer_destroy);
 	scene_buffer_set_texture(scene_buffer, NULL);
 }
 
 static void scene_buffer_set_texture(struct wlr_scene_buffer *scene_buffer,
-	struct wlr_texture *texture) {
+		struct wlr_texture *texture) {
 	wl_list_remove(&scene_buffer->renderer_destroy.link);
 	wlr_texture_destroy(scene_buffer->texture);
 	scene_buffer->texture = texture;
@@ -559,7 +558,7 @@ static void transform_output_box(struct wlr_box *box, const struct render_data *
 }
 
 static struct wlr_texture *scene_buffer_get_texture(
-	struct wlr_scene_buffer *scene_buffer, struct wlr_renderer *renderer) {
+		struct wlr_scene_buffer *scene_buffer, struct wlr_renderer *renderer) {
 	if (scene_buffer->buffer == NULL || scene_buffer->texture != NULL) {
 		return scene_buffer->texture;
 	}
@@ -621,14 +620,14 @@ static void scene_entry_render(struct render_list_entry *entry, const struct ren
 		struct wlr_scene_rect *scene_rect = wlr_scene_rect_from_node(node);
 
 		wlr_render_pass_add_rect(data->render_pass, &(struct wlr_render_rect_options){
-				.box = dst_box,
-				.color = {
-					.r = scene_rect->color[0],
-					.g = scene_rect->color[1],
-					.b = scene_rect->color[2],
-					.a = scene_rect->color[3],
-				},
-				.clip = &render_region,
+			.box = dst_box,
+			.color = {
+				.r = scene_rect->color[0],
+				.g = scene_rect->color[1],
+				.b = scene_rect->color[2],
+				.a = scene_rect->color[3],
+			},
+			.clip = &render_region,
 		});
 		break;
 	case WLR_SCENE_NODE_BUFFER:;
@@ -679,7 +678,7 @@ static void scene_entry_render(struct render_list_entry *entry, const struct ren
 }
 
 bool wsm_scene_output_build_state(struct wlr_scene_output *scene_output,
-	struct wlr_output_state *state, const struct wlr_scene_output_state_options *options) {
+		struct wlr_output_state *state, const struct wlr_scene_output_state_options *options) {
 	struct wlr_scene_output_state_options default_options = {0};
 	if (!options) {
 		options = &default_options;
@@ -943,7 +942,7 @@ void root_get_box(struct wsm_scene *root, struct wlr_box *box) {
 }
 
 static void set_container_transform(struct wsm_workspace *ws,
-	struct wsm_container *con) {
+		struct wsm_container *con) {
 	struct wsm_output *output = ws->output;
 	struct wlr_box box = {0};
 	if (output) {

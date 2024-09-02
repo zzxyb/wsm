@@ -48,7 +48,7 @@ static int find_output(const void *id1, const void *id2) {
 }
 
 static int workspace_output_get_priority(struct wsm_workspace *ws,
-	struct wsm_output *output) {
+		struct wsm_output *output) {
 	char identifier[128];
 	output_get_identifier(identifier, sizeof(identifier), output);
 	int index_id = list_seq_find(ws->output_priority, find_output, identifier);
@@ -58,7 +58,7 @@ static int workspace_output_get_priority(struct wsm_workspace *ws,
 }
 
 struct wsm_workspace *workspace_create(struct wsm_output *output,
-	const char *name) {
+		const char *name) {
 	wsm_assert(name, "NULL name given to workspace_create");
 
 	wsm_log(WSM_DEBUG, "Adding workspace %s for output %s", name,
@@ -139,7 +139,7 @@ void workspace_get_box(struct wsm_workspace *workspace, struct wlr_box *box) {
 }
 
 void workspace_for_each_container(struct wsm_workspace *ws,
-	void (*f)(struct wsm_container *con, void *data), void *data) {
+		void (*f)(struct wsm_container *con, void *data), void *data) {
 	for (int i = 0; i < ws->floating->length; ++i) {
 		struct wsm_container *container = ws->floating->items[i];
 		f(container, data);
@@ -290,7 +290,7 @@ void workspace_begin_destroy(struct wsm_workspace *workspace) {
 }
 
 struct wsm_container *workspace_add_tiling(struct wsm_workspace *workspace,
-	struct wsm_container *con) {
+		struct wsm_container *con) {
 	if (con->pending.workspace) {
 		struct wsm_container *old_parent = con->pending.parent;
 		container_detach(con);
@@ -323,7 +323,7 @@ void workspace_detect_urgent(struct wsm_workspace *workspace) {
 }
 
 struct wsm_container *workspace_find_container(struct wsm_workspace *ws,
-	bool (*test)(struct wsm_container *con, void *data), void *data) {
+		bool (*test)(struct wsm_container *con, void *data), void *data) {
 	struct wsm_container *result = NULL;
 	// Tiling
 	for (int i = 0; i < ws->tiling->length; ++i) {
@@ -360,7 +360,7 @@ bool output_match_name_or_id(struct wsm_output *output, const char *name_or_id) 
 }
 
 struct wsm_output *workspace_output_get_highest_available(
-	struct wsm_workspace *ws, struct wsm_output *exclude) {
+		struct wsm_workspace *ws, struct wsm_output *exclude) {
 	for (int i = 0; i < ws->output_priority->length; i++) {
 		const char *name = ws->output_priority->items[i];
 		if (exclude && output_match_name_or_id(exclude, name)) {
@@ -390,7 +390,7 @@ size_t workspace_num_sticky_containers(struct wsm_workspace *ws) {
 }
 
 void workspace_output_add_priority(struct wsm_workspace *workspace,
-	struct wsm_output *output) {
+		struct wsm_output *output) {
 	if (workspace_output_get_priority(workspace, output) < 0) {
 		char identifier[128];
 		output_get_identifier(identifier, sizeof(identifier), output);
@@ -399,7 +399,7 @@ void workspace_output_add_priority(struct wsm_workspace *workspace,
 }
 
 void output_add_workspace(struct wsm_output *output,
-	struct wsm_workspace *workspace) {
+		struct wsm_workspace *workspace) {
 	if (workspace->output) {
 		workspace_detach(workspace);
 	}

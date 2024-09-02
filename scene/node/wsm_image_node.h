@@ -35,11 +35,11 @@ struct wlr_scene_tree;
 typedef struct _cairo_surface cairo_surface_t;
 
 struct wsm_image_node {
+	struct wlr_scene_node *node;
+
 	int width;
 	int height;
 	float alpha;
-
-	struct wlr_scene_node *node;
 };
 
 struct wsm_image_node *wsm_image_node_create(struct wlr_scene_tree *parent,

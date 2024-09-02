@@ -81,58 +81,30 @@ enum wsm_input_idle_source {
 };
 
 struct wsm_seat_device {
+	struct wl_list link;
 	struct wsm_seat *wsm_seat;
 	struct wsm_input_device *input_device;
 	struct wsm_keyboard *keyboard;
 	struct wsm_switch *switch_device;
 	struct wsm_tablet *tablet;
 	struct wsm_tablet_pad *tablet_pad;
-	struct wl_list link;
 };
 
 struct wsm_seat_node {
-	struct wsm_seat *seat;
-	struct wsm_node *node;
-
+	struct wl_listener destroy;
 	struct wl_list link; // focus_stack
 
-	struct wl_listener destroy;
+	struct wsm_seat *seat;
+	struct wsm_node *node;
 };
 
 struct wsm_drag {
+	struct wl_listener destroy;
 	struct wsm_seat *seat;
 	struct wlr_drag *wlr_drag;
-	struct wl_listener destroy;
 };
 
 struct wsm_seat {
-	struct wlr_seat *wlr_seat;
-	struct wsm_cursor *wsm_cursor;
-
-	struct wlr_scene_tree *scene_tree;
-	struct wlr_scene_tree *drag_icons;
-
-	bool has_focus;
-	struct wl_list focus_stack;
-	struct wsm_workspace *workspace;
-	char *prev_workspace_name;
-
-	struct wlr_layer_surface_v1 *focused_layer;
-
-	struct wl_client *exclusive_client;
-	bool has_exclusive_layer;
-
-	int32_t touch_id;
-	double touch_x, touch_y;
-
-	const struct wsm_seatop_impl *seatop_impl;
-	void *seatop_data;
-
-	uint32_t last_button_serial;
-	uint32_t idle_inhibit_sources, idle_wake_sources;
-
-	struct wsm_list *deferred_bindings;
-
 	struct wsm_input_method_relay im_relay;
 
 	struct wl_listener focus_destroy;
@@ -143,11 +115,35 @@ struct wsm_seat {
 	struct wl_listener request_set_primary_selection;
 	struct wl_listener destroy;
 
+	struct wl_list link;
+
+	struct wl_list focus_stack;
 	struct wl_list devices;
 	struct wl_list keyboard_groups;
 	struct wl_list keyboard_shortcuts_inhibitors;
 
-	struct wl_list link;
+	struct wsm_list *deferred_bindings;
+	struct wlr_seat *wlr_seat;
+	struct wsm_cursor *wsm_cursor;
+
+	struct wlr_scene_tree *scene_tree;
+	struct wlr_scene_tree *drag_icons;
+
+	struct wsm_workspace *workspace;
+	char *prev_workspace_name;
+	struct wlr_layer_surface_v1 *focused_layer;
+
+	struct wl_client *exclusive_client;
+
+	const struct wsm_seatop_impl *seatop_impl;
+	void *seatop_data;
+
+	double touch_x, touch_y;
+	int32_t touch_id;
+	uint32_t last_button_serial;
+	uint32_t idle_inhibit_sources, idle_wake_sources;
+	bool has_focus;
+	bool has_exclusive_layer;
 };
 
 struct wsm_seatop_impl {

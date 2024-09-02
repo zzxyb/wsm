@@ -65,7 +65,7 @@ static void popup_handle_destroy(struct wl_listener *listener, void *data) {
 }
 
 struct wsm_xdg_popup *wsm_xdg_popup_create(struct wlr_xdg_popup *wlr_popup,
-	struct wsm_view *view, struct wlr_scene_tree *parent) {
+		struct wsm_view *view, struct wlr_scene_tree *parent) {
 	struct wlr_xdg_surface *xdg_surface = wlr_popup->base;
 
 	struct wsm_xdg_popup *popup = calloc(1, sizeof(struct wsm_xdg_popup));
@@ -94,7 +94,7 @@ struct wsm_xdg_popup *wsm_xdg_popup_create(struct wlr_xdg_popup *wlr_popup,
 	popup->desc.view = view;
 
 	if (!wsm_scene_descriptor_assign(&popup->scene_tree->node,
-		WSM_SCENE_DESC_POPUP, &popup->desc)) {
+			WSM_SCENE_DESC_POPUP, &popup->desc)) {
 		wsm_log(WSM_ERROR, "Failed to allocate a popup scene descriptor");
 		wlr_scene_node_destroy(&popup->scene_tree->node);
 		free(popup);

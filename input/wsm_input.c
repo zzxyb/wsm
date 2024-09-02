@@ -42,7 +42,7 @@ static enum libinput_config_status handle_set_send_events(struct libinput_device
 }
 
 static enum libinput_config_status handle_set_tap(struct libinput_device *device,
-	enum libinput_config_tap_state tap) {
+		enum libinput_config_tap_state tap) {
 	if (libinput_device_config_tap_get_finger_count(device) <= 0 ||
 		libinput_device_config_tap_get_enabled(device) == tap) {
 		wsm_log(WSM_ERROR, "handle_set_tap redundantly!");
@@ -54,7 +54,7 @@ static enum libinput_config_status handle_set_tap(struct libinput_device *device
 }
 
 static enum libinput_config_status handle_set_tap_button_map(
-	struct libinput_device *device, enum libinput_config_tap_button_map map) {
+		struct libinput_device *device, enum libinput_config_tap_button_map map) {
 	if (libinput_device_config_tap_get_finger_count(device) <= 0 ||
 		libinput_device_config_tap_get_button_map(device) == map) {
 		wsm_log(WSM_ERROR, "handle_set_tap_button_map redundantly!");
@@ -66,7 +66,7 @@ static enum libinput_config_status handle_set_tap_button_map(
 }
 
 static enum libinput_config_status handle_set_tap_drag(
-	struct libinput_device *device, enum libinput_config_drag_state drag) {
+		struct libinput_device *device, enum libinput_config_drag_state drag) {
 	if (libinput_device_config_tap_get_finger_count(device) <= 0 ||
 		libinput_device_config_tap_get_drag_enabled(device) == drag) {
 		wsm_log(WSM_ERROR, "handle_set_tap_drag redundantly!");
@@ -78,7 +78,7 @@ static enum libinput_config_status handle_set_tap_drag(
 }
 
 static enum libinput_config_status handle_set_tap_drag_lock(
-	struct libinput_device *device, enum libinput_config_drag_lock_state lock) {
+		struct libinput_device *device, enum libinput_config_drag_lock_state lock) {
 	if (libinput_device_config_tap_get_finger_count(device) <= 0 ||
 		libinput_device_config_tap_get_drag_lock_enabled(device) == lock) {
 		wsm_log(WSM_ERROR, "handle_set_tap_drag_lock redundantly!");
@@ -112,7 +112,7 @@ static enum libinput_config_status handle_set_rotation_angle(struct libinput_dev
 }
 
 static enum libinput_config_status handle_set_accel_profile(
-	struct libinput_device *device, enum libinput_config_accel_profile profile) {
+		struct libinput_device *device, enum libinput_config_accel_profile profile) {
 	if (!libinput_device_config_accel_is_available(device) ||
 		libinput_device_config_accel_get_profile(device) == profile) {
 		wsm_log(WSM_ERROR, "handle_set_accel_profile redundantly!");
@@ -146,7 +146,7 @@ static enum libinput_config_status handle_set_left_handed(struct libinput_device
 }
 
 static enum libinput_config_status handle_set_click_method(
-	struct libinput_device *device, enum libinput_config_click_method method) {
+		struct libinput_device *device, enum libinput_config_click_method method) {
 	uint32_t click = libinput_device_config_click_get_methods(device);
 	if ((click & ~LIBINPUT_CONFIG_CLICK_METHOD_NONE) == 0 ||
 		libinput_device_config_click_get_method(device) == method) {
@@ -159,7 +159,7 @@ static enum libinput_config_status handle_set_click_method(
 }
 
 static enum libinput_config_status handle_set_middle_emulation(
-	struct libinput_device *dev, enum libinput_config_middle_emulation_state mid) {
+		struct libinput_device *dev, enum libinput_config_middle_emulation_state mid) {
 	if (!libinput_device_config_middle_emulation_is_available(dev) ||
 		libinput_device_config_middle_emulation_get_enabled(dev) == mid) {
 		wsm_log(WSM_ERROR, "handle_set_middle_emulation redundantly!");
@@ -171,7 +171,7 @@ static enum libinput_config_status handle_set_middle_emulation(
 }
 
 static enum libinput_config_status handle_set_scroll_method(
-	struct libinput_device *device, enum libinput_config_scroll_method method) {
+		struct libinput_device *device, enum libinput_config_scroll_method method) {
 	uint32_t scroll = libinput_device_config_scroll_get_methods(device);
 	if ((scroll & ~LIBINPUT_CONFIG_SCROLL_NO_SCROLL) == 0 ||
 		libinput_device_config_scroll_get_method(device) == method) {
@@ -196,7 +196,7 @@ static enum libinput_config_status handle_set_scroll_button(struct libinput_devi
 }
 
 static enum libinput_config_status handle_set_scroll_button_lock(
-	struct libinput_device *dev, enum libinput_config_scroll_button_lock_state lock) {
+		struct libinput_device *dev, enum libinput_config_scroll_button_lock_state lock) {
 	uint32_t scroll = libinput_device_config_scroll_get_methods(dev);
 	if ((scroll & ~LIBINPUT_CONFIG_SCROLL_NO_SCROLL) == 0 ||
 		libinput_device_config_scroll_get_button_lock(dev) == lock) {

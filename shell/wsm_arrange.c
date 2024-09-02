@@ -76,7 +76,6 @@ void arrange_root_scene(struct wsm_scene *root) {
 
 	for (int i = 0; i < root->scratchpad->length; i++) {
 		struct wsm_container *con = root->scratchpad->items[i];
-		
 		wlr_scene_node_set_enabled(&con->scene_tree->node, false);
 	}
 
@@ -84,7 +83,6 @@ void arrange_root_scene(struct wsm_scene *root) {
 		for (int i = 0; i < root->outputs->length; i++) {
 			struct wsm_output *output = root->outputs->items[i];
 			struct wsm_workspace *ws = output->current.active_workspace;
-			
 			if (ws) {
 				arrange_workspace_floating(ws);
 			}
@@ -164,7 +162,6 @@ void arrange_output_width_size(struct wsm_output *output, int width, int height)
 
 			if (fs) {
 				wlr_scene_rect_set_size(output->fullscreen_background, width, height);
-
 				wsm_arrange_fullscreen(child->layers.fullscreen, fs, child,
 					width, height);
 			} else {
@@ -244,7 +241,7 @@ void wsm_arrange_workspace_auto(struct wsm_workspace *workspace) {
 }
 
 void wsm_arrange_layer_surface(struct wsm_output *output, const struct wlr_box *full_area,
-	struct wlr_box *usable_area, struct wlr_scene_tree *tree) {
+		struct wlr_box *usable_area, struct wlr_scene_tree *tree) {
 	struct wlr_scene_node *node;
 	wl_list_for_each(node, &tree->children, link) {
 		struct wsm_layer_surface *surface = wsm_scene_descriptor_try_get(node,
@@ -404,7 +401,7 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 }
 
 void wsm_arrange_title_bar(struct wsm_container *con,
-	int x, int y, int width, int height) {
+		int x, int y, int width, int height) {
 	container_update(con);
 
 	bool has_title_bar = height > 0;
@@ -420,8 +417,8 @@ void wsm_arrange_title_bar(struct wsm_container *con,
 }
 
 void wsm_arrange_fullscreen(struct wlr_scene_tree *tree,
-	struct wsm_container *fs, struct wsm_workspace *ws,
-	int width, int height) {
+		struct wsm_container *fs, struct wsm_workspace *ws,
+		int width, int height) {
 	struct wlr_scene_node *fs_node;
 	if (fs->view) {
 		fs_node = &fs->view->scene_tree->node;
@@ -437,7 +434,7 @@ void wsm_arrange_fullscreen(struct wlr_scene_tree *tree,
 }
 
 void wsm_arrange_container_with_title_bar(struct wsm_container *con,
-	int width, int height, bool title_bar, int gaps) {
+		int width, int height, bool title_bar, int gaps) {
 	wlr_scene_node_set_enabled(&con->scene_tree->node, true);
 
 	if (con->output_handler) {
@@ -501,8 +498,7 @@ void wsm_arrange_container_with_title_bar(struct wsm_container *con,
 }
 
 void arrange_children_with_titlebar(enum wsm_container_layout layout, struct wsm_list *children,
-	struct wsm_container *active, struct wlr_scene_tree *content,
-	int width, int height, int gaps) {
+		struct wsm_container *active, struct wlr_scene_tree *content, int width, int height, int gaps) {
 	int title_bar_height = container_titlebar_height();
 
 	struct wsm_container *first = children->length == 1 ?
@@ -536,7 +532,7 @@ void arrange_children_with_titlebar(enum wsm_container_layout layout, struct wsm
 }
 
 void arrange_workspace_tiling(struct wsm_workspace *ws,
-	int width, int height) {
+		int width, int height) {
 	arrange_children_with_titlebar(ws->current.layout, ws->current.tiling,
 		ws->current.focused_inactive_child, ws->layers.non_fullscreen,
 		width, height, ws->gaps_inner);

@@ -46,7 +46,7 @@ THE SOFTWARE.
 #define WSM_LAYER_SHELL_VERSION 4
 
 static struct wlr_scene_tree *wsm_layer_get_scene(struct wsm_output *output,
-	 enum zwlr_layer_shell_v1_layer type) {
+		enum zwlr_layer_shell_v1_layer type) {
 	switch (type) {
 	case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND:
 		return output->layers.shell_background;
@@ -62,7 +62,7 @@ static struct wlr_scene_tree *wsm_layer_get_scene(struct wsm_output *output,
 }
 
 static struct wsm_layer_surface *wsm_layer_surface_create(
-	struct wlr_scene_layer_surface_v1 *scene) {
+		struct wlr_scene_layer_surface_v1 *scene) {
 	struct wsm_layer_surface *surface = calloc(1, sizeof(struct wsm_layer_surface));
 	if (!surface) {
 		wsm_log(WSM_ERROR, "Could not allocate a scene_layer surface");
@@ -112,7 +112,8 @@ static void handle_surface_commit(struct wl_listener *listener, void *data) {
 		wlr_scene_node_reparent(&surface->scene->tree->node, output_layer);
 	}
 
-	if (layer_surface->initial_commit || committed || layer_surface->surface->mapped != surface->mapped) {
+	if (layer_surface->initial_commit || committed ||
+			layer_surface->surface->mapped != surface->mapped) {
 		surface->mapped = layer_surface->surface->mapped;
 		wsm_arrange_layers(surface->output);
 		transaction_commit_dirty();
@@ -125,8 +126,8 @@ static void handle_map(struct wl_listener *listener, void *data) {
 		surface->scene->layer_surface;
 
 	if (layer_surface->current.keyboard_interactive &&
-		(layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY ||
-		 layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_TOP)) {
+			(layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY ||
+			layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_TOP)) {
 		struct wsm_seat *seat;
 		wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
 			if (!seat->focused_layer ||
@@ -162,8 +163,8 @@ static void handle_new_popup(struct wl_listener *listener, void *data) {
 
 static void handle_output_destroy(struct wl_listener *listener, void *data) {
 	struct wsm_layer_surface *layer =
-			wl_container_of(listener, layer, output_destroy);
-	
+		wl_container_of(listener, layer, output_destroy);
+
 	layer->output = NULL;
 	wlr_scene_node_destroy(&layer->scene->tree->node);
 }
@@ -187,7 +188,7 @@ static struct wsm_layer_surface *find_mapped_layer_by_client(
 			struct wlr_layer_surface_v1 *layer_surface = surface->layer_surface;
 			struct wl_resource *resource = layer_surface->resource;
 			if (wl_resource_get_client(resource) == client
-				&& layer_surface->surface->mapped) {
+					&& layer_surface->surface->mapped) {
 				return surface;
 			}
 		}
@@ -232,7 +233,7 @@ static void handle_node_destroy(struct wl_listener *listener, void *data) {
 void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 	struct wlr_layer_surface_v1 *layer_surface = data;
 	wsm_log(WSM_DEBUG, "new layer surface: namespace %s layer %d anchor %" PRIu32
-		" size %" PRIu32 "x%" PRIu32 " margin %" PRIu32 ",%" PRIu32 ",%" PRIu32 ",%" PRIu32 ",",	
+		" size %" PRIu32 "x%" PRIu32 " margin %" PRIu32 ",%" PRIu32 ",%" PRIu32 ",%" PRIu32 ",",
 		layer_surface->namespace,
 		layer_surface->pending.layer,
 		layer_surface->pending.anchor,
@@ -266,7 +267,7 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 		}
 		layer_surface->output = output->wlr_output;
 	}
-	
+
 	struct wsm_output *output = layer_surface->output->data;
 	enum zwlr_layer_shell_v1_layer layer_type = layer_surface->pending.layer;
 	struct wlr_scene_tree *output_layer = wsm_layer_get_scene(
@@ -278,7 +279,7 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 		wsm_log(WSM_ERROR, "Could not allocate a layer_surface_v1");
 		return;
 	}
-	
+
 	struct wsm_layer_surface *surface =
 		wsm_layer_surface_create(scene_surface);
 	if (!surface) {
@@ -301,7 +302,7 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 		layer_surface->output->scale);
 	wlr_surface_set_preferred_buffer_scale(surface->layer_surface->surface,
 		ceil(layer_surface->output->scale));
-	
+
 	surface->surface_commit.notify = handle_surface_commit;
 	wl_signal_add(&layer_surface->surface->events.commit,
 		&surface->surface_commit);
@@ -311,10 +312,10 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 	wl_signal_add(&layer_surface->surface->events.unmap, &surface->unmap);
 	surface->new_popup.notify = handle_new_popup;
 	wl_signal_add(&layer_surface->events.new_popup, &surface->new_popup);
-	
+
 	surface->output_destroy.notify = handle_output_destroy;
 	wl_signal_add(&output->events.disable, &surface->output_destroy);
-	
+
 	surface->node_destroy.notify = handle_node_destroy;
 	wl_signal_add(&scene_surface->tree->node.events.destroy, &surface->node_destroy);
 }
@@ -353,7 +354,7 @@ struct wlr_layer_surface_v1 *toplevel_layer_surface_from_surface(
 
 		struct wlr_xdg_surface *xdg_surface = NULL;
 		if ((xdg_surface = wlr_xdg_surface_try_from_wlr_surface(surface)) &&
-			xdg_surface->role == WLR_XDG_SURFACE_ROLE_POPUP && xdg_surface->popup != NULL) {
+				xdg_surface->role == WLR_XDG_SURFACE_ROLE_POPUP && xdg_surface->popup != NULL) {
 			if (!xdg_surface->popup->parent) {
 				return NULL;
 			}

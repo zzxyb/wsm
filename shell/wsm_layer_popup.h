@@ -32,13 +32,13 @@ struct wlr_scene_tree;
 struct wsm_layer_surface;
 
 struct wsm_layer_popup {
-	struct wlr_xdg_popup *wlr_popup;
-	struct wlr_scene_tree *scene;
-	struct wsm_layer_surface *toplevel;
-
 	struct wl_listener destroy;
 	struct wl_listener new_popup;
 	struct wl_listener commit;
+
+	struct wlr_xdg_popup *wlr_popup;
+	struct wlr_scene_tree *scene;
+	struct wsm_layer_surface *toplevel;
 };
 
 struct wsm_layer_popup *wsm_layer_popup_create(struct wlr_xdg_popup *wlr_popup,

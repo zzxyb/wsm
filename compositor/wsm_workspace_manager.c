@@ -33,7 +33,8 @@ THE SOFTWARE.
 
 #include <wlr/types/wlr_scene.h>
 
-struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_server* server, struct wsm_output *output) {
+struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_server* server,
+		struct wsm_output *output) {
 	struct wsm_workspace_manager *workspace_manager =
 		calloc(1, sizeof(struct wsm_workspace_manager));
 	if (!wsm_assert(workspace_manager,

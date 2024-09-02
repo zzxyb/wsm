@@ -60,8 +60,8 @@ THE SOFTWARE.
 
 struct send_frame_done_data {
 	struct timespec when;
-	int msec_until_refresh;
 	struct wsm_output *output;
+	int msec_until_refresh;
 };
 
 struct buffer_timer {
@@ -182,7 +182,7 @@ static struct buffer_timer *buffer_timer_get_or_create(struct wlr_scene_buffer *
 }
 
 static void send_frame_done_iterator(struct wlr_scene_buffer *buffer,
-									 int x, int y, void *user_data) {
+		int x, int y, void *user_data) {
 	struct send_frame_done_data *data = user_data;
 	struct wsm_output *output = data->output;
 	int view_max_render_time = 0;
@@ -224,7 +224,7 @@ static void send_frame_done_iterator(struct wlr_scene_buffer *buffer,
 }
 
 static enum wlr_scale_filter_mode get_scale_filter(struct wsm_output *output,
-	struct wlr_scene_buffer *buffer) {
+		struct wlr_scene_buffer *buffer) {
 	if (buffer->dst_width > 0 && buffer->dst_height > 0) {
 		return WLR_SCALE_FILTER_BILINEAR;
 	}
@@ -240,7 +240,7 @@ static enum wlr_scale_filter_mode get_scale_filter(struct wsm_output *output,
 }
 
 static void output_configure_scene(struct wsm_output *output,
-	struct wlr_scene_node *node, float opacity) {
+		struct wlr_scene_node *node, float opacity) {
 	if (!node->enabled) {
 		return;
 	}
@@ -536,7 +536,7 @@ void output_enable(struct wsm_output *output) {
 }
 
 static void evacuate_sticky(struct wsm_workspace *old_ws,
-	struct wsm_output *new_output) {
+		struct wsm_output *new_output) {
 	struct wsm_workspace *new_ws = output_get_active_workspace(new_output);
 	if (!wsm_assert(new_ws, "New output does not have a workspace")) {
 		return;
@@ -627,7 +627,7 @@ void output_disable(struct wsm_output *output) {
 }
 
 void wsm_output_add_workspace(struct wsm_output *output,
-	struct wsm_workspace *workspace) {
+		struct wsm_workspace *workspace) {
 	if (workspace->output) {
 		workspace_detach(workspace);
 	}
@@ -751,7 +751,7 @@ struct wsm_output_non_desktop *output_non_desktop_create(struct wlr_output *wlr_
 }
 
 void output_for_each_container(struct wsm_output *output,
-	void (*f)(struct wsm_container *con, void *data), void *data) {
+		void (*f)(struct wsm_container *con, void *data), void *data) {
 	for (int i = 0; i < output->workspaces->length; ++i) {
 		struct wsm_workspace *workspace = output->workspaces->items[i];
 		workspace_for_each_container(workspace, f, data);
@@ -868,7 +868,7 @@ struct wsm_output *output_by_name_or_id(const char *name_or_id) {
 }
 
 void output_for_each_workspace(struct wsm_output *output,
-	void (*f)(struct wsm_workspace *ws, void *data), void *data) {
+		void (*f)(struct wsm_workspace *ws, void *data), void *data) {
 	for (int i = 0; i < output->workspaces->length; ++i) {
 		struct wsm_workspace *workspace = output->workspaces->items[i];
 		f(workspace, data);

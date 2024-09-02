@@ -31,15 +31,15 @@ THE SOFTWARE.
 #include <wayland-util.h>
 
 struct wsm_config_entry {
+	struct wl_list link;
 	char *key;
 	char *value;
-	struct wl_list link;
 };
 
 struct wsm_config_section {
-	char *name;
 	struct wl_list entry_list;
 	struct wl_list link;
+	char *name;
 };
 
 enum wsm_option_type {

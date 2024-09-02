@@ -39,15 +39,15 @@ struct wsm_output;
 struct wsm_xwayland_view;
 
 struct wsm_workspace_state {
+	struct wsm_list *floating;
+	struct wsm_list *tiling;
 	struct wsm_container *fullscreen;
+	struct wsm_container *focused_inactive_child;
+	struct wsm_output *output;
+
 	double x, y;
 	int width, height;
 	enum wsm_container_layout layout;
-	struct wsm_output *output;
-	struct wsm_list *floating;
-	struct wsm_list *tiling;
-
-	struct wsm_container *focused_inactive_child;
 	bool focused;
 };
 
@@ -81,6 +81,7 @@ struct side_gaps {
  * --------------------------------------------------
  */
 struct wsm_workspace {
+	struct wsm_workspace_state current;
 	struct wsm_node node;
 
 	struct {
@@ -88,27 +89,25 @@ struct wsm_workspace {
 		struct wlr_scene_tree *fullscreen;
 	} layers;
 
+	struct side_gaps current_gaps;
+	struct side_gaps gaps_outer;
+
 	struct wsm_container *fullscreen;
+	struct wsm_output *output; // NULL if no outputs are connected
+	struct wsm_list *floating;
+	struct wsm_list *tiling;
+	struct wsm_list *output_priority;
 
 	char *name;
 	char *representation;
 
 	double x, y;
 	int width, height;
+	int gaps_inner;
 	enum wsm_container_layout layout;
 	enum wsm_container_layout prev_split_layout;
 
-	struct side_gaps current_gaps;
-	int gaps_inner;
-	struct side_gaps gaps_outer;
-
-	struct wsm_output *output; // NULL if no outputs are connected
-	struct wsm_list *floating;
-	struct wsm_list *tiling;
-	struct wsm_list *output_priority;
 	bool urgent;
-
-	struct wsm_workspace_state current;
 };
 
 struct wsm_workspace *workspace_create(struct wsm_output *output,

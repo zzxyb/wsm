@@ -55,7 +55,7 @@ static void cairo_buffer_handle_destroy(struct wlr_buffer *wlr_buffer) {
 }
 
 static bool cairo_buffer_handle_begin_data_ptr_access(struct wlr_buffer *wlr_buffer,
-	uint32_t flags, void **data, uint32_t *format, size_t *stride) {
+		uint32_t flags, void **data, uint32_t *format, size_t *stride) {
 	struct cairo_buffer *buffer = wl_container_of(wlr_buffer, buffer, base);
 	*data = cairo_image_surface_get_data(buffer->surface);
 	*stride = cairo_image_surface_get_stride(buffer->surface);
@@ -221,7 +221,7 @@ static void handle_outputs_update(struct wl_listener *listener, void *data) {
 }
 
 static void handle_destroy(struct wl_listener *listener, void *data) {
-	struct text_buffer *buffer = wl_container_of(listener, buffer, destroy);
+		struct text_buffer *buffer = wl_container_of(listener, buffer, destroy);
 
 	wl_list_remove(&buffer->outputs_update.link);
 	wl_list_remove(&buffer->destroy.link);
@@ -248,8 +248,8 @@ static void text_calc_size(struct text_buffer *buffer) {
 }
 
 struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent,
-	const struct wsm_desktop_interface *font,
-	char *text, float color[4], bool pango_markup) {
+		const struct wsm_desktop_interface *font,
+		char *text, float color[4], bool pango_markup) {
 	struct text_buffer *buffer = calloc(1, sizeof(*buffer));
 	if (!buffer) {
 		return NULL;

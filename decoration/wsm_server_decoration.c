@@ -37,7 +37,7 @@ THE SOFTWARE.
 #include <wlr/types/wlr_compositor.h>
 
 static void server_decoration_handle_destroy(struct wl_listener *listener,
-	void *data) {
+		void *data) {
 	struct wsm_server_decoration *deco =
 		wl_container_of(listener, deco, destroy);
 	wl_list_remove(&deco->destroy.link);
@@ -47,7 +47,7 @@ static void server_decoration_handle_destroy(struct wl_listener *listener,
 }
 
 static void server_decoration_handle_mode(struct wl_listener *listener,
-	void *data) {
+		void *data) {
 	struct wsm_server_decoration *deco =
 		wl_container_of(listener, deco, mode);
 	struct wsm_view *view =

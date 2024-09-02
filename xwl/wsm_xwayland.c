@@ -232,7 +232,7 @@ static void unmanaged_handle_override_redirect(struct wl_listener *listener, voi
 }
 
 static struct wsm_xwayland_unmanaged *create_unmanaged(
-	struct wlr_xwayland_surface *xsurface) {
+		struct wlr_xwayland_surface *xsurface) {
 	struct wsm_xwayland_unmanaged *surface =
 		calloc(1, sizeof(struct wsm_xwayland_unmanaged));
 	if (surface == NULL) {
@@ -260,7 +260,7 @@ static struct wsm_xwayland_unmanaged *create_unmanaged(
 }
 
 static struct wsm_xwayland_view *xwayland_view_from_view(
-	struct wsm_view *view) {
+		struct wsm_view *view) {
 	if (!wsm_assert(view->type == WSM_VIEW_XWAYLAND,
 			"Expected xwayland view")) {
 		return NULL;
@@ -341,7 +341,7 @@ static uint32_t get_int_prop(struct wsm_view *view, enum wsm_view_prop prop) {
 }
 
 static uint32_t configure(struct wsm_view *view, double lx, double ly,
-	int width, int height) {
+		int width, int height) {
 	struct wsm_xwayland_view *xwayland_view = xwayland_view_from_view(view);
 	if (xwayland_view == NULL) {
 		return 0;
@@ -431,7 +431,7 @@ static void handle_set_decorations(struct wl_listener *listener, void *data) {
 }
 
 static bool is_transient_for(struct wsm_view *child,
-	struct wsm_view *ancestor) {
+		struct wsm_view *ancestor) {
 	if (xwayland_view_from_view(child) == NULL) {
 		return false;
 	}
@@ -480,7 +480,7 @@ static void destroy(struct wsm_view *view) {
 }
 
 static void get_constraints(struct wsm_view *view, double *min_width,
-	double *max_width, double *min_height, double *max_height) {
+		double *max_width, double *min_height, double *max_height) {
 	struct wlr_xwayland_surface *surface = view->wlr_xwayland_surface;
 	xcb_size_hints_t *size_hints = surface->size_hints;
 
@@ -820,7 +820,6 @@ static void handle_set_startup_id(struct wl_listener *listener, void *data) {
 	struct wlr_xdg_activation_token_v1 *token = wlr_xdg_activation_v1_find_token(
 		global_server.xdg_activation_v1, xsurface->startup_id);
 	if (token == NULL) {
-		// Tried to activate with an unknown or expired token
 		return;
 	}
 }
@@ -988,7 +987,7 @@ void handle_xwayland_ready(struct wl_listener *listener, void *data) {
 	for (size_t i = 0; i < ATOM_LAST; i++) {
 		xcb_generic_error_t *error = NULL;
 		xcb_intern_atom_reply_t *reply =
-				xcb_intern_atom_reply(xwayland->xcb_conn, cookies[i], &error);
+			xcb_intern_atom_reply(xwayland->xcb_conn, cookies[i], &error);
 		if (reply != NULL && error == NULL) {
 			xwayland->atoms[i] = reply->atom;
 		}
@@ -997,7 +996,7 @@ void handle_xwayland_ready(struct wl_listener *listener, void *data) {
 
 		if (error != NULL) {
 			wsm_log(WSM_ERROR, "could not resolve atom %s, X11 error code %d",
-					atom_map[i], error->error_code);
+				atom_map[i], error->error_code);
 			free(error);
 			break;
 		}

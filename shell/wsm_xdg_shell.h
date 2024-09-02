@@ -37,13 +37,13 @@ struct wsm_server;
 struct wsm_xdg_shell_view;
 
 struct wsm_xdg_shell {
-	struct wlr_xdg_shell *wlr_xdg_shell;
-	struct wlr_xdg_activation_v1 *xdg_activation_v1;
-
-	struct wl_listener xdg_shell_toplevel;
 	struct wl_listener xdg_activation_request;
+	struct wl_listener xdg_shell_toplevel;
 	struct wl_listener xdg_activation_v1_request_activate;
 	struct wl_listener xdg_activation_v1_new_token;
+
+	struct wlr_xdg_shell *wlr_xdg_shell;
+	struct wlr_xdg_activation_v1 *xdg_activation_v1;
 };
 
 struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server);

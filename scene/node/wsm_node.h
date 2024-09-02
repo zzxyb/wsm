@@ -49,7 +49,10 @@ enum wsm_node_type {
 };
 
 struct wsm_node {
-	enum wsm_node_type type;
+	struct {
+		struct wl_signal destroy;
+	} events;
+
 	union {
 		struct wsm_root *wsm_root;
 		struct wsm_output *wsm_output;
@@ -60,12 +63,10 @@ struct wsm_node {
 	size_t id;
 	size_t ntxnrefs;
 	struct wsm_transaction_instruction *instruction;
+
+	enum wsm_node_type type;
 	bool destroying;
 	bool dirty;
-
-	struct {
-		struct wl_signal destroy;
-	} events;
 };
 
 void node_init(struct wsm_node *node, enum wsm_node_type type, void *thing);

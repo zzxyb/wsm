@@ -164,7 +164,7 @@ void set_cursor_size(struct wsm_desktop_interface *desktop, int cursor_size) {
 }
 
 void set_color_scheme(struct wsm_desktop_interface *desktop,
-	enum wsm_color_scheme scheme) {
+		enum wsm_color_scheme scheme) {
 	if (scheme == desktop->color_scheme) {
 		return;
 	}
@@ -226,8 +226,8 @@ int file_exists(const char *path) {
 }
 
 void find_icon_in_directory(const char *directory, const char *icon_name,
-	const char *icon_extensions[],
-	char *icon_path, size_t size) {
+		const char *icon_extensions[],
+		char *icon_path, size_t size) {
 	for (size_t i = 0; icon_extensions[i] != NULL; ++i) {
 		snprintf(icon_path, size, "%s/%s.%s",
 				 directory, icon_name, icon_extensions[i]);
@@ -263,7 +263,7 @@ static const char *icon_sizes[] = {
 static const char *icon_extensions[] = {"png", "svg", "xpm", NULL};
 
 void find_icon(const char *icon_name, char *icon_path,
-	char *icon_theme, size_t size) {
+		char *icon_theme, size_t size) {
 	char home_dir[256];
 	get_home_directory(home_dir, sizeof(home_dir));
 

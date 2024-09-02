@@ -60,10 +60,10 @@ THE SOFTWARE.
 #include <wlr/types/wlr_pointer_gestures_v1.h>
 
 struct seatop_default_event {
-	struct wsm_node *previous_node;
 	uint32_t pressed_buttons[WSM_CURSOR_PRESSED_BUTTONS_CAP];
-	size_t pressed_button_count;
 	struct wsm_gesture_tracker gestures;
+	struct wsm_node *previous_node;
+	size_t pressed_button_count;
 };
 
 static bool edge_is_external(struct wsm_container *cont, enum wlr_edges edge) {
@@ -90,7 +90,7 @@ static bool edge_is_external(struct wsm_container *cont, enum wlr_edges edge) {
 }
 
 static enum wlr_edges find_edge(struct wsm_container *cont,
-	struct wlr_surface *surface, struct wsm_cursor *cursor) {
+		struct wlr_surface *surface, struct wsm_cursor *cursor) {
 	if (!cont->view || (surface && cont->view->surface != surface)) {
 		return WLR_EDGE_NONE;
 	}
@@ -125,7 +125,7 @@ static enum wlr_edges find_edge(struct wsm_container *cont,
  * Edges that can't be resized are edges of the workspace.
  */
 enum wlr_edges find_resize_edge(struct wsm_container *cont,
-	struct wlr_surface *surface, struct wsm_cursor *cursor) {
+		struct wlr_surface *surface, struct wsm_cursor *cursor) {
 	enum wlr_edges edge = find_edge(cont, surface, cursor);
 	if (edge && !container_is_floating(cont) && edge_is_external(cont, edge)) {
 		return WLR_EDGE_NONE;
@@ -175,8 +175,8 @@ static void state_add_button(struct seatop_default_event *e, uint32_t button) {
 }
 
 static void handle_tablet_tool_tip(struct wsm_seat *seat,
-	struct wsm_tablet_tool *tool, uint32_t time_msec,
-	enum wlr_tablet_tool_tip_state state) {
+		struct wsm_tablet_tool *tool, uint32_t time_msec,
+		enum wlr_tablet_tool_tip_state state) {
 	if (state == WLR_TABLET_TOOL_TIP_UP) {
 		wlr_tablet_v2_tablet_tool_notify_up(tool->tablet_v2_tool);
 		return;
@@ -238,9 +238,9 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 }
 
 static bool trigger_pointer_button_binding(struct wsm_seat *seat,
-	struct wlr_input_device *device, uint32_t button,
-	enum wl_pointer_button_state state, uint32_t modifiers,
-	bool on_titlebar, bool on_border, bool on_contents, bool on_workspace) {
+		struct wlr_input_device *device, uint32_t button,
+		enum wl_pointer_button_state state, uint32_t modifiers,
+		bool on_titlebar, bool on_border, bool on_contents, bool on_workspace) {
 	if (device && device->type != WLR_INPUT_DEVICE_POINTER) {
 		return false;
 	}
@@ -249,8 +249,8 @@ static bool trigger_pointer_button_binding(struct wsm_seat *seat,
 }
 
 static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
-	struct wlr_input_device *device, uint32_t button,
-	enum wl_pointer_button_state state) {
+		struct wlr_input_device *device, uint32_t button,
+		enum wl_pointer_button_state state) {
 	struct wsm_cursor *cursor = seat->wsm_cursor;
 
 	struct wlr_surface *surface = NULL;
@@ -374,7 +374,7 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 }
 
 static void check_focus_follows_mouse(struct wsm_seat *seat,
-	struct seatop_default_event *e, struct wsm_node *hovered_node) {
+		struct seatop_default_event *e, struct wsm_node *hovered_node) {
 	struct wsm_node *focus = seat_get_focus(seat);
 
 	if (!hovered_node) {
@@ -453,7 +453,7 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 }
 
 static void handle_tablet_tool_motion(struct wsm_seat *seat,
-	struct wsm_tablet_tool *tool, uint32_t time_msec) {
+		struct wsm_tablet_tool *tool, uint32_t time_msec) {
 	struct seatop_default_event *e = seat->seatop_data;
 	struct wsm_cursor *cursor = seat->wsm_cursor;
 
@@ -480,7 +480,7 @@ static void handle_tablet_tool_motion(struct wsm_seat *seat,
 }
 
 static void handle_touch_down(struct wsm_seat *seat,
-	struct wlr_touch_down_event *event, double lx, double ly) {
+		struct wlr_touch_down_event *event, double lx, double ly) {
 	struct wlr_surface *surface = NULL;
 	struct wlr_seat *wlr_seat = seat->wlr_seat;
 	struct wsm_cursor *cursor = seat->wsm_cursor;
@@ -519,7 +519,7 @@ static uint32_t wl_axis_to_button(struct wlr_pointer_axis_event *event) {
 }
 
 static void handle_pointer_axis(struct wsm_seat *seat,
-	struct wlr_pointer_axis_event *event) {
+		struct wlr_pointer_axis_event *event) {
 	struct wsm_input_device *input_device =
 			event->pointer ? event->pointer->base.data : NULL;
 	struct wsm_cursor *cursor = seat->wsm_cursor;
@@ -580,7 +580,7 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 }
 
 static void handle_hold_begin(struct wsm_seat *seat,
-	struct wlr_pointer_hold_begin_event *event) {
+		struct wlr_pointer_hold_begin_event *event) {
 	struct wsm_cursor *cursor = seat->wsm_cursor;
 	wlr_pointer_gestures_v1_send_hold_begin(
 		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
@@ -588,7 +588,7 @@ static void handle_hold_begin(struct wsm_seat *seat,
 }
 
 static void handle_hold_end(struct wsm_seat *seat,
-	struct wlr_pointer_hold_end_event *event) {
+		struct wlr_pointer_hold_end_event *event) {
 	struct wsm_cursor *cursor = seat->wsm_cursor;
 	wlr_pointer_gestures_v1_send_hold_end(
 		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
@@ -596,7 +596,7 @@ static void handle_hold_end(struct wsm_seat *seat,
 }
 
 static void handle_pinch_begin(struct wsm_seat *seat,
-	struct wlr_pointer_pinch_begin_event *event) {
+		struct wlr_pointer_pinch_begin_event *event) {
 	struct wsm_cursor *cursor = seat->wsm_cursor;
 	wlr_pointer_gestures_v1_send_pinch_begin(
 		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
@@ -604,7 +604,7 @@ static void handle_pinch_begin(struct wsm_seat *seat,
 }
 
 static void handle_pinch_update(struct wsm_seat *seat,
-	struct wlr_pointer_pinch_update_event *event) {
+		struct wlr_pointer_pinch_update_event *event) {
 	struct wsm_cursor *cursor = seat->wsm_cursor;
 	wlr_pointer_gestures_v1_send_pinch_update(
 		global_server.wsm_input_manager->pointer_gestures,
@@ -614,7 +614,7 @@ static void handle_pinch_update(struct wsm_seat *seat,
 }
 
 static void handle_pinch_end(struct wsm_seat *seat,
-	struct wlr_pointer_pinch_end_event *event) {
+		struct wlr_pointer_pinch_end_event *event) {
 	struct wsm_cursor *cursor = seat->wsm_cursor;
 	wlr_pointer_gestures_v1_send_pinch_end(
 		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
@@ -622,7 +622,7 @@ static void handle_pinch_end(struct wsm_seat *seat,
 }
 
 static void handle_swipe_begin(struct wsm_seat *seat,
-	struct wlr_pointer_swipe_begin_event *event) {
+		struct wlr_pointer_swipe_begin_event *event) {
 	struct wsm_cursor *cursor = seat->wsm_cursor;
 	wlr_pointer_gestures_v1_send_swipe_begin(
 		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
@@ -630,7 +630,7 @@ static void handle_swipe_begin(struct wsm_seat *seat,
 }
 
 static void handle_swipe_update(struct wsm_seat *seat,
-	struct wlr_pointer_swipe_update_event *event) {
+		struct wlr_pointer_swipe_update_event *event) {
 
 	struct wsm_cursor *cursor = seat->wsm_cursor;
 	wlr_pointer_gestures_v1_send_swipe_update(
@@ -639,7 +639,7 @@ static void handle_swipe_update(struct wsm_seat *seat,
 }
 
 static void handle_swipe_end(struct wsm_seat *seat,
-	struct wlr_pointer_swipe_end_event *event) {
+		struct wlr_pointer_swipe_end_event *event) {
 	struct wsm_cursor *cursor = seat->wsm_cursor;
 	wlr_pointer_gestures_v1_send_swipe_end(global_server.wsm_input_manager->pointer_gestures,
 		cursor->wsm_seat->wlr_seat, event->time_msec, event->cancelled);

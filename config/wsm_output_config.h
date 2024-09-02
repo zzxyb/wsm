@@ -40,13 +40,14 @@ enum render_bit_depth {
 };
 
 struct output_config {
+	drmModeModeInfo drm_mode;
+	struct wlr_color_transform *color_transform;
 	char *name;
 	int enabled;
 	int power;
 	int width, height;
 	float refresh_rate;
 	int custom_mode;
-	drmModeModeInfo drm_mode;
 	int x, y;
 	float scale;
 	enum scale_filter_mode scale_filter;
@@ -55,12 +56,11 @@ struct output_config {
 	int max_render_time; // In milliseconds
 	int adaptive_sync;
 	enum render_bit_depth render_bit_depth;
-	bool set_color_transform;
-	struct wlr_color_transform *color_transform;
 
 	char *background;
 	char *background_option;
 	char *background_fallback;
+	bool set_color_transform;
 };
 
 struct matched_output_config {

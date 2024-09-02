@@ -64,27 +64,38 @@ enum binding_flags {
 };
 
 struct wsm_binding {
-	enum binding_input_type type;
-	int order;
-	char *input;
-	uint32_t flags;
 	struct wsm_list *keys; // sorted in ascending order
 	struct wsm_list *syms; // sorted in ascending order; NULL if BINDING_CODE is not set
+	char *command;
+	char *input;
+	enum binding_input_type type;
+	int order;
+	uint32_t flags;
 	uint32_t modifiers;
 	xkb_layout_index_t group;
-	char *command;
 };
 
 struct wsm_shortcut_state {
 	uint32_t pressed_keys[WSM_KEYBOARD_PRESSED_KEYS_CAP];
 	uint32_t pressed_keycodes[WSM_KEYBOARD_PRESSED_KEYS_CAP];
+	size_t npressed;
 	uint32_t last_keycode;
 	uint32_t last_raw_modifiers;
-	size_t npressed;
 	uint32_t current_key;
 };
 
 struct wsm_keyboard {
+	struct wsm_shortcut_state state_keysyms_translated;
+	struct wsm_shortcut_state state_keysyms_raw;
+	struct wsm_shortcut_state state_keycodes;
+	struct wsm_shortcut_state state_pressed_sent;
+
+	struct wl_listener keyboard_key;
+	struct wl_listener keyboard_modifiers;
+
+	struct wsm_binding *held_binding;
+	struct wl_event_source *key_repeat_source;
+	struct wsm_binding *repeat_binding;
 	struct wsm_seat_device *seat_device;
 	struct wlr_keyboard *wlr;
 
@@ -93,36 +104,25 @@ struct wsm_keyboard {
 
 	int32_t repeat_rate;
 	int32_t repeat_delay;
-
-	struct wl_listener keyboard_key;
-	struct wl_listener keyboard_modifiers;
-
-	struct wsm_shortcut_state state_keysyms_translated;
-	struct wsm_shortcut_state state_keysyms_raw;
-	struct wsm_shortcut_state state_keycodes;
-	struct wsm_shortcut_state state_pressed_sent;
-	struct wsm_binding *held_binding;
-
-	struct wl_event_source *key_repeat_source;
-	struct wsm_binding *repeat_binding;
 };
 
 struct wsm_keyboard_group {
-	struct wlr_keyboard_group *wlr_group;
-	struct wsm_seat_device *seat_device;
 	struct wl_listener keyboard_key;
 	struct wl_listener keyboard_modifiers;
 	struct wl_listener enter;
 	struct wl_listener leave;
 	struct wl_list link;
+
+	struct wlr_keyboard_group *wlr_group;
+	struct wsm_seat_device *seat_device;
 };
 
 struct wsm_keyboard_shortcuts_inhibitor {
-	struct wlr_keyboard_shortcuts_inhibitor_v1 *inhibitor;
-
 	struct wl_listener destroy;
 
 	struct wl_list link; // wsm_seat::keyboard_shortcuts_inhibitors
+
+	struct wlr_keyboard_shortcuts_inhibitor_v1 *inhibitor;
 };
 
 struct wsm_keyboard *wsm_keyboard_create(struct wsm_seat *seat,

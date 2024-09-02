@@ -91,14 +91,31 @@ struct wsm_server_decoration_manager;
 extern struct wsm_server global_server;
 
 struct wsm_pointer_constraint {
-	struct wsm_cursor *cursor;
-	struct wlr_pointer_constraint_v1 *constraint;
-
 	struct wl_listener set_region;
 	struct wl_listener destroy;
+
+	struct wsm_cursor *cursor;
+	struct wlr_pointer_constraint_v1 *constraint;
 };
 
 struct wsm_server {
+#ifdef HAVE_XWAYLAND
+	struct wsm_xwayland xwayland;
+	struct wl_listener xwayland_surface;
+	struct wl_listener xwayland_ready;
+#endif
+
+	struct wl_listener pointer_constraint;
+	struct wl_listener drm_lease_request;
+
+	struct {
+		struct wl_listener new_lock;
+		struct wl_listener manager_destroy;
+
+		struct wsm_session_lock *lock;
+		struct wlr_session_lock_manager_v1 *manager;
+	} session_lock;
+
 	const char *socket;
 	struct wl_display *wl_display;
 	struct wl_event_loop *wl_event_loop;
@@ -126,20 +143,8 @@ struct wsm_server {
 	struct wlr_pointer_constraints_v1 *pointer_constraints;
 	struct wlr_input_method_manager_v2 *input_method;
 	struct wlr_text_input_manager_v3 *text_input;
-	struct wl_listener pointer_constraint;
-
-	struct {
-		struct wsm_session_lock *lock;
-		struct wlr_session_lock_manager_v1 *manager;
-		
-		struct wl_listener new_lock;
-		struct wl_listener manager_destroy;
-	} session_lock;
 
 #ifdef HAVE_XWAYLAND
-	struct wsm_xwayland xwayland;
-	struct wl_listener xwayland_surface;
-	struct wl_listener xwayland_ready;
 	struct wlr_xcursor_manager *xcursor_manager;
 #endif
 
@@ -152,8 +157,6 @@ struct wsm_server {
 	struct wsm_xdg_decoration_manager *wsm_xdg_decoration_manager;
 	struct wsm_idle_inhibit_manager_v1 wsm_idle_inhibit_manager_v1;
 	struct wsm_desktop_interface *desktop_interface;
-
-	struct wl_listener drm_lease_request;
 
 	size_t txn_timeout_ms;
 	struct wsm_transaction *queued_transaction;

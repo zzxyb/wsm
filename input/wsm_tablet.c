@@ -48,7 +48,7 @@ static void handle_pad_tablet_destroy(struct wl_listener *listener, void *data) 
 }
 
 static void attach_tablet_pad(struct wsm_tablet_pad *tablet_pad,
-	struct wsm_tablet *tablet) {
+		struct wsm_tablet *tablet) {
 	wsm_log(WSM_DEBUG, "Attaching tablet pad \"%s\" to tablet tool \"%s\"",
 		tablet_pad->seat_device->input_device->wlr_device->name,
 		tablet->seat_device->input_device->wlr_device->name);
@@ -62,7 +62,7 @@ static void attach_tablet_pad(struct wsm_tablet_pad *tablet_pad,
 }
 
 struct wsm_tablet *wsm_tablet_create(struct wsm_seat *seat,
-	struct wsm_seat_device *device) {
+		struct wsm_seat_device *device) {
 	struct wsm_tablet *tablet =
 		calloc(1, sizeof(struct wsm_tablet));
 	if (!wsm_assert(tablet, "Could not create wsm_tablet for seat: allocation failed!")) {
@@ -162,7 +162,7 @@ static void handle_tablet_tool_destroy(struct wl_listener *listener, void *data)
 }
 
 void wsm_tablet_tool_configure(struct wsm_tablet *tablet,
-	struct wlr_tablet_tool *wlr_tool) {
+		struct wlr_tablet_tool *wlr_tool) {
 	struct wsm_tablet_tool *tool =
 		calloc(1, sizeof(struct wsm_tablet_tool));
 	if (!wsm_assert(tool, "Could not create wsm tablet tool for tablet: allocation failed!")) {
@@ -251,7 +251,7 @@ static void handle_tablet_pad_button(struct wl_listener *listener, void *data) {
 }
 
 struct wsm_tablet_pad *wsm_tablet_pad_create(struct wsm_seat *seat,
-	struct wsm_seat_device *device) {
+		struct wsm_seat_device *device) {
 	struct wsm_tablet_pad *tablet_pad =
 		calloc(1, sizeof(struct wsm_tablet_pad));
 	if (!wsm_assert(tablet_pad, "Could not create wsm tablet: allocation failed!")) {
@@ -351,7 +351,7 @@ static void handle_pad_tablet_surface_destroy(struct wl_listener *listener, void
 }
 
 void wsm_tablet_pad_set_focus(struct wsm_tablet_pad *tablet_pad,
-	struct wlr_surface *surface) {
+		struct wlr_surface *surface) {
 	if (!tablet_pad || !tablet_pad->tablet) {
 		return;
 	}

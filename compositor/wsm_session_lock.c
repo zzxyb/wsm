@@ -87,7 +87,7 @@ static void lock_output_reconfigure(struct wsm_session_lock_output *output) {
 }
 
 static void focus_surface(struct wsm_session_lock *lock,
-	struct wlr_surface *focused) {
+		struct wlr_surface *focused) {
 	lock->focused = focused;
 
 	struct wsm_seat *seat;
@@ -269,7 +269,7 @@ static void wsm_session_lock_output_destroy(struct wsm_session_lock_output *outp
 	wl_list_remove(&output->commit.link);
 	wl_list_remove(&output->destroy.link);
 	wl_list_remove(&output->link);
-	
+
 	free(output);
 }
 
