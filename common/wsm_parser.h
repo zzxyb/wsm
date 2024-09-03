@@ -62,8 +62,6 @@ struct wsm_config {
 };
 
 int parse_options(const struct wsm_option *options, int count, int *argc, char *argv[]);
-struct wsm_config_section *weston_config_get_section(struct wsm_config *config, const char *section,
-	const char *key, const char *value);
 int wsm_config_section_get_int(struct wsm_config_section *section, const char *key,
 	int32_t *value, int32_t default_value);
 int wsm_config_section_get_uint(struct wsm_config_section *section, const char *key,
