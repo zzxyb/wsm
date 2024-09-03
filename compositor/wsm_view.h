@@ -109,6 +109,8 @@ struct wsm_view {
 	struct wsm_xdg_decoration *xdg_decoration;
 
 	char *title_format;
+	char *app_id;
+	char *app_icon_path;
 
 	struct wl_event_source *urgent_timer;
 	struct wlr_ext_foreign_toplevel_handle_v1 *ext_foreign_toplevel;

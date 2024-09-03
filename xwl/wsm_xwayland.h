@@ -69,7 +69,6 @@ struct wsm_xwayland {
 bool xwayland_start(struct wsm_server *server);
 struct wsm_view *view_from_wlr_xwayland_surface(
 	struct wlr_xwayland_surface *xsurface);
-const char *get_xwayland_surface_app_id(xcb_get_property_reply_t *reply);
 
 #endif
 
