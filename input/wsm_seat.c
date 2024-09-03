@@ -69,12 +69,26 @@ static void seat_device_destroy(struct wsm_seat_device *seat_device) {
 		return;
 	}
 
-	wsm_keyboard_destroy(seat_device->keyboard);
-	wsm_tablet_destroy(seat_device->tablet);
-	wsm_tablet_pad_destroy(seat_device->tablet_pad);
-	wsm_switch_destroy(seat_device->switch_device);
-	wlr_cursor_detach_input_device(seat_device->wsm_seat->wsm_cursor->wlr_cursor,
-		seat_device->input_device->wlr_device);
+	switch (seat_device->input_device->wlr_device->type) {
+	case WLR_INPUT_DEVICE_KEYBOARD:
+		wsm_keyboard_destroy(seat_device->keyboard);
+		break;
+	case WLR_INPUT_DEVICE_POINTER:
+	case WLR_INPUT_DEVICE_TOUCH:
+		wlr_cursor_detach_input_device(seat_device->wsm_seat->wsm_cursor->wlr_cursor,
+			seat_device->input_device->wlr_device);
+		break;
+	case WLR_INPUT_DEVICE_TABLET:
+		wsm_tablet_destroy(seat_device->tablet);
+		break;
+	case WLR_INPUT_DEVICE_SWITCH:
+		wsm_switch_destroy(seat_device->switch_device);
+		break;
+	case WLR_INPUT_DEVICE_TABLET_PAD:
+		wsm_tablet_pad_destroy(seat_device->tablet_pad);
+		break;
+	}
+
 	wl_list_remove(&seat_device->link);
 	free(seat_device);
 }

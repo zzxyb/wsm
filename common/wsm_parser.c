@@ -309,23 +309,3 @@ int wsm_config_section_get_bool(struct wsm_config_section *section,
 
 	return 0;
 }
-
-struct wsm_config_section *weston_config_get_section(struct wsm_config *config,
-	const char *section, const char *key, const char *value) {
-	struct wsm_config_section *s;
-	struct wsm_config_entry *e;
-
-	if (config == NULL)
-		return NULL;
-	wl_list_for_each(s, &config->section_list, link) {
-		if (strcmp(s->name, section) != 0)
-			continue;
-		if (key == NULL)
-			return s;
-		e = config_section_get_entry(s, key);
-		if (e && strcmp(e->value, value) == 0)
-			return s;
-	}
-
-	return NULL;
-}

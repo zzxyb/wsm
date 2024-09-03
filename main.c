@@ -62,25 +62,6 @@ static void usage(int error_code) {
 	exit(error_code);
 }
 
-static char *copy_command_line(int argc, char * const argv[]) {
-	FILE *fp;
-	char *str = NULL;
-	size_t size = 0;
-	int i;
-
-	fp = open_memstream(&str, &size);
-	if (!fp) {
-		return NULL;
-	}
-
-	fprintf(fp, "%s", argv[0]);
-	for (i = 1; i < argc; i++)
-		fprintf(fp, " %s", argv[i]);
-	fclose(fp);
-
-	return str;
-}
-
 void wsm_terminate(int exit_code) {
 	if (!global_server.wl_display) {
 		exit(exit_code);
@@ -96,7 +77,6 @@ void sig_handler(int signal) {
 
 int main(int argc, char **argv) {
 	char *startup_cmd = NULL;
-	char *cmdline = NULL;
 	bool xwayland = false;
 	bool help = 0;
 	int32_t log_level = WSM_ERROR;
@@ -109,16 +89,12 @@ int main(int argc, char **argv) {
 		{ WSM_OPTION_BOOLEAN, "help", 'h', &help },
 	};
 
-	cmdline = copy_command_line(argc, argv);
 	parse_options(core_options, ARRAY_LENGTH(core_options), &argc, argv);
 
 	if (help) {
-		free(cmdline);
+		wsm_log(WSM_DEBUG, "help command line!");
 		usage(EXIT_SUCCESS);
 	}
-
-	wsm_log(WSM_DEBUG, "Command line: %s", cmdline);
-	free(cmdline);
 
 	wlr_log_init(log_level, NULL);
 	wsm_log_init(log_level, NULL);

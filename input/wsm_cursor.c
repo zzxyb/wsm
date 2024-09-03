@@ -299,6 +299,24 @@ static void handle_touch_motion(struct wl_listener *listener, void *data) {
 	}
 }
 
+static void handle_touch_cancel(struct wl_listener *listener, void *data) {
+	struct wsm_cursor *cursor = wl_container_of(listener, cursor, touch_cancel);
+	struct wlr_touch_cancel_event *event = data;
+	cursor_handle_activity_from_device(cursor, &event->touch->base);
+
+	struct wsm_seat *seat = cursor->wsm_seat;
+
+	if (cursor->simulating_pointer_from_touch) {
+		if (cursor->pointer_touch_id == cursor->wsm_seat->touch_id) {
+			cursor->pointer_touch_up = true;
+			dispatch_cursor_button(cursor, &event->touch->base,
+				event->time_msec, BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED);
+		}
+	} else {
+		seatop_touch_cancel(seat, event);
+	}
+}
+
 static void handle_touch_up(struct wl_listener *listener, void *data) {
 	struct wsm_cursor *cursor = wl_container_of(listener, cursor, touch_up);
 	struct wlr_touch_up_event *event = data;
@@ -638,6 +656,9 @@ struct wsm_cursor *wsm_cursor_create(const struct wsm_server* server, struct wsm
 
 	cursor->touch_up.notify = handle_touch_up;
 	wl_signal_add(&wlr_cursor->events.touch_up, &cursor->touch_up);
+
+	cursor->touch_cancel.notify = handle_touch_cancel;
+	wl_signal_add(&wlr_cursor->events.touch_cancel, &cursor->touch_cancel);
 
 	cursor->touch_motion.notify = handle_touch_motion;
 	wl_signal_add(&wlr_cursor->events.touch_motion,
