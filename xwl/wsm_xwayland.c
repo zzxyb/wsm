@@ -33,6 +33,7 @@ THE SOFTWARE.
 #include "wsm_seat.h"
 #include "wsm_config.h"
 #include "wsm_arrange.h"
+#include "wsm_desktop.h"
 #include "wsm_workspace.h"
 #include "wsm_transaction.h"
 #include "wsm_output_manager.h"
@@ -58,6 +59,8 @@ THE SOFTWARE.
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_activation_v1.h>
+
+#define X11_ICON_NAME "xorg"
 
 static const char *atom_map[ATOM_LAST] = {
 	[NET_WM_WINDOW_TYPE_NORMAL] = "_NET_WM_WINDOW_TYPE_NORMAL",
@@ -268,7 +271,7 @@ static struct wsm_xwayland_view *xwayland_view_from_view(
 	return (struct wsm_xwayland_view *)view;
 }
 
-const char *get_xwayland_surface_app_id(xcb_get_property_reply_t *reply) {
+static char *get_xwayland_surface_app_id(xcb_get_property_reply_t *reply) {
 	struct wsm_xwayland *xwayland = &global_server.xwayland;
 	if (reply->type != XCB_ATOM_STRING &&
 			reply->type != xwayland->atoms[UTF8_STRING]) {
@@ -295,19 +298,50 @@ static const char *get_string_prop(struct wsm_view *view, enum wsm_view_prop pro
 		return view->wlr_xwayland_surface->title;
 	case VIEW_PROP_CLASS:
 		return view->wlr_xwayland_surface->class;
-	case VIEW_PROP_APP_ID: {
+	case VIEW_PROP_APP_ID:;
+		if (view->app_id) {
+			return view->app_id;
+		}
 		struct wsm_xwayland *xwayland = &global_server.xwayland;
 		xcb_get_property_cookie_t cookies = xcb_get_property(xwayland->xcb_conn, 0, view->wlr_xwayland_surface->window_id,
 			 xwayland->atoms[GTK_APPLICATION_ID], xwayland->atoms[UTF8_STRING], 0, MAX_PROP_SIZE);
 		xcb_get_property_reply_t *reply =
 			xcb_get_property_reply(xwayland->xcb_conn, cookies, NULL);
-		if (reply->type == 0 && reply->format == 0) {
-			return view->wlr_xwayland_surface->instance;
-		} else {
-			return get_xwayland_surface_app_id(reply);
-		}
-	}
+		if (reply->type != XCB_ATOM_STRING &&
+			reply->type != xwayland->atoms[UTF8_STRING]) {
+			char *new_text = strdup(view->wlr_xwayland_surface->instance);
+			if (new_text) {
+				free(view->app_id);
+				view->app_id = new_text;
 
+				view->app_icon_path = find_app_icon_frome_app_id(
+					global_server.desktop_interface, view->app_id);
+				if (!view->app_icon_path) {
+					view->app_icon_path = find_icon_file_frome_theme(
+						global_server.desktop_interface, X11_ICON_NAME);
+				}
+			} else {
+				view->app_icon_path = find_icon_file_frome_theme(
+					global_server.desktop_interface, X11_ICON_NAME);
+			}
+		} else {
+			char *new_text = get_xwayland_surface_app_id(reply);
+			if (new_text) {
+				free(view->app_id);
+				view->app_id = new_text;
+
+				view->app_icon_path = find_app_icon_frome_app_id(
+					global_server.desktop_interface, view->app_id);
+				if (!view->app_icon_path) {
+					view->app_icon_path = find_icon_file_frome_theme(
+						global_server.desktop_interface, X11_ICON_NAME);
+				}
+			} else {
+				view->app_icon_path = find_icon_file_frome_theme(
+					global_server.desktop_interface, X11_ICON_NAME);
+			}
+		}
+		return view->app_id;
 	case VIEW_PROP_INSTANCE:
 		return view->wlr_xwayland_surface->instance;
 	case VIEW_PROP_WINDOW_ROLE:

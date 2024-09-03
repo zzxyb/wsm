@@ -380,8 +380,7 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 		* con->pending.border_top);
 	wlr_scene_rect_set_size(con->title_bar->background, width, height);
 	if (!con->title_bar->icon && con->view && con->current.border == B_NORMAL) {
-		const char *app_id = view_get_app_id(con->view);
-		char *icon_path = find_app_icon_frome_app_id(global_server.desktop_interface, app_id);
+		char *icon_path = con->view->app_icon_path;
 		if (icon_path) {
 			int size = height - global_config.titlebar_v_padding;
 			con->title_bar->icon = wsm_image_node_create(con->title_bar->tree,

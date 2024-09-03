@@ -210,7 +210,7 @@ static char* get_icon_name_from_desktop_file(const char* desktop_file_path) {
 	return icon_name;
 }
 
-void get_home_directory(char *home_dir, size_t size) {
+static void get_home_directory(char *home_dir, size_t size) {
 	char *home = getenv("HOME");
 	if (home) {
 		strncpy(home_dir, home, size - 1);
@@ -220,12 +220,12 @@ void get_home_directory(char *home_dir, size_t size) {
 	}
 }
 
-int file_exists(const char *path) {
+static int file_exists(const char *path) {
 	struct stat buffer;
 	return (stat(path, &buffer) == 0);
 }
 
-void find_icon_in_directory(const char *directory, const char *icon_name,
+static void find_icon_in_directory(const char *directory, const char *icon_name,
 		const char *icon_extensions[],
 		char *icon_path, size_t size) {
 	for (size_t i = 0; icon_extensions[i] != NULL; ++i) {
@@ -260,9 +260,19 @@ static const char *icon_sizes[] = {
 	NULL
 };
 
+// "16",
+//"24",
+//"32",
+//"64",
+static const char *systemd_icon_sizes[] = {
+	"48",
+	NULL
+};
+
+static const char *system_icon_extensions[] = {"svg", NULL};
 static const char *icon_extensions[] = {"png", "svg", "xpm", NULL};
 
-void find_icon(const char *icon_name, char *icon_path,
+void find_app_icon(const char *icon_name, char *icon_path,
 		char *icon_theme, size_t size) {
 	char home_dir[256];
 	get_home_directory(home_dir, sizeof(home_dir));
@@ -321,6 +331,33 @@ void find_icon(const char *icon_name, char *icon_path,
 	}
 }
 
+void find_system_icon(const char *icon_name, char *icon_path, char *icon_theme, size_t size) {
+	const char *icon_dirs[] = {
+		"/usr/share/icons",
+		NULL
+	};
+
+	const char *icon_subdirs[] = {
+		icon_theme,
+		NULL
+	};
+
+	for (size_t i = 0; icon_dirs[i] != NULL; ++i) {
+		char directory[512];
+		for (size_t j = 0; icon_subdirs[j] != NULL; ++j) {
+			for (size_t k = 0; systemd_icon_sizes[k] != NULL; ++k) {
+				snprintf(directory, sizeof(directory), "%s/%s/apps/%s",
+					icon_dirs[i], icon_subdirs[j], systemd_icon_sizes[k]);
+
+				find_icon_in_directory(directory, icon_name, system_icon_extensions, icon_path, size);
+				if (icon_path[0] != '\0') {
+					return;
+				}
+			}
+		}
+	}
+}
+
 char* find_app_icon_frome_app_id(struct wsm_desktop_interface *desktop, const char *app_id) {
 	char *desktop_file_path = find_desktop_file_frome_app_id(app_id);
 	if (!desktop_file_path) {
@@ -331,6 +368,12 @@ char* find_app_icon_frome_app_id(struct wsm_desktop_interface *desktop, const ch
 
 	char *icon_name = get_icon_name_from_desktop_file(desktop_file_path);
 	char icon_path[MAX_PATH_LENGTH] = "";
-	find_icon(icon_name, icon_path, desktop->icon_theme, sizeof(icon_path));
+	find_app_icon(icon_name, icon_path, desktop->icon_theme, sizeof(icon_path));
+	return strdup(icon_path);
+}
+
+char* find_icon_file_frome_theme(struct wsm_desktop_interface *desktop, const char *icon_name) {
+	char icon_path[MAX_PATH_LENGTH] = "";
+	find_system_icon(icon_name, icon_path, desktop->icon_theme, sizeof(icon_path));
 	return strdup(icon_path);
 }

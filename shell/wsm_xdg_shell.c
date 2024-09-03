@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include "wsm_scene.h"
 #include "wsm_output.h"
 #include "wsm_arrange.h"
+#include "wsm_desktop.h"
 #include "wsm_transaction.h"
 #include "wsm_workspace.h"
 #include "wsm_xdg_decoration.h"
@@ -55,6 +56,7 @@ THE SOFTWARE.
 #include <wlr/types/wlr_foreign_toplevel_management_v1.h>
 #include <wlr/types/wlr_fractional_scale_v1.h>
 
+#define WAYLAND_ICON_NAME "wayland"
 #define WSM_XDG_SHELL_VERSION 5
 #define CONFIGURE_TIMEOUT_MS 100
 
@@ -85,8 +87,27 @@ static const char *get_string_prop(struct wsm_view *view,
 	switch (prop) {
 	case VIEW_PROP_TITLE:
 		return view->wlr_xdg_toplevel->title;
-	case VIEW_PROP_APP_ID:
-		return view->wlr_xdg_toplevel->app_id;
+	case VIEW_PROP_APP_ID:;
+		if (view->app_id) {
+			return view->app_id;
+		}
+
+		char *new_text = strdup(view->wlr_xdg_toplevel->app_id);
+		if (new_text) {
+			free(view->app_id);
+			view->app_id = new_text;
+
+			view->app_icon_path = find_app_icon_frome_app_id(
+				global_server.desktop_interface, view->app_id);
+			if (!view->app_icon_path) {
+				view->app_icon_path = find_icon_file_frome_theme(
+					global_server.desktop_interface, WAYLAND_ICON_NAME);
+			}
+		} else {
+			view->app_icon_path = find_icon_file_frome_theme(
+				global_server.desktop_interface, WAYLAND_ICON_NAME);
+		}
+		return view->app_id;
 	default:
 		return NULL;
 	}
@@ -476,8 +497,7 @@ void handle_xdg_shell_toplevel(struct wl_listener *listener, void *data) {
 
 	struct wsm_xdg_shell_view *xdg_shell_view =
 		calloc(1, sizeof(struct wsm_xdg_shell_view));
-	if (!wsm_assert(xdg_shell_view,
-      "Could not create wsm_xdg_shell_view: allocation failed!")) {
+	if (!wsm_assert(xdg_shell_view,"Could not create wsm_xdg_shell_view: allocation failed!")) {
 		return;
 	}
 

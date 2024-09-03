@@ -106,6 +106,8 @@ void view_destroy(struct wsm_view *view) {
 
 	wlr_scene_node_destroy(&view->scene_tree->node);
 	free(view->title_format);
+	free(view->app_id);
+	free(view->app_icon_path);
 
 	if (view->impl->destroy) {
 		view->impl->destroy(view);
