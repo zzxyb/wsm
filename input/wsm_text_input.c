@@ -524,6 +524,7 @@ static void relay_handle_input_method(struct wl_listener *listener,
 		return;
 	}
 
+	relay->input_method = input_method;
 	relay->input_method_commit.notify = handle_im_commit;
 	wl_signal_add(&relay->input_method->events.commit,
 		&relay->input_method_commit);
