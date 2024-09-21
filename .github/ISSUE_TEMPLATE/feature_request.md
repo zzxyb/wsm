@@ -1,36 +1,20 @@
-## Description
+---
+name: Feature Request
+about: Suggest an idea for this project
+title: "[Feature] Briefly describe your feature idea"
+labels: enhancement
+assignees: ''
 
-Please provide a brief description of the issue. Include any relevant background information and the impact of the issue.
+---
 
-## Steps to Reproduce
+## Is your feature request related to a problem? Please describe.
+A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
 
-Describe the steps to reproduce this issue:
+## Describe the solution you'd like
+A clear and concise description of what you want to happen.
 
-1. Step one
-2. Step two
-3. Step three
+## Describe alternatives you've considered
+A clear and concise description of any alternative solutions or features you've considered.
 
-## Expected Result
-
-What did you expect to happen?
-
-## Actual Result
-
-What actually happened? Include any error messages, screenshots, or logs if available.
-
-## Environment
-
-Please provide the following information:
-
-- **Operating System**: e.g., Windows 10, macOS Catalina
-- **Browser**: e.g., Chrome 89, Firefox 88
-- **Version**: e.g., software version or project version
-- **Other Relevant Information**: e.g., database version, libraries used
-
-## Solution (Optional)
-
-If you have already found a solution or a temporary workaround, please describe it here.
-
-## Additional Information
-
-Provide any other details that might help in resolving the issue.
+## Additional context
+Add any other context or screenshots about the feature request here.
