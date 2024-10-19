@@ -13,6 +13,7 @@ project(
 
 add_project_arguments(
 	[
+		'-Wno-error=expansion-to-defined',
 		'-DWLR_USE_UNSTABLE',
 		'-D_POSIX_C_SOURCE=200809L',
 		'-Wno-unused-parameter',
