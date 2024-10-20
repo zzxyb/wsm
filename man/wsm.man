@@ -1,0 +1,24 @@
+.TH WSM 1 "2024-20-24" "@version@"
+.SH NAME
+wsm \- A concise, high-performance, and portable Wayland compositor
+.SH SYNOPSIS
+.B wsm
+[OPTION ...]
+.
+.\" ***************************************************************
+.SH DESCRIPTION
+.I wsm
+is lychee wayland surface manager for pc and mobile devices.
+.PP
+\fIwsm\fP accepts command line options followed by additional arguments.
+.TP
+.B --xwayland:
+Load the xwayland module.
+.
+.TP
+.B -l, --log-level:
+Set log output level, default value is 1 only ERROR logs, 3 output all logs, 0 disabled log.
+.
+.\" ***************************************************************
+.SH "SEE ALSO"
+.B wlroots(1), wayland(1)
