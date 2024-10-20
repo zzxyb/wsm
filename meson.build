@@ -147,6 +147,7 @@ subdir('output')
 subdir('config')
 subdir('decoration')
 subdir('shell')
+subdir('man')
 
 if get_option('documentation').enabled()
 	subdir('doc')
@@ -188,13 +189,6 @@ conf.set('datadir', join_paths(get_option('prefix'), get_option('datadir')))
 conf.set('mandir', join_paths(get_option('prefix'), get_option('mandir')))
 conf.set('sysconfdir', join_paths(get_option('prefix'), get_option('sysconfdir')))
 configure_file(output: 'config.h', configuration: conf)
-
-wsm_manpage = configure_file(
-	input: 'man/wsm.man',
-	output: 'wsm.1',
-	configuration: conf,
-)
-install_man(wsm_manpage)
 
 executable(
 	'wsm',
