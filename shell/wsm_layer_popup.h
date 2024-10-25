@@ -12,7 +12,7 @@ struct wsm_layer_popup {
 	struct wl_listener new_popup;
 	struct wl_listener commit;
 
-	struct wlr_xdg_popup *wlr_popup;
+	struct wlr_xdg_popup *xdg_popup;
 	struct wlr_scene_tree *scene;
 	struct wsm_layer_surface *toplevel;
 };

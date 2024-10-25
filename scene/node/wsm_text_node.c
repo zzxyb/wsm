@@ -118,7 +118,7 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 
 	struct cairo_buffer *cairo_buffer = calloc(1, sizeof(*cairo_buffer));
 	if (!cairo_buffer) {
-		wsm_log(WSM_ERROR, "cairo_buffer allocation failed");
+		wsm_log(WSM_ERROR, "Could not create cairo_buffer: allocation failed!");
 		goto err;
 	}
 
@@ -228,17 +228,19 @@ struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent,
 		char *text, float color[4], bool pango_markup) {
 	struct text_buffer *buffer = calloc(1, sizeof(*buffer));
 	if (!buffer) {
+		wsm_log(WSM_ERROR, "Could not create text_buffer: allocation failed!");
 		return NULL;
 	}
 
 	struct wlr_scene_buffer *node = wlr_scene_buffer_create(parent, NULL);
 	if (!node) {
+		wsm_log(WSM_ERROR, "Could not create wlr_scene_buffer: allocation failed!");
 		free(buffer);
 		return NULL;
 	}
 
 	buffer->buffer_node = node;
-	buffer->props.node = &node->node;
+	buffer->props.node_wlr = &node->node;
 	buffer->props.max_width = -1;
 	buffer->text = strdup(text);
 	if (!buffer->text) {

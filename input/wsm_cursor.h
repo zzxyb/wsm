@@ -85,14 +85,14 @@ struct wsm_cursor {
 		double x, y;
 	} previous;
 
-	struct wsm_seat *wsm_seat;
-	struct wlr_cursor *wlr_cursor;
+	struct wsm_seat *seat_wsm;
+	struct wlr_cursor *cursor_wlr;
 
 	const char *image;
-	struct wl_client *image_client;
-	struct wlr_surface *image_surface;
+	struct wl_client *image_client_wl;
+	struct wlr_surface *image_surface_wlr;
 
-	struct wlr_pointer_constraint_v1 *active_constraint;
+	struct wlr_pointer_constraint_v1 *active_constraint_wlr;
 
 	struct wlr_pointer_gestures_v1 *pointer_gestures;
 

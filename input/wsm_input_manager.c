@@ -33,7 +33,7 @@ static void handle_new_input(struct wl_listener *listener, void *data) {
 	struct wsm_input_device *input_device = wsm_input_device_create();
 	device->data = input_device;
 
-	input_device->wlr_device = device;
+	input_device->input_device_wlr = device;
 	input_device->identifier = input_device_get_identifier(device);
 	wl_list_insert(&input_manager->devices, &input_device->link);
 
@@ -65,35 +65,36 @@ static void handle_keyboard_shortcuts_inhibit_new_inhibitor(
 
 struct wsm_input_manager *wsm_input_manager_create(const struct wsm_server* server) {
 	struct wsm_input_manager *input_manager = calloc(1, sizeof(struct wsm_input_manager));
-	if (!wsm_assert(input_manager, "Could not create wsm_input_manager: allocation failed!")) {
+	if (!input_manager) {
+		wsm_log(WSM_ERROR, "Could not create wsm_input_manager: allocation failed!");
 		return NULL;
 	}
 
 	wl_list_init(&input_manager->devices);
 	wl_list_init(&input_manager->seats);
 
-	input_manager->pointer_gestures = wlr_pointer_gestures_v1_create(server->wl_display);
+	input_manager->pointer_gestures_wlr = wlr_pointer_gestures_v1_create(server->wl_display);
 
 	input_manager->new_input.notify = handle_new_input;
 	wl_signal_add(&server->backend->events.new_input, &input_manager->new_input);
 
-	input_manager->virtual_keyboard =
+	input_manager->virtual_keyboard_manager_wlr =
 		wlr_virtual_keyboard_manager_v1_create(server->wl_display);
 	input_manager->virtual_keyboard_new.notify = handle_new_virtual_keyboard;
-	wl_signal_add(&input_manager->virtual_keyboard->events.new_virtual_keyboard,
+	wl_signal_add(&input_manager->virtual_keyboard_manager_wlr->events.new_virtual_keyboard,
 		&input_manager->virtual_keyboard_new);
 
-	input_manager->virtual_pointer =
+	input_manager->virtual_pointer_manager_wlr =
 		wlr_virtual_pointer_manager_v1_create(server->wl_display);
 	input_manager->virtual_pointer_new.notify = handle_new_virtual_pointer;
-	wl_signal_add(&input_manager->virtual_pointer->events.new_virtual_pointer,
+	wl_signal_add(&input_manager->virtual_pointer_manager_wlr->events.new_virtual_pointer,
 		&input_manager->virtual_pointer_new);
 
-	input_manager->keyboard_shortcuts_inhibit =
+	input_manager->keyboard_shortcuts_inhibit_wlr =
 		wlr_keyboard_shortcuts_inhibit_v1_create(server->wl_display);
 	input_manager->keyboard_shortcuts_inhibit_new_inhibitor.notify =
 		handle_keyboard_shortcuts_inhibit_new_inhibitor;
-	wl_signal_add(&input_manager->keyboard_shortcuts_inhibit->events.new_inhibitor,
+	wl_signal_add(&input_manager->keyboard_shortcuts_inhibit_wlr->events.new_inhibitor,
 		&input_manager->keyboard_shortcuts_inhibit_new_inhibitor);
 
 	return input_manager;
@@ -109,8 +110,8 @@ struct wsm_seat *input_manager_current_seat(void) {
 
 struct wsm_seat *input_manager_get_seat(const char *seat_name, bool create) {
 	struct wsm_seat *seat = NULL;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
-		if (strcmp(seat->wlr_seat->name, seat_name) == 0) {
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		if (strcmp(seat->seat->name, seat_name) == 0) {
 			return seat;
 		}
 	}
@@ -121,8 +122,8 @@ struct wsm_seat *input_manager_get_seat(const char *seat_name, bool create) {
 struct wsm_seat *input_manager_seat_from_wlr_seat(struct wlr_seat *wlr_seat) {
 	struct wsm_seat *seat = NULL;
 
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
-		if (seat->wlr_seat == wlr_seat) {
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		if (seat->seat == wlr_seat) {
 			return seat;
 		}
 	}
@@ -156,14 +157,14 @@ char *input_device_get_identifier(struct wlr_input_device *device) {
 
 void input_manager_configure_xcursor(void) {
 	struct wsm_seat *seat = NULL;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 		seat_configure_xcursor(seat);
 	}
 }
 
 void input_manager_set_focus(struct wsm_node *node) {
 	struct wsm_seat *seat;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 		seat_set_focus(seat, node);
 		seat_consider_warp_to_focus(seat);
 	}
@@ -171,9 +172,9 @@ void input_manager_set_focus(struct wsm_node *node) {
 
 void input_manager_configure_all_input_mappings(void) {
 	struct wsm_input_device *input_device;
-	wl_list_for_each(input_device, &global_server.wsm_input_manager->devices, link) {
+	wl_list_for_each(input_device, &global_server.input_manager->devices, link) {
 		struct wsm_seat *seat;
-		wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
+		wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 			seat_configure_device_mapping(seat, input_device);
 		}
 
@@ -208,13 +209,13 @@ struct input_config *input_device_get_config(struct wsm_input_device *device) {
 
 static bool device_is_touchpad(struct wsm_input_device *device) {
 #if WLR_HAS_LIBINPUT_BACKEND
-	if (device->wlr_device->type != WLR_INPUT_DEVICE_POINTER ||
-		!wlr_input_device_is_libinput(device->wlr_device)) {
+	if (device->input_device_wlr->type != WLR_INPUT_DEVICE_POINTER ||
+		!wlr_input_device_is_libinput(device->input_device_wlr)) {
 		return false;
 	}
 
 	struct libinput_device *libinput_device =
-		wlr_libinput_get_device_handle(device->wlr_device);
+		wlr_libinput_get_device_handle(device->input_device_wlr);
 
 	return libinput_device_config_tap_get_finger_count(libinput_device) > 0;
 #else
@@ -223,7 +224,7 @@ static bool device_is_touchpad(struct wsm_input_device *device) {
 }
 
 const char *input_device_get_type(struct wsm_input_device *device) {
-	switch (device->wlr_device->type) {
+	switch (device->input_device_wlr->type) {
 	case WLR_INPUT_DEVICE_POINTER:
 		if (device_is_touchpad(device)) {
 			return "touchpad";

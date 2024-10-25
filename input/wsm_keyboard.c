@@ -268,22 +268,22 @@ static bool keyboard_execute_compositor_binding(struct wsm_keyboard *keyboard,
 
 static size_t keyboard_keysyms_translated(struct wsm_keyboard *keyboard,
 		xkb_keycode_t keycode, const xkb_keysym_t **keysyms, uint32_t *modifiers) {
-	*modifiers = wlr_keyboard_get_modifiers(keyboard->wlr);
+	*modifiers = wlr_keyboard_get_modifiers(keyboard->keyboard_wlr);
 	xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods2(
-		keyboard->wlr->xkb_state, keycode, XKB_CONSUMED_MODE_XKB);
+		keyboard->keyboard_wlr->xkb_state, keycode, XKB_CONSUMED_MODE_XKB);
 	*modifiers = *modifiers & ~consumed;
 
-	return xkb_state_key_get_syms(keyboard->wlr->xkb_state,
+	return xkb_state_key_get_syms(keyboard->keyboard_wlr->xkb_state,
 		keycode, keysyms);
 }
 
 static size_t keyboard_keysyms_raw(struct wsm_keyboard *keyboard,
 		xkb_keycode_t keycode, const xkb_keysym_t **keysyms, uint32_t *modifiers) {
-	*modifiers = wlr_keyboard_get_modifiers(keyboard->wlr);
+	*modifiers = wlr_keyboard_get_modifiers(keyboard->keyboard_wlr);
 
 	xkb_layout_index_t layout_index = xkb_state_key_get_layout(
-		keyboard->wlr->xkb_state, keycode);
-	return xkb_keymap_key_get_syms_by_level(keyboard->wlr->keymap,
+		keyboard->keyboard_wlr->xkb_state, keycode);
+	return xkb_keymap_key_get_syms_by_level(keyboard->keyboard_wlr->keymap,
 		keycode, layout_index, 0, keysyms);
 }
 
@@ -320,7 +320,7 @@ static void update_keyboard_state(struct wsm_keyboard *keyboard,
 	keyinfo->translated_keysyms_len = keyboard_keysyms_translated(keyboard,
 		keyinfo->keycode, &keyinfo->translated_keysyms, &keyinfo->translated_modifiers);
 
-	keyinfo->code_modifiers = wlr_keyboard_get_modifiers(keyboard->wlr);
+	keyinfo->code_modifiers = wlr_keyboard_get_modifiers(keyboard->keyboard_wlr);
 
 	update_shortcut_state(&keyboard->state_keycodes, raw_keycode, keystate,
 		keyinfo->keycode, keyinfo->code_modifiers);
@@ -338,10 +338,10 @@ static void update_keyboard_state(struct wsm_keyboard *keyboard,
 
 static struct wlr_input_method_keyboard_grab_v2 *keyboard_get_im_grab(
 		struct wsm_keyboard *keyboard) {
-	struct wlr_input_method_v2 *input_method = keyboard->seat_device->
-		wsm_seat->im_relay.input_method;
+	struct wlr_input_method_v2 *input_method = keyboard->device_wsm->
+		seat->im_relay.input_method;
 	struct wlr_virtual_keyboard_v1 *virtual_keyboard =
-		wlr_input_device_get_virtual_keyboard(keyboard->seat_device->input_device->wlr_device);
+		wlr_input_device_get_virtual_keyboard(keyboard->device_wsm->input_device->input_device_wlr);
 	if (!input_method || !input_method->keyboard_grab || (virtual_keyboard &&
 			wl_resource_get_client(virtual_keyboard->resource) ==
 			wl_resource_get_client(input_method->keyboard_grab->resource))) {
@@ -352,10 +352,10 @@ static struct wlr_input_method_keyboard_grab_v2 *keyboard_get_im_grab(
 
 static void handle_key_event(struct wsm_keyboard *keyboard,
 		struct wlr_keyboard_key_event *event) {
-	struct wsm_seat *seat = keyboard->seat_device->wsm_seat;
-	struct wlr_seat *wlr_seat = seat->wlr_seat;
+	struct wsm_seat *seat = keyboard->device_wsm->seat;
+	struct wlr_seat *wlr_seat = seat->seat;
 	struct wlr_input_device *wlr_device =
-		keyboard->seat_device->input_device->wlr_device;
+		keyboard->device_wsm->input_device->input_device_wlr;
 	char *device_identifier = input_device_get_identifier(wlr_device);
 	seat_idle_notify_activity(seat, WLR_INPUT_DEVICE_KEYBOARD);
 	struct key_info keyinfo;
@@ -364,17 +364,17 @@ static void handle_key_event(struct wsm_keyboard *keyboard,
 	bool handled = false;
 	struct wsm_binding *binding = NULL;
 	if (binding && !(binding->flags & BINDING_NOREPEAT) &&
-			keyboard->wlr->repeat_info.delay > 0) {
+			keyboard->keyboard_wlr->repeat_info.delay > 0) {
 			keyboard->repeat_binding = binding;
 		if (wl_event_source_timer_update(keyboard->key_repeat_source,
-				keyboard->wlr->repeat_info.delay) < 0) {
+				keyboard->keyboard_wlr->repeat_info.delay) < 0) {
 			wsm_log(WSM_DEBUG, "failed to set key repeat timer");
 		}
 	} else if (keyboard->repeat_binding) {
 		wsm_keyboard_disarm_key_repeat(keyboard);
 	}
 
-	if (!handled && keyboard->wlr->group) {
+	if (!handled && keyboard->keyboard_wlr->group) {
 		free(device_identifier);
 		return;
 	}
@@ -394,8 +394,8 @@ static void handle_key_event(struct wsm_keyboard *keyboard,
 		bool pressed_sent = update_shortcut_state(
 				&keyboard->state_pressed_sent, event->keycode,
 				event->state, keyinfo.keycode, 0);
-		if (pressed_sent && seat->wlr_seat->keyboard_state.focused_surface) {
-			wlr_seat_set_keyboard(wlr_seat, keyboard->wlr);
+		if (pressed_sent && seat->seat->keyboard_state.focused_surface) {
+			wlr_seat_set_keyboard(wlr_seat, keyboard->keyboard_wlr);
 			wlr_seat_keyboard_notify_key(wlr_seat, event->time_msec,
 				event->keycode, event->state);
 			handled = true;
@@ -406,7 +406,7 @@ static void handle_key_event(struct wsm_keyboard *keyboard,
 		struct wlr_input_method_keyboard_grab_v2 *kb_grab = keyboard_get_im_grab(keyboard);
 
 		if (kb_grab) {
-			wlr_input_method_keyboard_grab_v2_set_keyboard(kb_grab, keyboard->wlr);
+			wlr_input_method_keyboard_grab_v2_set_keyboard(kb_grab, keyboard->keyboard_wlr);
 			wlr_input_method_keyboard_grab_v2_send_key(kb_grab,
 				event->time_msec, event->keycode, event->state);
 			handled = true;
@@ -417,7 +417,7 @@ static void handle_key_event(struct wsm_keyboard *keyboard,
 		update_shortcut_state(
 			&keyboard->state_pressed_sent, event->keycode, event->state,
 			keyinfo.keycode, 0);
-		wlr_seat_set_keyboard(wlr_seat, keyboard->wlr);
+		wlr_seat_set_keyboard(wlr_seat, keyboard->keyboard_wlr);
 		wlr_seat_keyboard_notify_key(wlr_seat, event->time_msec,
 			event->keycode, event->state);
 	}
@@ -471,17 +471,17 @@ static void handle_keyboard_group_leave(struct wl_listener *listener, void *data
 		return;
 	}
 
-	struct wsm_seat *seat = keyboard->seat_device->wsm_seat;
+	struct wsm_seat *seat = keyboard->device_wsm->seat;
 	struct wsm_node *focus = seat_get_focus(seat);
 	if (focus) {
 		seat_set_focus(seat, NULL);
 		seat_set_focus(seat, focus);
-	} else if (seat->focused_layer) {
-		struct wlr_layer_surface_v1 *layer = seat->focused_layer;
+	} else if (seat->focused_layer_wlr) {
+		struct wlr_layer_surface_v1 *layer = seat->focused_layer_wlr;
 		seat_set_focus_layer(seat, NULL);
 		seat_set_focus_layer(seat, layer);
 	} else {
-		struct wlr_surface *unmanaged = seat->wlr_seat->keyboard_state.focused_surface;
+		struct wlr_surface *unmanaged = seat->seat->keyboard_state.focused_surface;
 		seat_set_focus_surface(seat, NULL, false);
 		seat_set_focus_surface(seat, unmanaged, false);
 	}
@@ -490,9 +490,9 @@ static void handle_keyboard_group_leave(struct wl_listener *listener, void *data
 static int handle_keyboard_repeat(void *data) {
 	struct wsm_keyboard *keyboard = data;
 	if (keyboard->repeat_binding) {
-		if (keyboard->wlr->repeat_info.rate > 0) {
+		if (keyboard->keyboard_wlr->repeat_info.rate > 0) {
 			if (wl_event_source_timer_update(keyboard->key_repeat_source,
-					1000 / keyboard->wlr->repeat_info.rate) < 0) {
+					1000 / keyboard->keyboard_wlr->repeat_info.rate) < 0) {
 				wsm_log(WSM_DEBUG, "failed to update key repeat timer");
 			}
 		}
@@ -501,23 +501,23 @@ static int handle_keyboard_repeat(void *data) {
 }
 
 static void handle_modifier_event(struct wsm_keyboard *keyboard) {
-	if (!keyboard->wlr->group) {
+	if (!keyboard->keyboard_wlr->group) {
 		struct wlr_input_method_keyboard_grab_v2 *kb_grab = keyboard_get_im_grab(keyboard);
 
 		if (kb_grab) {
-			wlr_input_method_keyboard_grab_v2_set_keyboard(kb_grab, keyboard->wlr);
+			wlr_input_method_keyboard_grab_v2_set_keyboard(kb_grab, keyboard->keyboard_wlr);
 			wlr_input_method_keyboard_grab_v2_send_modifiers(kb_grab,
-				&keyboard->wlr->modifiers);
+				&keyboard->keyboard_wlr->modifiers);
 		} else {
-			struct wlr_seat *wlr_seat = keyboard->seat_device->wsm_seat->wlr_seat;
-			wlr_seat_set_keyboard(wlr_seat, keyboard->wlr);
+			struct wlr_seat *wlr_seat = keyboard->device_wsm->seat->seat;
+			wlr_seat_set_keyboard(wlr_seat, keyboard->keyboard_wlr);
 			wlr_seat_keyboard_notify_modifiers(wlr_seat,
-				&keyboard->wlr->modifiers);
+				&keyboard->keyboard_wlr->modifiers);
 		}
 	}
 
-	if (keyboard->wlr->modifiers.group != keyboard->effective_layout) {
-		keyboard->effective_layout = keyboard->wlr->modifiers.group;
+	if (keyboard->keyboard_wlr->modifiers.group != keyboard->effective_layout) {
+		keyboard->effective_layout = keyboard->keyboard_wlr->modifiers.group;
 	}
 }
 
@@ -536,12 +536,13 @@ static void handle_keyboard_group_modifiers(struct wl_listener *listener, void *
 struct wsm_keyboard *wsm_keyboard_create(struct wsm_seat *seat, struct wsm_seat_device *device) {
 	struct wsm_keyboard *keyboard =
 		calloc(1, sizeof(struct wsm_keyboard));
-	if (!wsm_assert(keyboard, "could not allocate wsm keyboard")) {
+	if (!keyboard) {
+		wsm_log(WSM_ERROR, "Could not create wsm_keyboard: allocation failed!");
 		return NULL;
 	}
 
-	keyboard->seat_device = device;
-	keyboard->wlr = wlr_keyboard_from_input_device(device->input_device->wlr_device);
+	keyboard->device_wsm = device;
+	keyboard->keyboard_wlr = wlr_keyboard_from_input_device(device->input_device->input_device_wlr);
 	device->keyboard = keyboard;
 
 	wl_list_init(&keyboard->keyboard_key.link);
@@ -663,13 +664,13 @@ static void destroy_empty_wlr_keyboard_group(void *data) {
 }
 
 static void wsm_keyboard_group_remove(struct wsm_keyboard *keyboard) {
-	struct wsm_input_device *device = keyboard->seat_device->input_device;
-	struct wlr_keyboard_group *wlr_group = keyboard->wlr->group;
+	struct wsm_input_device *device = keyboard->device_wsm->input_device;
+	struct wlr_keyboard_group *wlr_group = keyboard->keyboard_wlr->group;
 
 	wsm_log(WSM_DEBUG, "Removing keyboard %s from group %p",
 		device->identifier, wlr_group);
 
-	wlr_keyboard_group_remove_keyboard(keyboard->wlr->group, keyboard->wlr);
+	wlr_keyboard_group_remove_keyboard(keyboard->keyboard_wlr->group, keyboard->keyboard_wlr);
 
 	if (wl_list_empty(&wlr_group->devices)) {
 		wsm_log(WSM_DEBUG, "Destroying empty keyboard group %p",
@@ -692,14 +693,14 @@ static void wsm_keyboard_group_remove(struct wsm_keyboard *keyboard) {
 }
 
 static void wsm_keyboard_group_remove_invalid(struct wsm_keyboard *keyboard) {
-	if (!keyboard->wlr->group) {
+	if (!keyboard->keyboard_wlr->group) {
 		return;
 	}
 }
 
 static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
-	struct wsm_input_device *device = keyboard->seat_device->input_device;
-	struct wsm_seat *seat = keyboard->seat_device->wsm_seat;
+	struct wsm_input_device *device = keyboard->device_wsm->input_device;
+	struct wsm_seat *seat = keyboard->device_wsm->seat;
 	
 	if (device->is_virtual) {
 		// Virtual devices should not be grouped
@@ -713,13 +714,13 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 			return;
 		case KEYBOARD_GROUP_DEFAULT:
 		case KEYBOARD_GROUP_SMART:;
-			struct wlr_keyboard_group *wlr_group = group->wlr_group;
+			struct wlr_keyboard_group *wlr_group = group->keyboard_group_wlr;
 			if (wlr_keyboard_keymaps_match(keyboard->keymap,
 					wlr_group->keyboard.keymap) &&
 				repeat_info_match(keyboard, &wlr_group->keyboard)) {
 				wsm_log(WSM_DEBUG, "Adding keyboard %s to group %p",
 					device->identifier, wlr_group);
-				wlr_keyboard_group_add_keyboard(wlr_group, keyboard->wlr);
+				wlr_keyboard_group_add_keyboard(wlr_group, keyboard->keyboard_wlr);
 				return;
 			}
 			break;
@@ -733,23 +734,23 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 		return;
 	}
 
-	wsm_group->wlr_group = wlr_keyboard_group_create();
-	if (!wsm_group->wlr_group) {
+	wsm_group->keyboard_group_wlr = wlr_keyboard_group_create();
+	if (!wsm_group->keyboard_group_wlr) {
 		wsm_log(WSM_ERROR, "Failed to create keyboard group");
 		goto cleanup;
 	}
-	wsm_group->wlr_group->data = wsm_group;
-	wlr_keyboard_set_keymap(&wsm_group->wlr_group->keyboard, keyboard->keymap);
-	wlr_keyboard_set_repeat_info(&wsm_group->wlr_group->keyboard,
+	wsm_group->keyboard_group_wlr->data = wsm_group;
+	wlr_keyboard_set_keymap(&wsm_group->keyboard_group_wlr->keyboard, keyboard->keymap);
+	wlr_keyboard_set_repeat_info(&wsm_group->keyboard_group_wlr->keyboard,
 		keyboard->repeat_rate, keyboard->repeat_delay);
-	wsm_log(WSM_DEBUG, "Created keyboard group %p", wsm_group->wlr_group);
+	wsm_log(WSM_DEBUG, "Created keyboard group %p", wsm_group->keyboard_group_wlr);
 
 	wsm_group->seat_device = calloc(1, sizeof(struct wsm_seat_device));
 	if (!wsm_group->seat_device) {
 		wsm_log(WSM_ERROR, "Could not create wsm_seat_device for group: allocation failed!");
 		goto cleanup;
 	}
-	wsm_group->seat_device->wsm_seat = seat;
+	wsm_group->seat_device->seat = seat;
 
 	wsm_group->seat_device->input_device =
 		calloc(1, sizeof(struct wsm_input_device));
@@ -757,8 +758,8 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 		wsm_log(WSM_ERROR, "Could not create wsm_input_device for group: allocation failed!");
 		goto cleanup;
 	}
-	wsm_group->seat_device->input_device->wlr_device =
-		&wsm_group->wlr_group->keyboard.base;
+	wsm_group->seat_device->input_device->input_device_wlr =
+		&wsm_group->keyboard_group_wlr->keyboard.base;
 
 	if (!wsm_keyboard_create(seat, wsm_group->seat_device)) {
 		wsm_log(WSM_ERROR, "Could not create wsm_keyboard for group: allocation failed!");
@@ -766,29 +767,29 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 	}
 
 	wsm_log(WSM_DEBUG, "Adding keyboard %s to group %p",
-		device->identifier, wsm_group->wlr_group);
-	wlr_keyboard_group_add_keyboard(wsm_group->wlr_group, keyboard->wlr);
+		device->identifier, wsm_group->keyboard_group_wlr);
+	wlr_keyboard_group_add_keyboard(wsm_group->keyboard_group_wlr, keyboard->keyboard_wlr);
 
 	wl_list_insert(&seat->keyboard_groups, &wsm_group->link);
 
-	wl_signal_add(&wsm_group->wlr_group->keyboard.events.key,
+	wl_signal_add(&wsm_group->keyboard_group_wlr->keyboard.events.key,
 		&wsm_group->keyboard_key);
 	wsm_group->keyboard_key.notify = handle_keyboard_group_key;
 
-	wl_signal_add(&wsm_group->wlr_group->keyboard.events.modifiers,
+	wl_signal_add(&wsm_group->keyboard_group_wlr->keyboard.events.modifiers,
 		&wsm_group->keyboard_modifiers);
 	wsm_group->keyboard_modifiers.notify = handle_keyboard_group_modifiers;
 
-	wl_signal_add(&wsm_group->wlr_group->events.enter, &wsm_group->enter);
+	wl_signal_add(&wsm_group->keyboard_group_wlr->events.enter, &wsm_group->enter);
 	wsm_group->enter.notify = handle_keyboard_group_enter;
 
-	wl_signal_add(&wsm_group->wlr_group->events.leave, &wsm_group->leave);
+	wl_signal_add(&wsm_group->keyboard_group_wlr->events.leave, &wsm_group->leave);
 	wsm_group->leave.notify = handle_keyboard_group_leave;
 	return;
 
 cleanup:
-	if (wsm_group && wsm_group->wlr_group) {
-		wlr_keyboard_group_destroy(wsm_group->wlr_group);
+	if (wsm_group && wsm_group->keyboard_group_wlr) {
+		wlr_keyboard_group_destroy(wsm_group->keyboard_group_wlr);
 	}
 	free(wsm_group->seat_device->keyboard);
 	free(wsm_group->seat_device->input_device);
@@ -818,8 +819,8 @@ static void wsm_keyboard_set_layout(struct wsm_keyboard *keyboard,
 		keyboard->effective_layout = 0;
 
 		wsm_keyboard_group_remove_invalid(keyboard);
-		wlr_keyboard_set_keymap(keyboard->wlr, keyboard->keymap);
-		if (!keyboard->wlr->group) {
+		wlr_keyboard_set_keymap(keyboard->keyboard_wlr, keyboard->keymap);
+		if (!keyboard->keyboard_wlr->group) {
 			wsm_keyboard_group_add(keyboard);
 		}
 
@@ -839,40 +840,40 @@ static void wsm_keyboard_set_layout(struct wsm_keyboard *keyboard,
 			}
 		}
 		if (locked_mods) {
-			wlr_keyboard_notify_modifiers(keyboard->wlr, 0, 0, locked_mods, 0);
+			wlr_keyboard_notify_modifiers(keyboard->keyboard_wlr, 0, 0, locked_mods, 0);
 			uint32_t leds = 0;
 			for (uint32_t i = 0; i < WLR_LED_COUNT; ++i) {
-				if (xkb_state_led_index_is_active(keyboard->wlr->xkb_state,
-						keyboard->wlr->led_indexes[i])) {
+				if (xkb_state_led_index_is_active(keyboard->keyboard_wlr->xkb_state,
+						keyboard->keyboard_wlr->led_indexes[i])) {
 					leds |= (1 << i);
 				}
 			}
-			if (keyboard->wlr->group) {
-				wlr_keyboard_led_update(&keyboard->wlr->group->keyboard, leds);
+			if (keyboard->keyboard_wlr->group) {
+				wlr_keyboard_led_update(&keyboard->keyboard_wlr->group->keyboard, leds);
 			} else {
-				wlr_keyboard_led_update(keyboard->wlr, leds);
+				wlr_keyboard_led_update(keyboard->keyboard_wlr, leds);
 			}
 		}
 	} else {
 		xkb_keymap_unref(keymap);
 		wsm_keyboard_group_remove_invalid(keyboard);
-		if (!keyboard->wlr->group) {
+		if (!keyboard->keyboard_wlr->group) {
 			wsm_keyboard_group_add(keyboard);
 		}
 	}
 
-	struct wlr_seat *seat = keyboard->seat_device->wsm_seat->wlr_seat;
+	struct wlr_seat *seat = keyboard->device_wsm->seat->seat;
 	struct wlr_keyboard *current_keyboard = seat->keyboard_state.keyboard;
 	if (current_keyboard == NULL) {
-		wlr_seat_set_keyboard(seat, keyboard->wlr);
+		wlr_seat_set_keyboard(seat, keyboard->keyboard_wlr);
 	}
 }
 
 void wsm_keyboard_configure(struct wsm_keyboard *keyboard) {
 	struct input_config *input_config =
-		input_device_get_config(keyboard->seat_device->input_device);
+		input_device_get_config(keyboard->device_wsm->input_device);
 
-	if (!wsm_assert(!wlr_keyboard_group_from_wlr_keyboard(keyboard->wlr),
+	if (!wsm_assert(!wlr_keyboard_group_from_wlr_keyboard(keyboard->keyboard_wlr),
 			"wsm_keyboard_configure should not be called with a "
 			"keyboard group's keyboard")) {
 		return;
@@ -893,20 +894,20 @@ void wsm_keyboard_configure(struct wsm_keyboard *keyboard) {
 	if (repeat_info_changed || global_config.reloading) {
 		keyboard->repeat_rate = repeat_rate;
 		keyboard->repeat_delay = repeat_delay;
-		wlr_keyboard_set_repeat_info(keyboard->wlr,
+		wlr_keyboard_set_repeat_info(keyboard->keyboard_wlr,
 			keyboard->repeat_rate, keyboard->repeat_delay);
 	}
 
-	if (!keyboard->seat_device->input_device->is_virtual) {
+	if (!keyboard->device_wsm->input_device->is_virtual) {
 		wsm_keyboard_set_layout(keyboard, input_config);
 	}
 
 	wl_list_remove(&keyboard->keyboard_key.link);
-	wl_signal_add(&keyboard->wlr->events.key, &keyboard->keyboard_key);
+	wl_signal_add(&keyboard->keyboard_wlr->events.key, &keyboard->keyboard_key);
 	keyboard->keyboard_key.notify = handle_keyboard_key;
 
 	wl_list_remove(&keyboard->keyboard_modifiers.link);
-	wl_signal_add(&keyboard->wlr->events.modifiers,
+	wl_signal_add(&keyboard->keyboard_wlr->events.modifiers,
 		&keyboard->keyboard_modifiers);
 	keyboard->keyboard_modifiers.notify = handle_keyboard_modifiers;
 }
@@ -915,11 +916,11 @@ void wsm_keyboard_destroy(struct wsm_keyboard *keyboard) {
 	if (!keyboard) {
 		return;
 	}
-	if (keyboard->wlr->group) {
+	if (keyboard->keyboard_wlr->group) {
 		wsm_keyboard_group_remove(keyboard);
 	}
-	struct wlr_seat *wlr_seat = keyboard->seat_device->wsm_seat->wlr_seat;
-	if (wlr_seat_get_keyboard(wlr_seat) == keyboard->wlr) {
+	struct wlr_seat *wlr_seat = keyboard->device_wsm->seat->seat;
+	if (wlr_seat_get_keyboard(wlr_seat) == keyboard->keyboard_wlr) {
 		wlr_seat_set_keyboard(wlr_seat, NULL);
 	}
 	if (keyboard->keymap) {
@@ -937,7 +938,7 @@ keyboard_shortcuts_inhibitor_get_for_surface(
 		const struct wsm_seat *seat, const struct wlr_surface *surface) {
 	struct wsm_keyboard_shortcuts_inhibitor *wsm_inhibitor = NULL;
 	wl_list_for_each(wsm_inhibitor, &seat->keyboard_shortcuts_inhibitors, link) {
-		if (wsm_inhibitor->inhibitor->surface == surface) {
+		if (wsm_inhibitor->inhibitor_wlr->surface == surface) {
 			return wsm_inhibitor;
 		}
 	}
@@ -950,10 +951,10 @@ struct wsm_keyboard *wsm_keyboard_for_wlr_keyboard(
 	struct wsm_seat_device *seat_device;
 	wl_list_for_each(seat_device, &seat->devices, link) {
 		struct wsm_input_device *input_device = seat_device->input_device;
-		if (input_device->wlr_device->type != WLR_INPUT_DEVICE_KEYBOARD) {
+		if (input_device->input_device_wlr->type != WLR_INPUT_DEVICE_KEYBOARD) {
 			continue;
 		}
-		if (input_device->wlr_device == &wlr_keyboard->base) {
+		if (input_device->input_device_wlr == &wlr_keyboard->base) {
 			return seat_device->keyboard;
 		}
 	}
@@ -961,7 +962,7 @@ struct wsm_keyboard *wsm_keyboard_for_wlr_keyboard(
 	wl_list_for_each(group, &seat->keyboard_groups, link) {
 		struct wsm_input_device *input_device =
 			group->seat_device->input_device;
-		if (input_device->wlr_device == &wlr_keyboard->base) {
+		if (input_device->input_device_wlr == &wlr_keyboard->base) {
 			return group->seat_device->keyboard;
 		}
 	}

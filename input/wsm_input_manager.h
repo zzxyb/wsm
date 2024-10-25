@@ -29,10 +29,10 @@ struct wsm_input_manager {
 	struct wl_list devices;
 	struct wl_list seats;
 
-	struct wlr_keyboard_shortcuts_inhibit_manager_v1 *keyboard_shortcuts_inhibit;
-	struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard;
-	struct wlr_virtual_pointer_manager_v1 *virtual_pointer;
-	struct wlr_pointer_gestures_v1 *pointer_gestures;
+	struct wlr_keyboard_shortcuts_inhibit_manager_v1 *keyboard_shortcuts_inhibit_wlr;
+	struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_manager_wlr;
+	struct wlr_virtual_pointer_manager_v1 *virtual_pointer_manager_wlr;
+	struct wlr_pointer_gestures_v1 *pointer_gestures_wlr;
 };
 
 struct wsm_input_manager *wsm_input_manager_create(const struct wsm_server* server);

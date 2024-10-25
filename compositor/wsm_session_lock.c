@@ -67,7 +67,7 @@ static void focus_surface(struct wsm_session_lock *lock,
 	lock->focused = focused;
 
 	struct wsm_seat *seat;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 		seat_set_focus_surface(seat, focused, false);
 	}
 }
@@ -147,16 +147,16 @@ static void handle_unlock(struct wl_listener *listener, void *data) {
 	wsm_session_lock_destroy(lock);
 
 	struct wsm_seat *seat;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
-		struct wsm_node *previous = seat_get_focus_inactive(seat, &global_server.wsm_scene->node);
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		struct wsm_node *previous = seat_get_focus_inactive(seat, &global_server.scene->node);
 		if (previous) {
 			seat_set_focus(seat, NULL);
 			seat_set_focus(seat, previous);
 		}
 	}
 
-	for (int i = 0; i < global_server.wsm_scene->outputs->length; ++i) {
-		struct wsm_output *output = global_server.wsm_scene->outputs->items[i];
+	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
+		struct wsm_output *output = global_server.scene->outputs->items[i];
 		wsm_arrange_layers(output);
 	}
 }
@@ -200,16 +200,17 @@ static void handle_session_lock(struct wl_listener *listener, void *data) {
 	}
 
 	wl_list_init(&wsm_lock->outputs);
+	wsm_lock->session_lock_wlr = lock;
 
 	wsm_log(WSM_DEBUG, "session locked");
 
 	struct wsm_seat *seat;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 		seat_unfocus_unless_client(seat, client);
 	}
 
 	struct wsm_output *output;
-	wl_list_for_each(output, &global_server.wsm_scene->all_outputs, link) {
+	wl_list_for_each(output, &global_server.scene->all_outputs, link) {
 		wsm_session_lock_add_output(wsm_lock, output);
 	}
 

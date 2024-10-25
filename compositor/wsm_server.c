@@ -98,14 +98,14 @@ void handle_constraint_destroy(struct wl_listener *listener, void *data) {
 	wl_list_remove(&wsm_constraint->set_region.link);
 	wl_list_remove(&wsm_constraint->destroy.link);
 
-	if (cursor->active_constraint == constraint) {
+	if (cursor->active_constraint_wlr == constraint) {
 		warp_to_constraint_cursor_hint(cursor);
 
 		if (cursor->constraint_commit.link.next != NULL) {
 			wl_list_remove(&cursor->constraint_commit.link);
 		}
 		wl_list_init(&cursor->constraint_commit.link);
-		cursor->active_constraint = NULL;
+		cursor->active_constraint_wlr = NULL;
 	}
 
 	free(wsm_constraint);
@@ -116,7 +116,12 @@ void handle_pointer_constraint(struct wl_listener *listener, void *data) {
 	struct wsm_seat *seat = constraint->seat->data;
 	struct wsm_pointer_constraint *wsm_constraint =
 		calloc(1, sizeof(struct wsm_pointer_constraint));
-	wsm_constraint->cursor = seat->wsm_cursor;
+	if (!wsm_constraint) {
+		wsm_log(WSM_ERROR, "Unable to allocate wsm_pointer_constraint: allocation failed!");
+		return;
+	}
+
+	wsm_constraint->cursor = seat->cursor;
 	wsm_constraint->constraint = constraint;
 
 	wsm_constraint->set_region.notify = handle_pointer_constraint_set_region;
@@ -125,9 +130,9 @@ void handle_pointer_constraint(struct wl_listener *listener, void *data) {
 	wsm_constraint->destroy.notify = handle_constraint_destroy;
 	wl_signal_add(&constraint->events.destroy, &wsm_constraint->destroy);
 
-	struct wlr_surface *surface = seat->wlr_seat->keyboard_state.focused_surface;
+	struct wlr_surface *surface = seat->seat->keyboard_state.focused_surface;
 	if (surface && surface == constraint->surface) {
-		wsm_cursor_constrain(seat->wsm_cursor, constraint);
+		wsm_cursor_constrain(seat->cursor, constraint);
 	}
 }
 
@@ -162,7 +167,7 @@ static bool filter_global(const struct wl_client *client,
 	struct wsm_server *server = data;
 #if HAVE_XWAYLAND
 	if (global_server.xwayland_enabled) {
-		struct wlr_xwayland *xwayland = server->xwayland.wlr_xwayland;
+		struct wlr_xwayland *xwayland = server->xwayland.xwayland_wlr;
 		if (xwayland && global == xwayland->shell_v1->global) {
 			return xwayland->server != NULL && client == xwayland->server->client;
 		}
@@ -259,19 +264,19 @@ bool wsm_server_init(struct wsm_server *server)
 
 	server->wlr_compositor = wlr_compositor_create(server->wl_display, 6, server->wlr_renderer);
 	wlr_subcompositor_create(server->wl_display);
-	server->wsm_scene = wsm_scene_create(server);
+	server->scene = wsm_scene_create(server);
 
 	server->xcursor_manager = wlr_xcursor_manager_create(NULL, 24);
 	server->data_device_manager = wlr_data_device_manager_create(server->wl_display);
-	server->wsm_output_manager = wsm_output_manager_create(server);
+	server->output_manager = wsm_output_manager_create(server);
 
 	wsm_idle_inhibit_manager_v1_init();
 
-	server->wsm_layer_shell = wsm_layer_shell_create(server);
-	server->wsm_xdg_shell = wsm_xdg_shell_create(server);
+	server->layer_shell = wsm_layer_shell_create(server);
+	server->xdg_shell = wsm_xdg_shell_create(server);
 	server->idle_notifier_v1 = wlr_idle_notifier_v1_create(server->wl_display);
-	server->wsm_server_decoration_manager = wsm_server_decoration_manager_create(server);
-	server->wsm_xdg_decoration_manager = xdg_decoration_manager_create(server);
+	server->server_decoration_manager = wsm_server_decoration_manager_create(server);
+	server->xdg_decoration_manager = xdg_decoration_manager_create(server);
 	server->wlr_relative_pointer_manager =
 		wlr_relative_pointer_manager_v1_create(server->wl_display);
 
@@ -345,14 +350,14 @@ bool wsm_server_init(struct wsm_server *server)
 	struct wlr_output *wlr_output =
 		wlr_headless_add_output(server->headless_backend, 800, 600);
 	wlr_output_set_name(wlr_output, "FALLBACK");
-	server->wsm_scene->fallback_output = wsm_ouput_create(wlr_output);
+	server->scene->fallback_output = wsm_ouput_create(wlr_output);
 
 	if (!server->txn_timeout_ms) {
 		server->txn_timeout_ms = 200;
 	}
 
 	server->dirty_nodes = create_list();
-	server->wsm_input_manager = wsm_input_manager_create(server);
+	server->input_manager = wsm_input_manager_create(server);
 	input_manager_get_default_seat();
 
 	if (global_config.primary_selection)
@@ -362,7 +367,7 @@ bool wsm_server_init(struct wsm_server *server)
 
 void server_finish(struct wsm_server *server) {
 #if HAVE_XWAYLAND
-	wlr_xwayland_destroy(server->xwayland.wlr_xwayland);
+	wlr_xwayland_destroy(server->xwayland.xwayland_wlr);
 #endif
 	wl_display_destroy_clients(server->wl_display);
 	wlr_backend_destroy(server->backend);

@@ -28,7 +28,7 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
 		wl_container_of(listener, output_manager, new_output);
 	struct wlr_output *wlr_output = data;
 
-	if (wlr_output == global_server.wsm_scene->fallback_output->wlr_output) {
+	if (wlr_output == global_server.scene->fallback_output->wlr_output) {
 		return;
 	}
 
@@ -44,7 +44,7 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
 				wlr_output);
 		}
 #endif
-		list_add(global_server.wsm_scene->non_desktop_outputs, non_desktop);
+		list_add(global_server.scene->non_desktop_outputs, non_desktop);
 		return;
 	}
 
@@ -55,7 +55,7 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
 	}
 
 	struct wlr_scene_output *scene_output =
-		wlr_scene_output_create(global_server.wsm_scene->root_scene, wlr_output);
+		wlr_scene_output_create(global_server.scene->root_scene, wlr_output);
 	if (!scene_output) {
 		wsm_log(WSM_ERROR, "Failed to create a scene output");
 		return;
@@ -82,21 +82,21 @@ void update_output_manager_config(struct wsm_server *server) {
 		wlr_output_configuration_v1_create();
 
 	struct wsm_output *output;
-	wl_list_for_each(output, &global_server.wsm_scene->all_outputs, link) {
-		if (output == global_server.wsm_scene->fallback_output) {
+	wl_list_for_each(output, &global_server.scene->all_outputs, link) {
+		if (output == global_server.scene->fallback_output) {
 			continue;
 		}
 		struct wlr_output_configuration_head_v1 *config_head =
 			wlr_output_configuration_head_v1_create(config, output->wlr_output);
 		struct wlr_box output_box;
-		wlr_output_layout_get_box(global_server.wsm_scene->output_layout,
+		wlr_output_layout_get_box(global_server.scene->output_layout,
 			output->wlr_output, &output_box);
 		config_head->state.enabled = !wlr_box_empty(&output_box);
 		config_head->state.x = output_box.x;
 		config_head->state.y = output_box.y;
 	}
 
-	wlr_output_manager_v1_set_configuration(global_server.wsm_output_manager->wlr_output_manager_v1, config);
+	wlr_output_manager_v1_set_configuration(global_server.output_manager->output_manager_v1_wlr, config);
 }
 
 static struct output_config *output_config_for_config_head(
@@ -129,10 +129,11 @@ static struct output_config *output_config_for_config_head(
 
 static void output_manager_apply(struct wsm_server *server,
 		struct wlr_output_configuration_v1 *config, bool test_only) {
-	struct wsm_scene *root = server->wsm_scene;
+	struct wsm_scene *root = server->scene;
 	size_t configs_len = wl_list_length(&root->all_outputs);
 	struct matched_output_config *configs = calloc(configs_len, sizeof(struct matched_output_config));
 	if (!configs) {
+		wsm_log(WSM_ERROR, "Could not create matched_output_config: allocation failed!");
 		return;
 	}
 
@@ -245,40 +246,41 @@ static void handle_gamma_control_set_gamma(struct wl_listener *listener, void *d
 
 struct wsm_output_manager *wsm_output_manager_create(const struct wsm_server *server) {
 	struct wsm_output_manager *output_manager = calloc(1, sizeof(struct wsm_output_manager));
-	if (!wsm_assert(output_manager, "Could not create wsm_output_manager: allocation failed!")) {
+	if (!output_manager) {
+		wsm_log(WSM_ERROR, "Could not create wsm_output_manager: allocation failed!");
 		return NULL;
 	}
 
 	wl_list_init(&output_manager->outputs);
 
-	output_manager->wsm_output_manager_config = wsm_output_manager_config_create(output_manager);
+	output_manager->output_manager_config = wsm_output_manager_config_create(output_manager);
 
 	output_manager->new_output.notify = handle_new_output;
 	wl_signal_add(&server->backend->events.new_output, &output_manager->new_output);
 	output_manager->output_layout_change.notify = handle_output_layout_change;
-	wl_signal_add(&global_server.wsm_scene->output_layout->events.change,
+	wl_signal_add(&global_server.scene->output_layout->events.change,
 		&output_manager->output_layout_change);
 
-	wlr_xdg_output_manager_v1_create(server->wl_display, global_server.wsm_scene->output_layout);
+	wlr_xdg_output_manager_v1_create(server->wl_display, global_server.scene->output_layout);
 
-	output_manager->wlr_output_manager_v1 = wlr_output_manager_v1_create(server->wl_display);
+	output_manager->output_manager_v1_wlr = wlr_output_manager_v1_create(server->wl_display);
 	output_manager->output_manager_apply.notify = handle_output_manager_apply;
-	wl_signal_add(&output_manager->wlr_output_manager_v1->events.apply,
+	wl_signal_add(&output_manager->output_manager_v1_wlr->events.apply,
 		&output_manager->output_manager_apply);
 	output_manager->output_manager_test.notify = handle_output_manager_test;
-	wl_signal_add(&output_manager->wlr_output_manager_v1->events.test,
+	wl_signal_add(&output_manager->output_manager_v1_wlr->events.test,
 		&output_manager->output_manager_test);
 
-	output_manager->wlr_output_power_manager_v1 = wlr_output_power_manager_v1_create(server->wl_display);
+	output_manager->output_power_manager_v1 = wlr_output_power_manager_v1_create(server->wl_display);
 	output_manager->wsm_output_power_manager_set_mode.notify = handle_output_power_manager_set_mode;
-	wl_signal_add(&output_manager->wlr_output_power_manager_v1->events.set_mode,
+	wl_signal_add(&output_manager->output_power_manager_v1->events.set_mode,
 		&output_manager->wsm_output_power_manager_set_mode);
 
-	output_manager->wlr_gamma_control_manager_v1 =
+	output_manager->gamma_control_manager_v1 =
 		wlr_gamma_control_manager_v1_create(server->wl_display);
 
 	output_manager->gamma_control_set_gamma.notify = handle_gamma_control_set_gamma;
-	wl_signal_add(&output_manager->wlr_gamma_control_manager_v1->events.set_gamma,
+	wl_signal_add(&output_manager->gamma_control_manager_v1->events.set_gamma,
 		&output_manager->gamma_control_set_gamma);
 	return output_manager;
 }

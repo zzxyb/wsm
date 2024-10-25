@@ -7,16 +7,19 @@
 
 #include <wayland-server-core.h>
 
-struct wlr_input_device;
 struct libinput_device;
+
+struct wlr_input_device;
+
+struct wsm_input_device_impl;
 
 struct wsm_input_device {
 	struct wl_listener device_destroy;
 	struct wl_list link;
 
 	char *identifier;
-	struct wlr_input_device *wlr_device;
-	const struct wsm_input_device_impl *input_device_impl;
+	struct wlr_input_device *input_device_wlr;
+	const struct wsm_input_device_impl *input_device_impl_wsm;
 	bool is_virtual;
 };
 

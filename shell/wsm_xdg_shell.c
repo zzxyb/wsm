@@ -287,7 +287,7 @@ static void handle_new_popup(struct wl_listener *listener, void *data) {
 	struct wlr_xdg_popup *wlr_popup = data;
 
 	struct wsm_xdg_popup *popup = wsm_xdg_popup_create(wlr_popup,
-		&xdg_shell_view->view, global_server.wsm_scene->layers.popup);
+		&xdg_shell_view->view, global_server.scene->layers.popup);
 	if (!popup) {
 		return;
 	}
@@ -401,12 +401,12 @@ static void handle_map(struct wl_listener *listener, void *data) {
 
 	if (view->xdg_decoration) {
 		enum wlr_xdg_toplevel_decoration_v1_mode mode =
-			view->xdg_decoration->wlr_xdg_decoration->requested_mode;
+			view->xdg_decoration->xdg_decoration_wlr->requested_mode;
 		csd = mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
 	} else {
 		struct wsm_server_decoration *deco =
 			decoration_from_surface(toplevel->base->surface);
-		csd = !deco || deco->wlr_server_decoration->mode ==
+		csd = !deco || deco->server_decoration_wlr->mode ==
 			WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT;
 	}
 
@@ -473,7 +473,8 @@ void handle_xdg_shell_toplevel(struct wl_listener *listener, void *data) {
 
 	struct wsm_xdg_shell_view *xdg_shell_view =
 		calloc(1, sizeof(struct wsm_xdg_shell_view));
-	if (!wsm_assert(xdg_shell_view,"Could not create wsm_xdg_shell_view: allocation failed!")) {
+	if (!xdg_shell_view) {
+		wsm_log(WSM_ERROR, "Could not create wsm_xdg_shell_view: allocation failed!");
 		return;
 	}
 
@@ -523,19 +524,20 @@ void xdg_activation_v1_handle_request_activate(struct wl_listener *listener,
 
 struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server) {
 	struct wsm_xdg_shell *shell = calloc(1, sizeof(struct wsm_xdg_shell));
-	if (!wsm_assert(shell,
-			"Could not create wsm_xdg_shell: allocation failed!")) {
+	if (!shell) {
+		wsm_log(WSM_ERROR, "Could not create wsm_xdg_shell: allocation failed!");
 		return NULL;
 	}
 
-	shell->wlr_xdg_shell = wlr_xdg_shell_create(server->wl_display, WSM_XDG_SHELL_VERSION);
+	shell->xdg_shell_wlr = wlr_xdg_shell_create(server->wl_display, WSM_XDG_SHELL_VERSION);
 	shell->xdg_shell_toplevel.notify = handle_xdg_shell_toplevel;
-	wl_signal_add(&shell->wlr_xdg_shell->events.new_toplevel,
+	wl_signal_add(&shell->xdg_shell_wlr->events.new_toplevel,
 		&shell->xdg_shell_toplevel);
 
 	shell->xdg_activation_v1 = wlr_xdg_activation_v1_create(server->wl_display);
-	if (!wsm_assert(shell->xdg_activation_v1,
-			"unable to create wlr_xdg_activation_v1 interface")) {
+	if (!shell->xdg_activation_v1) {
+		wsm_log(WSM_ERROR, "Could not create wlr_xdg_activation_v1: allocation failed!");
+		free(shell);
 		return NULL;
 	}
 

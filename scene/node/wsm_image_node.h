@@ -11,7 +11,7 @@ struct wlr_scene_tree;
 typedef struct _cairo_surface cairo_surface_t;
 
 struct wsm_image_node {
-	struct wlr_scene_node *node;
+	struct wlr_scene_node *node_wlr;
 
 	int width;
 	int height;

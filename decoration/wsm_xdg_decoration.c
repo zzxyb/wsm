@@ -37,13 +37,14 @@ void handle_xdg_decoration(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_shell_view *xdg_shell_view = wlr_deco->toplevel->base->data;
 
 	struct wsm_xdg_decoration *deco = calloc(1, sizeof(struct wsm_xdg_decoration));
-	if (!wsm_assert(deco, "Could not create wsm_xdg_decoration: allocation failed!")) {
+	if (!deco) {
+		wsm_log(WSM_ERROR, "Could not create wsm_xdg_decoration: allocation failed!");
 		return;
 	}
 
 	deco->view = &xdg_shell_view->view;
 	deco->view->xdg_decoration = deco;
-	deco->wlr_xdg_decoration = wlr_deco;
+	deco->xdg_decoration_wlr = wlr_deco;
 
 	wl_signal_add(&wlr_deco->events.destroy, &deco->destroy);
 	deco->destroy.notify = xdg_decoration_handle_destroy;
@@ -51,15 +52,15 @@ void handle_xdg_decoration(struct wl_listener *listener, void *data) {
 	wl_signal_add(&wlr_deco->events.request_mode, &deco->request_mode);
 	deco->request_mode.notify = xdg_decoration_handle_request_mode;
 
-	wl_list_insert(&global_server.wsm_xdg_decoration_manager->xdg_decorations, &deco->link);
+	wl_list_insert(&global_server.xdg_decoration_manager->xdg_decorations, &deco->link);
 	set_xdg_decoration_mode(deco);
 }
 
 struct wsm_xdg_decoration *xdg_decoration_from_surface(
 	struct wlr_surface *surface) {
 	struct wsm_xdg_decoration *deco;
-	wl_list_for_each(deco, &global_server.wsm_xdg_decoration_manager->xdg_decorations, link) {
-		if (deco->wlr_xdg_decoration->toplevel->base->surface == surface) {
+	wl_list_for_each(deco, &global_server.xdg_decoration_manager->xdg_decorations, link) {
+		if (deco->xdg_decoration_wlr->toplevel->base->surface == surface) {
 			return deco;
 		}
 	}
@@ -71,7 +72,7 @@ void set_xdg_decoration_mode(struct wsm_xdg_decoration *deco) {
 	enum wlr_xdg_toplevel_decoration_v1_mode mode =
 		WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE;
 	enum wlr_xdg_toplevel_decoration_v1_mode client_mode =
-		deco->wlr_xdg_decoration->requested_mode;
+		deco->xdg_decoration_wlr->requested_mode;
 
 	bool floating;
 	if (view->container) {
@@ -92,6 +93,6 @@ void set_xdg_decoration_mode(struct wsm_xdg_decoration *deco) {
 	}
 
 	if (view->wlr_xdg_toplevel->base->initialized) {
-		wlr_xdg_toplevel_decoration_v1_set_mode(deco->wlr_xdg_decoration, mode);
+		wlr_xdg_toplevel_decoration_v1_set_mode(deco->xdg_decoration_wlr, mode);
 	}
 }

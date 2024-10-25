@@ -123,14 +123,15 @@ static bool handle_point_accepts_input(
 
 struct wsm_container *container_create(struct wsm_view *view) {
 	struct wsm_container *c = calloc(1, sizeof(struct wsm_container));
-	if (!wsm_assert(c, "Could not create wsm_container: allocation failed!")) {
+	if (!c) {
+		wsm_log(WSM_ERROR, "Could not create wsm_container: allocation failed!");
 		return NULL;
 	}
 
 	node_init(&c->node, N_CONTAINER, c);
 
 	bool failed = false;
-	c->scene_tree = alloc_scene_tree(global_server.wsm_scene->staging, &failed);
+	c->scene_tree = alloc_scene_tree(global_server.scene->staging, &failed);
 	c->title_bar = wsm_titlebar_create();
 	c->title_bar->tree = alloc_scene_tree(c->scene_tree, &failed);
 	c->title_bar->background = alloc_rect_node(c->title_bar->tree, &failed);
@@ -180,7 +181,7 @@ struct wsm_container *container_create(struct wsm_view *view) {
 	c->view = view;
 	c->alpha = 1.0f;
 
-	wl_signal_emit_mutable(&global_server.wsm_scene->events.new_node, &c->node);
+	wl_signal_emit_mutable(&global_server.scene->events.new_node, &c->node);
 	container_update(c);
 
 	return c;
@@ -354,8 +355,8 @@ struct wsm_output *container_floating_find_output(struct wsm_container *con) {
 	double center_y = con->pending.y + con->pending.height / 2;
 	struct wsm_output *closest_output = NULL;
 	double closest_distance = DBL_MAX;
-	for (int i = 0; i < global_server.wsm_scene->outputs->length; ++i) {
-		struct wsm_output *output = global_server.wsm_scene->outputs->items[i];
+	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
+		struct wsm_output *output = global_server.scene->outputs->items[i];
 		struct wlr_box output_box;
 		double closest_x, closest_y;
 		output_get_box(output, &output_box);
@@ -401,7 +402,7 @@ void container_fullscreen_disable(struct wsm_container *con) {
 			}
 		}
 	} else {
-		global_server.wsm_scene->fullscreen_global = NULL;
+		global_server.scene->fullscreen_global = NULL;
 	}
 
 	if (container_is_floating(con) && (con->pending.width == 0 || con->pending.height == 0)) {
@@ -413,11 +414,11 @@ void container_fullscreen_disable(struct wsm_container *con) {
 
 	if (con->scratchpad) {
 		struct wsm_seat *seat;
-		wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
+		wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 			struct wsm_container *focus = seat_get_focused_container(seat);
 			if (focus == con || container_has_ancestor(focus, con)) {
 				seat_set_focus(seat,
-					seat_get_focus_inactive(seat, &global_server.wsm_scene->node));
+					seat_get_focus_inactive(seat, &global_server.scene->node));
 			}
 		}
 	}
@@ -506,7 +507,7 @@ void container_floating_resize_and_center(struct wsm_container *con) {
 	}
 
 	struct wlr_box ob;
-	wlr_output_layout_get_box(global_server.wsm_scene->output_layout, ws->output->wlr_output, &ob);
+	wlr_output_layout_get_box(global_server.scene->output_layout, ws->output->wlr_output, &ob);
 	if (wlr_box_empty(&ob)) {
 		// On NOOP output. Will be called again when moved to an output
 		con->pending.x = 0;
@@ -566,7 +567,7 @@ void container_set_geometry_from_content(struct wsm_container *con) {
 
 void container_end_mouse_operation(struct wsm_container *container) {
 	struct wsm_seat *seat;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 		seatop_unref(seat, container);
 	}
 }
@@ -591,7 +592,7 @@ void container_detach(struct wsm_container *child) {
 		child->pending.workspace->fullscreen = NULL;
 	}
 	if (child->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
-		global_server.wsm_scene->fullscreen_global = NULL;
+		global_server.scene->fullscreen_global = NULL;
 	}
 
 	struct wsm_container *old_parent = child->pending.parent;
@@ -636,8 +637,8 @@ void container_update_representation(struct wsm_container *con) {
 			con->pending.children, NULL);
 		free(con->formatted_title);
 		con->formatted_title = calloc(len + 1, sizeof(char));
-		if (!wsm_assert(con->formatted_title,
-				"Unable to allocate title string")) {
+		if (!con->formatted_title) {
+			wsm_log(WSM_ERROR, "Unable to allocate title string: allocation failed!");
 			return;
 		}
 		container_build_representation(con->pending.layout, con->pending.children,
@@ -713,7 +714,7 @@ void container_update_title_bar(struct wsm_container *con) {
 	struct border_colors *colors = container_get_current_colors(con);
 
 	if (con->title_bar->title_text) {
-		wlr_scene_node_destroy(con->title_bar->title_text->node);
+		wlr_scene_node_destroy(con->title_bar->title_text->node_wlr);
 		con->title_bar->title_text = NULL;
 	}
 
@@ -778,13 +779,13 @@ static void container_fullscreen_workspace(struct wsm_container *con) {
 		con->pending.workspace->fullscreen = con;
 		struct wsm_seat *seat;
 		struct wsm_workspace *focus_ws;
-		wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
+		wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 			focus_ws = seat_get_focused_workspace(seat);
 			if (focus_ws == con->pending.workspace) {
 				seat_set_focus_container(seat, con);
 			} else {
 				struct wsm_node *focus =
-					seat_get_focus_inactive(seat, &global_server.wsm_scene->node);
+					seat_get_focus_inactive(seat, &global_server.scene->node);
 				seat_set_raw_focus(seat, &con->node);
 				seat_set_raw_focus(seat, focus);
 			}
@@ -801,14 +802,14 @@ static void container_fullscreen_global(struct wsm_container *con) {
 	}
 	set_fullscreen(con, true);
 
-	global_server.wsm_scene->fullscreen_global = con;
+	global_server.scene->fullscreen_global = con;
 	con->saved_x = con->pending.x;
 	con->saved_y = con->pending.y;
 	con->saved_width = con->pending.width;
 	con->saved_height = con->pending.height;
 
 	struct wsm_seat *seat;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 		struct wsm_container *focus = seat_get_focused_container(seat);
 		if (focus && focus != con) {
 			seat_set_focus_container(seat, con);
@@ -829,8 +830,8 @@ void container_set_fullscreen(struct wsm_container *con, enum wsm_fullscreen_mod
 		container_fullscreen_disable(con);
 		break;
 	case FULLSCREEN_WORKSPACE:
-		if (global_server.wsm_scene->fullscreen_global) {
-			container_fullscreen_disable(global_server.wsm_scene->fullscreen_global);
+		if (global_server.scene->fullscreen_global) {
+			container_fullscreen_disable(global_server.scene->fullscreen_global);
 		}
 		if (con->pending.workspace && con->pending.workspace->fullscreen) {
 			container_fullscreen_disable(con->pending.workspace->fullscreen);
@@ -838,8 +839,8 @@ void container_set_fullscreen(struct wsm_container *con, enum wsm_fullscreen_mod
 		container_fullscreen_workspace(con);
 		break;
 	case FULLSCREEN_GLOBAL:
-		if (global_server.wsm_scene->fullscreen_global) {
-			container_fullscreen_disable(global_server.wsm_scene->fullscreen_global);
+		if (global_server.scene->fullscreen_global) {
+			container_fullscreen_disable(global_server.scene->fullscreen_global);
 		}
 		if (con->pending.fullscreen_mode == FULLSCREEN_WORKSPACE) {
 			container_fullscreen_disable(con);
@@ -872,9 +873,9 @@ void root_scratchpad_remove_container(struct wsm_container *con) {
 		return;
 	}
 	con->scratchpad = false;
-	int index = list_find(global_server.wsm_scene->scratchpad, con);
+	int index = list_find(global_server.scene->scratchpad, con);
 	if (index != -1) {
-		list_del(global_server.wsm_scene->scratchpad, index);
+		list_del(global_server.scene->scratchpad, index);
 	}
 }
 
@@ -914,7 +915,7 @@ void container_set_floating(struct wsm_container *container, bool enable) {
 				container->pending.border = B_CSD;
 				if (container->view->xdg_decoration) {
 					struct wsm_xdg_decoration *deco = container->view->xdg_decoration;
-					wlr_xdg_toplevel_decoration_v1_set_mode(deco->wlr_xdg_decoration,
+					wlr_xdg_toplevel_decoration_v1_set_mode(deco->xdg_decoration_wlr,
 						WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE);
 				}
 			}
@@ -955,7 +956,7 @@ void container_set_floating(struct wsm_container *container, bool enable) {
 				container->pending.border = container->saved_border;
 				if (container->view->xdg_decoration) {
 					struct wsm_xdg_decoration *deco = container->view->xdg_decoration;
-					wlr_xdg_toplevel_decoration_v1_set_mode(deco->wlr_xdg_decoration,
+					wlr_xdg_toplevel_decoration_v1_set_mode(deco->xdg_decoration_wlr,
 						WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 				}
 			}
@@ -1099,7 +1100,7 @@ void floating_calculate_constraints(int *min_width, int *max_width,
 	}
 
 	struct wlr_box box;
-	wlr_output_layout_get_box(global_server.wsm_scene->output_layout, NULL, &box);
+	wlr_output_layout_get_box(global_server.scene->output_layout, NULL, &box);
 
 	if (global_config.floating_maximum_width == -1) { // no maximum
 		*max_width = INT_MAX;
@@ -1129,7 +1130,7 @@ struct wsm_container *container_obstructing_fullscreen_container(struct wsm_cont
 		return workspace->fullscreen;
 	}
 
-	struct wsm_container *fullscreen_global = global_server.wsm_scene->fullscreen_global;
+	struct wsm_container *fullscreen_global = global_server.scene->fullscreen_global;
 	if (fullscreen_global && container != fullscreen_global &&
 			!container_has_ancestor(container, fullscreen_global)) {
 		if (container_is_transient_for(container, fullscreen_global)) {

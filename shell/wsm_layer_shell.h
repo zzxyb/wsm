@@ -37,7 +37,7 @@ struct wsm_layer_surface {
 	struct wsm_output *output;
 	struct wlr_scene_layer_surface_v1 *scene;
 	struct wlr_scene_tree *tree;
-	struct wlr_layer_surface_v1 *layer_surface;
+	struct wlr_layer_surface_v1 *layer_surface_wlr;
 
 	bool mapped;
 };

@@ -170,7 +170,6 @@ wsm_deps = [
 	svg,
 	xcb,
 	xcb_icccm,
-	libudev,
 ]
 
 dir_prefix = get_option('prefix')

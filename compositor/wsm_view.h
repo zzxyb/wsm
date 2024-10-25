@@ -10,7 +10,13 @@
 struct wlr_scene_node;
 struct wlr_scene_tree;
 struct wlr_xdg_surface;
+struct wlr_xdg_toplevel;
+#if HAVE_XWAYLAND
+struct wlr_xwayland_surface;
+#endif
+struct wlr_scene_surface;
 struct wlr_foreign_toplevel_handle_v1;
+struct wlr_ext_foreign_toplevel_handle_v1;
 
 struct wsm_seat;
 struct wsm_view;

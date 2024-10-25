@@ -18,8 +18,8 @@
 struct wsm_desktop_interface *wsm_desktop_interface_create() {
 	struct wsm_desktop_interface *desktop =
 		calloc(1, sizeof(struct wsm_desktop_interface));
-	if (!wsm_assert(desktop,
-			"Could not create wsm_desktop_interface: allocation failed!")) {
+	if (!desktop) {
+		wsm_log(WSM_ERROR, "Could not create wsm_desktop_interface: allocation failed!");
 		return NULL;
 	}
 
@@ -56,6 +56,7 @@ struct wsm_desktop_interface *wsm_desktop_interface_create() {
 	if (family == NULL) {
 		pango_font_description_free(font_description);
 		wsm_log(WSM_ERROR, "Invalid font family.");
+		free(desktop);
 		return NULL;
 	}
 

@@ -26,14 +26,14 @@ static void handle_pad_tablet_destroy(struct wl_listener *listener, void *data) 
 static void attach_tablet_pad(struct wsm_tablet_pad *tablet_pad,
 		struct wsm_tablet *tablet) {
 	wsm_log(WSM_DEBUG, "Attaching tablet pad \"%s\" to tablet tool \"%s\"",
-		tablet_pad->seat_device->input_device->wlr_device->name,
-		tablet->seat_device->input_device->wlr_device->name);
+		tablet_pad->seat_device->input_device->input_device_wlr->name,
+		tablet->seat_device->input_device->input_device_wlr->name);
 
 	tablet_pad->tablet = tablet;
 
 	wl_list_remove(&tablet_pad->tablet_destroy.link);
 	tablet_pad->tablet_destroy.notify = handle_pad_tablet_destroy;
-	wl_signal_add(&tablet->seat_device->input_device->wlr_device->events.destroy,
+	wl_signal_add(&tablet->seat_device->input_device->input_device_wlr->events.destroy,
 		&tablet_pad->tablet_destroy);
 }
 
@@ -41,29 +41,30 @@ struct wsm_tablet *wsm_tablet_create(struct wsm_seat *seat,
 		struct wsm_seat_device *device) {
 	struct wsm_tablet *tablet =
 		calloc(1, sizeof(struct wsm_tablet));
-	if (!wsm_assert(tablet, "Could not create wsm_tablet for seat: allocation failed!")) {
+	if (!tablet) {
+		wsm_log(WSM_ERROR, "Could not create wsm_tablet: allocation failed!");
 		return NULL;
 	}
 
 	tablet->tablet_manager_v2 = wlr_tablet_v2_create(global_server.wl_display);
-	wl_list_insert(&seat->wsm_cursor->tablets, &tablet->link);
+	wl_list_insert(&seat->cursor->tablets, &tablet->link);
 
-	device->tablet = tablet;
 	tablet->seat_device = device;
+	device->tablet = tablet;
 
 	return tablet;
 }
 
 void wsm_configure_tablet(struct wsm_tablet *tablet) {
 	struct wlr_input_device *device =
-		tablet->seat_device->input_device->wlr_device;
-	struct wsm_seat *seat = tablet->seat_device->wsm_seat;
+		tablet->seat_device->input_device->input_device_wlr;
+	struct wsm_seat *seat = tablet->seat_device->seat;
 
 	// seat_configure_xcursor(seat);
 
 	if (!tablet->tablet_v2) {
 		tablet->tablet_v2 =
-			wlr_tablet_create(tablet->tablet_manager_v2, seat->wlr_seat, device);
+			wlr_tablet_create(tablet->tablet_manager_v2, seat->seat, device);
 	}
 
 #if WLR_HAS_LIBINPUT_BACKEND
@@ -106,8 +107,8 @@ static void handle_tablet_tool_set_cursor(struct wl_listener *listener, void *da
 		wl_container_of(listener, tool, set_cursor);
 	struct wlr_tablet_v2_event_cursor *event = data;
 
-	struct wsm_cursor *cursor = tool->seat->wsm_cursor;
-	if (!seatop_allows_set_cursor(cursor->wsm_seat)) {
+	struct wsm_cursor *cursor = tool->seat->cursor;
+	if (!seatop_allows_set_cursor(cursor->seat_wsm)) {
 		return;
 	}
 
@@ -141,7 +142,8 @@ void wsm_tablet_tool_configure(struct wsm_tablet *tablet,
 		struct wlr_tablet_tool *wlr_tool) {
 	struct wsm_tablet_tool *tool =
 		calloc(1, sizeof(struct wsm_tablet_tool));
-	if (!wsm_assert(tool, "Could not create wsm tablet tool for tablet: allocation failed!")) {
+	if (!tool) {
+		wsm_log(WSM_ERROR, "Could not create wsm_tablet_tool: allocation failed!");
 		return;
 	}
 
@@ -154,11 +156,11 @@ void wsm_tablet_tool_configure(struct wsm_tablet *tablet,
 		tool->mode = WSM_TABLET_TOOL_MODE_ABSOLUTE;
 	}
 
-	tool->seat = tablet->seat_device->wsm_seat;
+	tool->seat = tablet->seat_device->seat;
 	tool->tablet = tablet;
 	tool->tablet_v2_tool =
 		wlr_tablet_tool_create(tablet->tablet_manager_v2,
-		tablet->seat_device->wsm_seat->wlr_seat, wlr_tool);
+		tablet->seat_device->seat->seat, wlr_tool);
 
 	tool->tool_destroy.notify = handle_tablet_tool_destroy;
 	wl_signal_add(&wlr_tool->events.destroy, &tool->tool_destroy);
@@ -230,12 +232,15 @@ struct wsm_tablet_pad *wsm_tablet_pad_create(struct wsm_seat *seat,
 		struct wsm_seat_device *device) {
 	struct wsm_tablet_pad *tablet_pad =
 		calloc(1, sizeof(struct wsm_tablet_pad));
-	if (!wsm_assert(tablet_pad, "Could not create wsm tablet: allocation failed!")) {
+	if (!tablet_pad) {
+		wsm_log(WSM_ERROR, "Could not create wsm_tablet_pad: allocation failed!");
 		return NULL;
 	}
 
-	tablet_pad->wlr = wlr_tablet_pad_from_input_device(device->input_device->wlr_device);
+	tablet_pad->tablet_pad_wlr = wlr_tablet_pad_from_input_device(device->input_device->input_device_wlr);
 	tablet_pad->seat_device = device;
+	device->tablet_pad = tablet_pad;
+
 	wl_list_init(&tablet_pad->attach.link);
 	wl_list_init(&tablet_pad->button.link);
 	wl_list_init(&tablet_pad->strip.link);
@@ -243,37 +248,37 @@ struct wsm_tablet_pad *wsm_tablet_pad_create(struct wsm_seat *seat,
 	wl_list_init(&tablet_pad->surface_destroy.link);
 	wl_list_init(&tablet_pad->tablet_destroy.link);
 
-	wl_list_insert(&seat->wsm_cursor->tablet_pads, &tablet_pad->link);
+	wl_list_insert(&seat->cursor->tablet_pads, &tablet_pad->link);
 
 	return tablet_pad;
 }
 
 void wsm_configure_tablet_pad(struct wsm_tablet_pad *tablet_pad) {
 	struct wlr_input_device *wlr_device =
-		tablet_pad->seat_device->input_device->wlr_device;
-	struct wsm_seat *seat = tablet_pad->seat_device->wsm_seat;
+		tablet_pad->seat_device->input_device->input_device_wlr;
+	struct wsm_seat *seat = tablet_pad->seat_device->seat;
 
 	if (!tablet_pad->tablet_v2_pad) {
 		tablet_pad->tablet_v2_pad =
-			wlr_tablet_pad_create(tablet_pad->tablet->tablet_manager_v2, seat->wlr_seat, wlr_device);
+			wlr_tablet_pad_create(tablet_pad->tablet->tablet_manager_v2, seat->seat, wlr_device);
 	}
 
 	wl_list_remove(&tablet_pad->attach.link);
 	tablet_pad->attach.notify = handle_tablet_pad_attach;
-	wl_signal_add(&tablet_pad->wlr->events.attach_tablet,
+	wl_signal_add(&tablet_pad->tablet_pad_wlr->events.attach_tablet,
 		&tablet_pad->attach);
 
 	wl_list_remove(&tablet_pad->button.link);
 	tablet_pad->button.notify = handle_tablet_pad_button;
-	wl_signal_add(&tablet_pad->wlr->events.button, &tablet_pad->button);
+	wl_signal_add(&tablet_pad->tablet_pad_wlr->events.button, &tablet_pad->button);
 
 	wl_list_remove(&tablet_pad->strip.link);
 	tablet_pad->strip.notify = handle_tablet_pad_strip;
-	wl_signal_add(&tablet_pad->wlr->events.strip, &tablet_pad->strip);
+	wl_signal_add(&tablet_pad->tablet_pad_wlr->events.strip, &tablet_pad->strip);
 
 	wl_list_remove(&tablet_pad->ring.link);
 	tablet_pad->ring.notify = handle_tablet_pad_ring;
-	wl_signal_add(&tablet_pad->wlr->events.ring, &tablet_pad->ring);
+	wl_signal_add(&tablet_pad->tablet_pad_wlr->events.ring, &tablet_pad->ring);
 
 #if WLR_HAS_LIBINPUT_BACKEND
 	/* Search for a sibling tablet */
@@ -285,9 +290,9 @@ void wsm_configure_tablet_pad(struct wsm_tablet_pad *tablet_pad) {
 	struct libinput_device_group *group =
 		libinput_device_get_device_group(wlr_libinput_get_device_handle(wlr_device));
 	struct wsm_tablet *tool;
-	wl_list_for_each(tool, &seat->wsm_cursor->tablets, link) {
+	wl_list_for_each(tool, &seat->cursor->tablets, link) {
 		struct wlr_input_device *tablet =
-			tool->seat_device->input_device->wlr_device;
+			tool->seat_device->input_device->input_device_wlr;
 		if (!wlr_input_device_is_libinput(tablet)) {
 			continue;
 		}

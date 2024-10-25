@@ -10,8 +10,8 @@
 struct wsm_xdg_decoration_manager *xdg_decoration_manager_create(const struct wsm_server* server) {
 	struct wsm_xdg_decoration_manager *decoration_manager =
 		calloc(1, sizeof(struct wsm_xdg_decoration_manager));
-	if (!wsm_assert(decoration_manager,
-			"Could not create wsm_xdg_decoration_manager: allocation failed!")) {
+	if (!decoration_manager) {
+		wsm_log(WSM_ERROR, "Could not create wsm_xdg_decoration_manager: allocation failed!");
 		return NULL;
 	}
 

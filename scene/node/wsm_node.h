@@ -30,10 +30,10 @@ struct wsm_node {
 	} events;
 
 	union {
-		struct wsm_root *wsm_root;
-		struct wsm_output *wsm_output;
-		struct wsm_workspace *wsm_workspace;
-		struct wsm_container *wsm_container;
+		struct wsm_root *root;
+		struct wsm_output *output;
+		struct wsm_workspace *workspace;
+		struct wsm_container *container;
 	};
 
 	size_t id;

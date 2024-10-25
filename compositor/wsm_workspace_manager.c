@@ -13,8 +13,8 @@ struct wsm_workspace_manager *wsm_workspace_manager_create(const struct wsm_serv
 		struct wsm_output *output) {
 	struct wsm_workspace_manager *workspace_manager =
 		calloc(1, sizeof(struct wsm_workspace_manager));
-	if (!wsm_assert(workspace_manager,
-			"Could not create wsm_workspace_manager: allocation failed!")) {
+	if (!workspace_manager) {
+		wsm_log(WSM_ERROR, "Could not create wsm_workspace_manager: allocation failed!");
 		return NULL;
 	}
 

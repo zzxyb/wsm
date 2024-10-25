@@ -13,7 +13,8 @@ struct wsm_backlight *wsm_backlight_create(struct wsm_output *output) {
 	}
 
 	struct wsm_backlight *backlight = calloc(1, sizeof(struct wsm_backlight));
-	if (!wsm_assert(output, "Could not create wsm_backlight: allocation failed!")) {
+	if (!output) {
+		wsm_log(WSM_ERROR, "Could not create wsm_backlight: allocation failed!");
 		return NULL;
 	}
 

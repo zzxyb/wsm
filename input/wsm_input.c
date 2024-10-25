@@ -253,17 +253,18 @@ static const struct wsm_input_device_impl input_device_impl = {
 struct wsm_input_device *wsm_input_device_create() {
 	struct wsm_input_device *input_device =
 		calloc(1, sizeof(struct wsm_input_device));
-	if (!wsm_assert(input_device, "Could not create wsm_input_device: allocation failed!")) {
+	if (!input_device) {
+		wsm_log(WSM_ERROR, "Could not create wsm_input_device: allocation failed!");
 		return NULL;
 	}
-	input_device->input_device_impl = &input_device_impl;
+	input_device->input_device_impl_wsm = &input_device_impl;
 	return input_device;
 }
 
 struct wsm_input_device *input_wsm_device_from_wlr(struct wlr_input_device *device) {
 	struct wsm_input_device *input_device = NULL;
-	wl_list_for_each(input_device, &global_server.wsm_input_manager->devices, link) {
-		if (input_device->wlr_device == device) {
+	wl_list_for_each(input_device, &global_server.input_manager->devices, link) {
+		if (input_device->input_device_wlr == device) {
 			return input_device;
 		}
 	}
@@ -280,20 +281,20 @@ void wsm_input_device_destroy(struct wlr_input_device *wlr_device) {
 	wsm_log(WSM_DEBUG, "removing device: '%s'", input_device->identifier);
 
 	struct wsm_seat *seat = NULL;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 		seat_remove_device(seat, input_device);
 	}
 
 	wl_list_remove(&input_device->link);
 	wl_list_remove(&input_device->device_destroy.link);
-	input_device->input_device_impl = NULL;
+	input_device->input_device_impl_wsm = NULL;
 	free(input_device->identifier);
 	free(input_device);
 }
 
 void wsm_input_configure_libinput_device_send_events(
 	struct wsm_input_device *input_device) {
-	if (!wlr_input_device_is_libinput(input_device->wlr_device)) {
+	if (!wlr_input_device_is_libinput(input_device->input_device_wlr)) {
 		return;
 	}
 }

@@ -28,7 +28,7 @@ static void popup_handle_destroy(struct wl_listener *listener, void *data) {
 
 static void popup_handle_commit(struct wl_listener *listener, void *data) {
 	struct wsm_layer_popup *popup = wl_container_of(listener, popup, commit);
-	if (popup->wlr_popup->base->initial_commit) {
+	if (popup->xdg_popup->base->initial_commit) {
 		wsm_layer_popup_unconstrain(popup);
 	}
 }
@@ -36,12 +36,13 @@ static void popup_handle_commit(struct wl_listener *listener, void *data) {
 struct wsm_layer_popup *wsm_layer_popup_create(struct wlr_xdg_popup *wlr_popup,
 		struct wsm_layer_surface *toplevel, struct wlr_scene_tree *parent) {
 	struct wsm_layer_popup *popup = calloc(1, sizeof(struct wsm_layer_popup));
-	if (!wsm_assert(popup, "Could not create wsm_layer_popup: allocation failed!")) {
+	if (!popup) {
+		wsm_log(WSM_ERROR, "Could not create wsm_layer_popup: allocation failed!");
 		return NULL;
 	}
 
 	popup->toplevel = toplevel;
-	popup->wlr_popup = wlr_popup;
+	popup->xdg_popup = wlr_popup;
 	popup->scene = wlr_scene_xdg_surface_create(parent,
 		wlr_popup->base);
 
@@ -61,7 +62,7 @@ struct wsm_layer_popup *wsm_layer_popup_create(struct wlr_xdg_popup *wlr_popup,
 }
 
 void wsm_layer_popup_unconstrain(struct wsm_layer_popup *popup) {
-	struct wlr_xdg_popup *wlr_popup = popup->wlr_popup;
+	struct wlr_xdg_popup *wlr_popup = popup->xdg_popup;
 	struct wsm_output *output = popup->toplevel->output;
 
 	if (!output) {

@@ -41,11 +41,13 @@ struct wsm_output;
 struct wsm_keyboard;
 struct wsm_switch;
 struct wsm_tablet;
+struct wsm_pointer;
 struct wsm_container;
 struct wsm_workspace;
 struct wsm_tablet_pad;
 struct wsm_input_device;
 struct wsm_tablet_tool;
+struct wsm_seatop_impl;
 
 enum wsm_input_idle_source {
 	IDLE_SOURCE_KEYBOARD = 1 << 0,
@@ -58,10 +60,11 @@ enum wsm_input_idle_source {
 
 struct wsm_seat_device {
 	struct wl_list link;
-	struct wsm_seat *wsm_seat;
+	struct wsm_seat *seat;
 	struct wsm_input_device *input_device;
+	struct wsm_pointer *pointer;
 	struct wsm_keyboard *keyboard;
-	struct wsm_switch *switch_device;
+	struct wsm_switch *_switch;
 	struct wsm_tablet *tablet;
 	struct wsm_tablet_pad *tablet_pad;
 };
@@ -77,7 +80,7 @@ struct wsm_seat_node {
 struct wsm_drag {
 	struct wl_listener destroy;
 	struct wsm_seat *seat;
-	struct wlr_drag *wlr_drag;
+	struct wlr_drag *drag;
 };
 
 struct wsm_seat {
@@ -99,15 +102,15 @@ struct wsm_seat {
 	struct wl_list keyboard_shortcuts_inhibitors;
 
 	struct wsm_list *deferred_bindings;
-	struct wlr_seat *wlr_seat;
-	struct wsm_cursor *wsm_cursor;
+	struct wlr_seat *seat;
+	struct wsm_cursor *cursor;
 
 	struct wlr_scene_tree *scene_tree;
 	struct wlr_scene_tree *drag_icons;
 
 	struct wsm_workspace *workspace;
 	char *prev_workspace_name;
-	struct wlr_layer_surface_v1 *focused_layer;
+	struct wlr_layer_surface_v1 *focused_layer_wlr;
 
 	struct wl_client *exclusive_client;
 
