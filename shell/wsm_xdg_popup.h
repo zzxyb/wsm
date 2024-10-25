@@ -18,7 +18,7 @@ struct wsm_xdg_popup {
 
 	struct wlr_scene_tree *scene_tree;
 	struct wlr_scene_tree *xdg_surface_tree;
-	struct wlr_xdg_popup *wlr_xdg_popup;
+	struct wlr_xdg_popup *xdg_popup_wlr;
 };
 
 struct wsm_xdg_popup *wsm_xdg_popup_create(struct wlr_xdg_popup *wlr_popup,

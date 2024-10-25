@@ -27,12 +27,12 @@ static void server_decoration_handle_mode(struct wl_listener *listener,
 	struct wsm_server_decoration *deco =
 		wl_container_of(listener, deco, mode);
 	struct wsm_view *view =
-		view_from_wlr_surface(deco->wlr_server_decoration->surface);
-	if (view == NULL || view->surface != deco->wlr_server_decoration->surface) {
+		view_from_wlr_surface(deco->server_decoration_wlr->surface);
+	if (view == NULL || view->surface != deco->server_decoration_wlr->surface) {
 		return;
 	}
 
-	bool csd = deco->wlr_server_decoration->mode ==
+	bool csd = deco->server_decoration_wlr->mode ==
 		WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT;
 	view_update_csd_from_client(view, csd);
 
@@ -43,8 +43,8 @@ static void server_decoration_handle_mode(struct wl_listener *listener,
 struct wsm_server_decoration *decoration_from_surface(
 	struct wlr_surface *surface) {
 	struct wsm_server_decoration *deco;
-	wl_list_for_each(deco, &global_server.wsm_server_decoration_manager->decorations, link) {
-		if (deco->wlr_server_decoration->surface == surface) {
+	wl_list_for_each(deco, &global_server.server_decoration_manager->decorations, link) {
+		if (deco->server_decoration_wlr->surface == surface) {
 			return deco;
 		}
 	}
@@ -55,11 +55,12 @@ void handle_server_decoration(struct wl_listener *listener, void *data) {
 	struct wlr_server_decoration *wlr_deco = data;
 
 	struct wsm_server_decoration *deco = calloc(1, sizeof(struct wsm_server_decoration));
-	if (!wsm_assert(deco, "Could not create wsm_server_decoration: allocation failed!")) {
+	if (!deco) {
+		wsm_log(WSM_ERROR, "Could not create wsm_server_decoration: allocation failed!");
 		return;
 	}
 
-	deco->wlr_server_decoration = wlr_deco;
+	deco->server_decoration_wlr = wlr_deco;
 
 	wl_signal_add(&wlr_deco->events.destroy, &deco->destroy);
 	deco->destroy.notify = server_decoration_handle_destroy;
@@ -67,5 +68,5 @@ void handle_server_decoration(struct wl_listener *listener, void *data) {
 	wl_signal_add(&wlr_deco->events.mode, &deco->mode);
 	deco->mode.notify = server_decoration_handle_mode;
 
-	wl_list_insert(&global_server.wsm_server_decoration_manager->decorations, &deco->link);
+	wl_list_insert(&global_server.server_decoration_manager->decorations, &deco->link);
 }

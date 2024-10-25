@@ -28,7 +28,7 @@ enum wsm_backlight_type {
 };
 
 struct wsm_backlight {
-	struct wsm_output* wsm_output;
+	struct wsm_output* output;
 	int max_brightness;
 	int brightness;
 	enum wsm_backlight_type type;

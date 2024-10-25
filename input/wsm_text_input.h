@@ -46,7 +46,7 @@ struct wsm_input_popup {
 	struct wlr_input_popup_surface_v2 *popup_surface;
 };
 
-struct wsm_text_input {
+struct wsm_text_input_v3 {
 	struct wl_listener pending_focused_surface_destroy;
 
 	struct wl_listener text_input_enable;
@@ -58,7 +58,7 @@ struct wsm_text_input {
 
 	struct wsm_input_method_relay *relay;
 
-	struct wlr_text_input_v3 *input;
+	struct wlr_text_input_v3 *text_input_v3_wlr;
 	struct wlr_surface *pending_focused_surface;
 };
 
@@ -67,7 +67,7 @@ void wsm_input_method_relay_init(struct wsm_seat *seat,
 void wsm_input_method_relay_finish(struct wsm_input_method_relay *relay);
 void wsm_input_method_relay_set_focus(struct wsm_input_method_relay *relay,
 	struct wlr_surface *surface);
-struct wsm_text_input *wsm_text_input_create(
+struct wsm_text_input_v3 *wsm_text_input_v3_create(
 	struct wsm_input_method_relay *relay,
 	struct wlr_text_input_v3 *text_input);
 

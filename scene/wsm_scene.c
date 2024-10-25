@@ -59,11 +59,14 @@ struct highlight_region {
 
 struct wsm_scene *wsm_scene_create(const struct wsm_server* server) {
 	struct wsm_scene *scene = calloc(1, sizeof(struct wsm_scene));
-	if (!wsm_assert(scene, "Could not create wsm_scene: allocation failed!")) {
+	if (!scene) {
+		wsm_log(WSM_ERROR, "Could not create wsm_scene: allocation failed!");
 		return NULL;
 	}
 	struct wlr_scene *root_scene = wlr_scene_create();
-	if (!wsm_assert(root_scene, "wlr_scene_create return NULL!")) {
+	if (!root_scene) {
+		wsm_log(WSM_ERROR, "Could not create wlr_scene: allocation failed!");
+		free(scene);
 		return NULL;
 	}
 
@@ -939,8 +942,8 @@ void root_scratchpad_show(struct wsm_container *con) {
 		container_fullscreen_disable(new_ws->fullscreen);
 	}
 
-	if (global_server.wsm_scene->fullscreen_global) {
-		container_fullscreen_disable(global_server.wsm_scene->fullscreen_global);
+	if (global_server.scene->fullscreen_global) {
+		container_fullscreen_disable(global_server.scene->fullscreen_global);
 	}
 
 	if (old_ws) {

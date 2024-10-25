@@ -12,7 +12,7 @@ struct wsm_text_node {
 	float color[4];
 	float background[4];
 
-	struct wlr_scene_node *node;
+	struct wlr_scene_node *node_wlr;
 	int width;
 	int max_width;
 	int height;

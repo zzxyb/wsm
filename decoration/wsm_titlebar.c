@@ -8,7 +8,8 @@
 
 struct wsm_titlebar* wsm_titlebar_create() {
 	struct wsm_titlebar *titlebar = calloc(1, sizeof(struct wsm_titlebar));
-	if (!wsm_assert(titlebar, "Could not create wsm_titlebar: allocation failed!")) {
+	if (!titlebar) {
+		wsm_log(WSM_ERROR, "Could not create wsm_titlebar: allocation failed!");
 		return NULL;
 	}
 

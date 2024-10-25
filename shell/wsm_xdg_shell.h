@@ -18,7 +18,7 @@ struct wsm_xdg_shell {
 	struct wl_listener xdg_activation_v1_request_activate;
 	struct wl_listener xdg_activation_v1_new_token;
 
-	struct wlr_xdg_shell *wlr_xdg_shell;
+	struct wlr_xdg_shell *xdg_shell_wlr;
 	struct wlr_xdg_activation_v1 *xdg_activation_v1;
 };
 

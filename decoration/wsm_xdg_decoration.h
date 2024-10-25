@@ -20,7 +20,7 @@ struct wsm_xdg_decoration {
 
 	struct wl_list link;
 
-	struct wlr_xdg_toplevel_decoration_v1 *wlr_xdg_decoration;
+	struct wlr_xdg_toplevel_decoration_v1 *xdg_decoration_wlr;
 
 	struct wsm_view *view;
 };

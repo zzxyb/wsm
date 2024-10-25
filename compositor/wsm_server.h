@@ -20,6 +20,7 @@ struct wl_display;
 struct wsm_output;
 struct wlr_backend;
 struct wlr_surface;
+struct wlr_session;
 struct wlr_renderer;
 struct wlr_allocator;
 struct wlr_compositor;
@@ -124,14 +125,14 @@ struct wsm_server {
 	struct wlr_xcursor_manager *xcursor_manager;
 #endif
 
-	struct wsm_scene *wsm_scene;
-	struct wsm_xdg_shell *wsm_xdg_shell;
-	struct wsm_layer_shell *wsm_layer_shell;
-	struct wsm_input_manager *wsm_input_manager;
-	struct wsm_output_manager *wsm_output_manager;
-	struct wsm_server_decoration_manager *wsm_server_decoration_manager;
-	struct wsm_xdg_decoration_manager *wsm_xdg_decoration_manager;
-	struct wsm_idle_inhibit_manager_v1 wsm_idle_inhibit_manager_v1;
+	struct wsm_scene *scene;
+	struct wsm_xdg_shell *xdg_shell;
+	struct wsm_layer_shell *layer_shell;
+	struct wsm_input_manager *input_manager;
+	struct wsm_output_manager *output_manager;
+	struct wsm_server_decoration_manager *server_decoration_manager;
+	struct wsm_xdg_decoration_manager *xdg_decoration_manager;
+	struct wsm_idle_inhibit_manager_v1 idle_inhibit_manager_v1;
 	struct wsm_desktop_interface *desktop_interface;
 
 	size_t txn_timeout_ms;

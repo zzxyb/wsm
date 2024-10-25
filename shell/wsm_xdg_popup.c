@@ -17,7 +17,7 @@ static void popup_handle_reposition(struct wl_listener *listener, void *data) {
 
 static void popup_handle_surface_commit(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_popup *popup = wl_container_of(listener, popup, surface_commit);
-	if (popup->wlr_xdg_popup->base->initial_commit) {
+	if (popup->xdg_popup_wlr->base->initial_commit) {
 		wsm_xdg_popup_unconstrain(popup);
 	}
 }
@@ -46,10 +46,11 @@ struct wsm_xdg_popup *wsm_xdg_popup_create(struct wlr_xdg_popup *wlr_popup,
 
 	struct wsm_xdg_popup *popup = calloc(1, sizeof(struct wsm_xdg_popup));
 	if (!popup) {
+		wsm_log(WSM_ERROR, "Could not create wsm_xdg_popup: allocation failed!");
 		return NULL;
 	}
 
-	popup->wlr_xdg_popup = wlr_popup;
+	popup->xdg_popup_wlr = wlr_popup;
 	popup->view = view;
 	popup->scene_tree = wlr_scene_tree_create(parent);
 	if (!popup->scene_tree) {
@@ -78,7 +79,7 @@ struct wsm_xdg_popup *wsm_xdg_popup_create(struct wlr_xdg_popup *wlr_popup,
 		return NULL;
 	}
 
-	popup->wlr_xdg_popup = xdg_surface->popup;
+	popup->xdg_popup_wlr = xdg_surface->popup;
 	struct wsm_xdg_shell_view *shell_view =
 		wl_container_of(view, shell_view, view);
 	xdg_surface->data = shell_view;
@@ -97,7 +98,7 @@ struct wsm_xdg_popup *wsm_xdg_popup_create(struct wlr_xdg_popup *wlr_popup,
 
 void wsm_xdg_popup_unconstrain(struct wsm_xdg_popup *popup) {
 	struct wsm_view *view = popup->view;
-	struct wlr_xdg_popup *wlr_popup = popup->wlr_xdg_popup;
+	struct wlr_xdg_popup *wlr_popup = popup->xdg_popup_wlr;
 
 	struct wsm_workspace *workspace = view->container->pending.workspace;
 	if (!workspace) {

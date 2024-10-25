@@ -41,13 +41,14 @@ struct wsm_workspace *workspace_create(struct wsm_output *output,
 		output->wlr_output->name);
 
 	struct wsm_workspace *ws = calloc(1, sizeof(struct wsm_workspace));
-	if (!wsm_assert(ws, "Could not create wsm_workspace: allocation failed!")) {
+	if (!ws) {
+		wsm_log(WSM_ERROR, "Could not create wsm_workspace: allocation failed!");
 		return NULL;
 	}
 	node_init(&ws->node, N_WORKSPACE, ws);
 
-	ws->layers.non_fullscreen = wlr_scene_tree_create(global_server.wsm_scene->staging);
-	ws->layers.fullscreen = wlr_scene_tree_create(global_server.wsm_scene->staging);
+	ws->layers.non_fullscreen = wlr_scene_tree_create(global_server.scene->staging);
+	ws->layers.fullscreen = wlr_scene_tree_create(global_server.scene->staging);
 
 	bool successed = ws->layers.non_fullscreen && ws->layers.non_fullscreen;
 	if (!successed) {
@@ -65,7 +66,7 @@ struct wsm_workspace *workspace_create(struct wsm_output *output,
 	ws->output_priority = create_list();
 
 	wsm_output_add_workspace(output, ws);
-	wl_signal_emit_mutable(&global_server.wsm_scene->events.new_node, &ws->node);
+	wl_signal_emit_mutable(&global_server.scene->events.new_node, &ws->node);
 
 	return ws;
 }
@@ -145,29 +146,29 @@ bool workspace_is_empty(struct wsm_workspace *ws) {
 
 void root_for_each_container(void (*f)(struct wsm_container *con, void *data),
 	void *data) {
-	for (int i = 0; i < global_server.wsm_scene->outputs->length; ++i) {
-		struct wsm_output *output = global_server.wsm_scene->outputs->items[i];
+	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
+		struct wsm_output *output = global_server.scene->outputs->items[i];
 		output_for_each_container(output, f, data);
 	}
 
-	for (int i = 0; i < global_server.wsm_scene->scratchpad->length; ++i) {
-		struct wsm_container *container = global_server.wsm_scene->scratchpad->items[i];
+	for (int i = 0; i < global_server.scene->scratchpad->length; ++i) {
+		struct wsm_container *container = global_server.scene->scratchpad->items[i];
 		if (container_is_scratchpad_hidden(container)) {
 			f(container, data);
 			container_for_each_child(container, f, data);
 		}
 	}
 
-	for (int i = 0; i < global_server.wsm_scene->fallback_output->
+	for (int i = 0; i < global_server.scene->fallback_output->
 			workspaces->length; ++i) {
-		struct wsm_workspace *ws = global_server.wsm_scene->fallback_output->
+		struct wsm_workspace *ws = global_server.scene->fallback_output->
 			workspaces->items[i];
 		workspace_for_each_container(ws, f, data);
 	}
 }
 
 void root_for_each_workspace(void (*f)(struct wsm_workspace *ws, void *data), void *data) {
-	struct wsm_scene *root = global_server.wsm_scene;
+	struct wsm_scene *root = global_server.scene;
 	for (int i = 0; i < root->outputs->length; ++i) {
 		struct wsm_output *output = root->outputs->items[i];
 		output_for_each_workspace(output, f, data);
@@ -178,7 +179,8 @@ void workspace_update_representation(struct wsm_workspace *ws) {
 	size_t len = container_build_representation(ws->layout, ws->tiling, NULL);
 	free(ws->representation);
 	ws->representation = calloc(len + 1, sizeof(char));
-	if (!wsm_assert(ws->representation, "Unable to allocate title string")) {
+	if (!ws->representation) {
+		wsm_log(WSM_ERROR, "Could not create title string: allocation failed!");
 		return;
 	}
 	container_build_representation(ws->layout, ws->tiling, ws->representation);
@@ -244,8 +246,8 @@ void workspace_consider_destroy(struct wsm_workspace *ws) {
 	}
 
 	struct wsm_seat *seat;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
-		struct wsm_node *node = seat_get_focus_inactive(seat, &global_server.wsm_scene->node);
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		struct wsm_node *node = seat_get_focus_inactive(seat, &global_server.scene->node);
 		if (node == &ws->node) {
 			return;
 		}
@@ -415,7 +417,7 @@ void disable_workspace(struct wsm_workspace *ws) {
 
 	for (int i = 0; i < ws->current.floating->length; i++) {
 		struct wsm_container *floater = ws->current.floating->items[i];
-		wlr_scene_node_reparent(&floater->scene_tree->node, global_server.wsm_scene->layers.floating);
+		wlr_scene_node_reparent(&floater->scene_tree->node, global_server.scene->layers.floating);
 		disable_container(floater);
 		wlr_scene_node_set_enabled(&floater->scene_tree->node, false);
 	}

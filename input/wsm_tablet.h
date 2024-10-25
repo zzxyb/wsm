@@ -51,7 +51,7 @@ struct wsm_tablet_pad {
 	struct wl_list link;
 	struct wsm_seat_device *seat_device;
 	struct wsm_tablet *tablet;
-	struct wlr_tablet_pad *wlr;
+	struct wlr_tablet_pad *tablet_pad_wlr;
 	struct wlr_tablet_v2_tablet_pad *tablet_v2_pad;
 
 	struct wlr_surface *current_surface;

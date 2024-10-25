@@ -37,10 +37,10 @@ struct wsm_output_manager {
 
 	struct wl_list outputs;
 
-	struct wlr_output_manager_v1 *wlr_output_manager_v1;
-	struct wlr_output_power_manager_v1 *wlr_output_power_manager_v1;
-	struct wlr_gamma_control_manager_v1 *wlr_gamma_control_manager_v1;
-	struct wsm_output_manager_config *wsm_output_manager_config;
+	struct wlr_output_manager_v1 *output_manager_v1_wlr;
+	struct wlr_output_power_manager_v1 *output_power_manager_v1;
+	struct wlr_gamma_control_manager_v1 *gamma_control_manager_v1;
+	struct wsm_output_manager_config *output_manager_config;
 };
 
 struct wsm_output_manager *wsm_output_manager_create(const struct wsm_server *server);

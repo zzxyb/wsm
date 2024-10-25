@@ -21,7 +21,7 @@ struct wsm_cursor;
 
 struct wsm_seatop_event {
 	uint32_t pressed_buttons[WSM_CURSOR_PRESSED_BUTTONS_CAP];
-	struct wsm_gesture_tracker gestures;
+	struct wsm_gesture_tracker gestures_tracker;
 	struct wlr_scene_node *previous_node;
 	size_t pressed_button_count;
 };

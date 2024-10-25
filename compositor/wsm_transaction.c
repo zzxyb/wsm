@@ -45,7 +45,8 @@ struct wsm_transaction_instruction {
 static struct wsm_transaction *transaction_create(void) {
 	struct wsm_transaction *transaction =
 			calloc(1, sizeof(struct wsm_transaction));
-	if (!wsm_assert(transaction, "Unable to allocate transaction")) {
+	if (!transaction) {
+		wsm_log(WSM_ERROR, "Unable to allocate wsm_transaction: allocation failed!");
 		return NULL;
 	}
 	transaction->instructions = create_list();
@@ -67,13 +68,13 @@ static void transaction_destroy(struct wsm_transaction *transaction) {
 				wsm_assert(false, "Never reached");
 				break;
 			case N_OUTPUT:
-				wsm_output_destroy(node->wsm_output);
+				wsm_output_destroy(node->output);
 				break;
 			case N_WORKSPACE:
-				workspace_destroy(node->wsm_workspace);
+				workspace_destroy(node->workspace);
 				break;
 			case N_CONTAINER:
-				container_destroy(node->wsm_container);
+				container_destroy(node->container);
 				break;
 			}
 		}
@@ -160,7 +161,7 @@ static void copy_container_state(struct wsm_container *container,
 	if (!container->view) {
 		struct wsm_node *focus =
 			seat_get_active_tiling_child(seat, &container->node);
-		state->focused_inactive_child = focus ? focus->wsm_container : NULL;
+		state->focused_inactive_child = focus ? focus->container : NULL;
 	}
 }
 
@@ -181,7 +182,8 @@ static void transaction_add_node(struct wsm_transaction *transaction,
 
 	if (!instruction) {
 		instruction = calloc(1, sizeof(struct wsm_transaction_instruction));
-		if (!wsm_assert(instruction, "Unable to allocate instruction")) {
+		if (!instruction) {
+			wsm_log(WSM_ERROR, "Unable to allocate wsm_transaction_instruction: allocation failed!");
 			return;
 		}
 		instruction->transaction = transaction;
@@ -198,13 +200,13 @@ static void transaction_add_node(struct wsm_transaction *transaction,
 	case N_ROOT:
 		break;
 	case N_OUTPUT:
-		copy_output_state(node->wsm_output, instruction);
+		copy_output_state(node->output, instruction);
 		break;
 	case N_WORKSPACE:
-		copy_workspace_state(node->wsm_workspace, instruction);
+		copy_workspace_state(node->workspace, instruction);
 		break;
 	case N_CONTAINER:
-		copy_container_state(node->wsm_container, instruction);
+		copy_container_state(node->container, instruction);
 		break;
 	}
 }
@@ -257,14 +259,14 @@ static void transaction_apply(struct wsm_transaction *transaction) {
 		case N_ROOT:
 			break;
 		case N_OUTPUT:
-			apply_output_state(node->wsm_output, &instruction->output_state);
+			apply_output_state(node->output, &instruction->output_state);
 			break;
 		case N_WORKSPACE:
-			apply_workspace_state(node->wsm_workspace,
+			apply_workspace_state(node->workspace,
 								  &instruction->workspace_state);
 			break;
 		case N_CONTAINER:
-			apply_container_state(node->wsm_container,
+			apply_container_state(node->container,
 								  &instruction->container_state);
 			break;
 		}
@@ -283,7 +285,7 @@ static void transaction_progress(void) {
 		return;
 	}
 	transaction_apply(global_server.queued_transaction);
-	arrange_root_scene(global_server.wsm_scene);
+	arrange_root_scene(global_server.scene);
 	cursor_rebase_all();
 	transaction_destroy(global_server.queued_transaction);
 	global_server.queued_transaction = NULL;
@@ -316,12 +318,12 @@ static bool should_configure(struct wsm_node *node,
 	if (!instruction->server_request) {
 		return false;
 	}
-	struct wsm_container_state *cstate = &node->wsm_container->current;
+	struct wsm_container_state *cstate = &node->container->current;
 	struct wsm_container_state *istate = &instruction->container_state;
 #if HAVE_XWAYLAND
 	// Xwayland views are position-aware and need to be reconfigured
 	// when their position changes.
-	if (node->wsm_container->view->type == WSM_VIEW_XWAYLAND) {
+	if (node->container->view->type == WSM_VIEW_XWAYLAND) {
 		// wsm logical coordinates are doubles, but they get truncated to
 		// integers when sent to Xwayland through `xcb_configure_window`.
 		// X11 apps will not respond to duplicate configure requests (from their
@@ -348,9 +350,9 @@ static void transaction_commit(struct wsm_transaction *transaction) {
 				transaction->instructions->items[i];
 		struct wsm_node *node = instruction->node;
 		bool hidden = node_is_view(node) && !node->destroying &&
-					  !view_is_visible(node->wsm_container->view);
+					  !view_is_visible(node->container->view);
 		if (should_configure(node, instruction)) {
-			instruction->serial = view_configure(node->wsm_container->view,
+			instruction->serial = view_configure(node->container->view,
 				instruction->container_state.content_x,
 				instruction->container_state.content_y,
 				instruction->container_state.content_width,
@@ -360,11 +362,11 @@ static void transaction_commit(struct wsm_transaction *transaction) {
 				++transaction->num_waiting;
 			}
 
-			view_send_frame_done(node->wsm_container->view);
+			view_send_frame_done(node->container->view);
 		}
 		if (!hidden && node_is_view(node) &&
-			!node->wsm_container->view->saved_surface_tree) {
-			view_save_buffer(node->wsm_container->view);
+			!node->container->view->saved_surface_tree) {
+			view_save_buffer(node->container->view);
 		}
 		node->instruction = instruction;
 	}

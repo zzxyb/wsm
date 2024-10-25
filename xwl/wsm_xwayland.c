@@ -81,7 +81,7 @@ static void unmanaged_handle_map(struct wl_listener *listener, void *data) {
 		wl_container_of(listener, surface, map);
 	struct wlr_xwayland_surface *xsurface = surface->wlr_xwayland_surface;
 
-	surface->surface_scene = wlr_scene_surface_create(global_server.wsm_scene->layers.unmanaged,
+	surface->surface_scene = wlr_scene_surface_create(global_server.scene->layers.unmanaged,
 		xsurface->surface);
 
 	if (surface->surface_scene) {
@@ -96,8 +96,8 @@ static void unmanaged_handle_map(struct wl_listener *listener, void *data) {
 
 	if (wlr_xwayland_or_surface_wants_focus(xsurface)) {
 		struct wsm_seat *seat = input_manager_current_seat();
-		struct wlr_xwayland *xwayland = global_server.xwayland.wlr_xwayland;
-		wlr_xwayland_set_seat(xwayland, seat->wlr_seat);
+		struct wlr_xwayland *xwayland = global_server.xwayland.xwayland_wlr;
+		wlr_xwayland_set_seat(xwayland, seat->seat);
 		seat_set_focus_surface(seat, xsurface->surface, false);
 	}
 }
@@ -115,7 +115,7 @@ static void unmanaged_handle_unmap(struct wl_listener *listener, void *data) {
 	}
 
 	struct wsm_seat *seat = input_manager_current_seat();
-	if (seat->wlr_seat->keyboard_state.focused_surface == xsurface->surface) {
+	if (seat->seat->keyboard_state.focused_surface == xsurface->surface) {
 		// This simply returns focus to the parent surface if there's one available.
 		// This seems to handle JetBrains issues.
 		if (xsurface->parent && xsurface->parent->surface
@@ -125,7 +125,7 @@ static void unmanaged_handle_unmap(struct wl_listener *listener, void *data) {
 		}
 
 		// Restore focus
-		struct wsm_node *previous = seat_get_focus_inactive(seat, &global_server.wsm_scene->node);
+		struct wsm_node *previous = seat_get_focus_inactive(seat, &global_server.scene->node);
 		if (previous) {
 			// Hack to get seat to re-focus the return value of get_focus
 			seat_set_focus(seat, NULL);
@@ -214,8 +214,8 @@ static struct wsm_xwayland_unmanaged *create_unmanaged(
 		struct wlr_xwayland_surface *xsurface) {
 	struct wsm_xwayland_unmanaged *surface =
 		calloc(1, sizeof(struct wsm_xwayland_unmanaged));
-	if (surface == NULL) {
-		wsm_log(WSM_ERROR, "Allocation failed");
+	if (!surface) {
+		wsm_log(WSM_ERROR, "Could not create wsm_xwayland_unmanaged: allocation failed!");
 		return NULL;
 	}
 
@@ -887,7 +887,8 @@ struct wsm_xwayland_view *create_xwayland_view(struct wlr_xwayland_surface *xsur
 
 	struct wsm_xwayland_view *xwayland_view =
 		calloc(1, sizeof(struct wsm_xwayland_view));
-	if (!wsm_assert(xwayland_view, "Failed to allocate view")) {
+	if (!xwayland_view) {
+		wsm_log(WSM_ERROR, "Could not create wsm_xwayland_view: allocation failed!");
 		return NULL;
 	}
 
@@ -1023,21 +1024,21 @@ bool xwayland_start(struct wsm_server *server) {
 	if (global_server.xwayland_enabled) {
 		wsm_log(WSM_DEBUG, "Initializing Xwayland (lazy=%d)",
 			global_config.xwayland == XWAYLAND_MODE_LAZY);
-		server->xwayland.wlr_xwayland = wlr_xwayland_create(server->wl_display, server->wlr_compositor,
+		server->xwayland.xwayland_wlr = wlr_xwayland_create(server->wl_display, server->wlr_compositor,
 			global_config.xwayland  == XWAYLAND_MODE_LAZY);
-		if (!server->xwayland.wlr_xwayland) {
+		if (!server->xwayland.xwayland_wlr) {
 			wsm_log(WSM_ERROR, "Failed to start Xwayland");
 			unsetenv("DISPLAY");
 
 			return false;
 		} else {
 			server->xwayland_surface.notify = handle_xwayland_surface;
-			wl_signal_add(&server->xwayland.wlr_xwayland->events.new_surface,
+			wl_signal_add(&server->xwayland.xwayland_wlr->events.new_surface,
 				&server->xwayland_surface);
 			server->xwayland_ready.notify = handle_xwayland_ready;
-			wl_signal_add(&server->xwayland.wlr_xwayland->events.ready,
+			wl_signal_add(&server->xwayland.xwayland_wlr->events.ready,
 				&server->xwayland_ready);
-			setenv("DISPLAY", server->xwayland.wlr_xwayland->display_name, true);
+			setenv("DISPLAY", server->xwayland.xwayland_wlr->display_name, true);
 		}
 	}
 

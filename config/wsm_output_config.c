@@ -76,16 +76,17 @@ void sort_output_configs_by_priority(struct matched_output_config *configs,
 }
 
 void apply_all_output_configs(void) {
-	size_t configs_len = wl_list_length(&global_server.wsm_scene->all_outputs);
+	size_t configs_len = wl_list_length(&global_server.scene->all_outputs);
 	struct matched_output_config *configs = calloc(configs_len, sizeof(*configs));
 	if (!configs) {
+		wsm_log(WSM_ERROR, "Could not create matched_output_config: allocation failed!");
 		return;
 	}
 
 	int config_idx = 0;
 	struct wsm_output *wsm_output;
-	wl_list_for_each(wsm_output, &global_server.wsm_scene->all_outputs, link) {
-		if (wsm_output == global_server.wsm_scene->fallback_output) {
+	wl_list_for_each(wsm_output, &global_server.scene->all_outputs, link) {
+		if (wsm_output == global_server.scene->fallback_output) {
 			configs_len--;
 			continue;
 		}
@@ -115,7 +116,8 @@ struct output_config *find_output_config(struct wsm_output *output) {
 
 struct output_config *new_output_config(const char *name) {
 	struct output_config *oc = calloc(1, sizeof(struct output_config));
-	if (oc == NULL) {
+	if (!oc) {
+		wsm_log(WSM_ERROR, "Could not create output_config: allocation failed!");
 		return NULL;
 	}
 	oc->name = strdup(name);
@@ -173,7 +175,7 @@ const char *wsm_output_scale_filter_to_string(enum scale_filter_mode scale_filte
 }
 
 static bool finalize_output_config(struct output_config *oc, struct wsm_output *output) {
-	if (output == global_server.wsm_scene->fallback_output) {
+	if (output == global_server.scene->fallback_output) {
 		return false;
 	}
 
@@ -182,7 +184,7 @@ static bool finalize_output_config(struct output_config *oc, struct wsm_output *
 		wsm_log(WSM_DEBUG, "Disabling output %s", oc->name);
 		if (output->enabled) {
 			output_disable(output);
-			wlr_output_layout_remove(global_server.wsm_scene->output_layout, wlr_output);
+			wlr_output_layout_remove(global_server.scene->output_layout, wlr_output);
 		}
 		return true;
 	}
@@ -209,13 +211,13 @@ static bool finalize_output_config(struct output_config *oc, struct wsm_output *
 
 	if (oc && (oc->x != -1 || oc->y != -1)) {
 		wsm_log(WSM_DEBUG, "Set %s position to %d, %d", oc->name, oc->x, oc->y);
-		wlr_output_layout_add(global_server.wsm_scene->output_layout, wlr_output, oc->x, oc->y);
+		wlr_output_layout_add(global_server.scene->output_layout, wlr_output, oc->x, oc->y);
 	} else {
-		wlr_output_layout_add_auto(global_server.wsm_scene->output_layout, wlr_output);
+		wlr_output_layout_add_auto(global_server.scene->output_layout, wlr_output);
 	}
 
 	struct wlr_box output_box;
-	wlr_output_layout_get_box(global_server.wsm_scene->output_layout, wlr_output, &output_box);
+	wlr_output_layout_get_box(global_server.scene->output_layout, wlr_output, &output_box);
 	output->lx = output_box.x;
 	output->ly = output_box.y;
 	output->width = output_box.width;
@@ -385,7 +387,7 @@ static bool render_format_is_10bit(uint32_t render_format) {
 
 static void queue_output_config(struct output_config *oc,
 		struct wsm_output *output, struct wlr_output_state *pending) {
-	if (output == global_server.wsm_scene->fallback_output) {
+	if (output == global_server.scene->fallback_output) {
 		return;
 	}
 
@@ -670,6 +672,7 @@ bool apply_output_configs(struct matched_output_config *configs,
 		size_t configs_len, bool test_only, bool degrade_to_off) {
 	struct wlr_backend_output_state *states = calloc(configs_len, sizeof(struct wlr_backend_output_state));
 	if (!states) {
+		wsm_log(WSM_ERROR, "Could not create wlr_backend_output_state: allocation failed!");
 		return false;
 	}
 
@@ -754,9 +757,9 @@ out:
 	input_manager_configure_xcursor();
 
 	struct wsm_seat *seat;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
-		wlr_seat_pointer_notify_clear_focus(seat->wlr_seat);
-		cursor_rebase(seat->wsm_cursor);
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		wlr_seat_pointer_notify_clear_focus(seat->seat);
+		cursor_rebase(seat->cursor);
 	}
 
 	return ok;

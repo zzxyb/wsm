@@ -38,8 +38,8 @@
 struct wsm_output_manager_config *wsm_output_manager_config_create(struct wsm_output_manager *output_manager) {
 	struct wsm_output_manager_config *outputs_manager_config =
 		calloc(1, sizeof(struct wsm_output_manager_config));
-	if (!wsm_assert(outputs_manager_config,
-		"Could not create wsm_output_manager: allocation failed!")) {
+	if (!outputs_manager_config) {
+		wsm_log(WSM_ERROR, "Could not create wsm_output_manager: allocation failed!");
 		return NULL;
 	}
 

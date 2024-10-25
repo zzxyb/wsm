@@ -10,7 +10,7 @@ struct wsm_switch {
 	struct wl_listener switch_toggle;
 
 	struct wsm_seat_device *seat_device;
-	struct wlr_switch *wlr_switch;
+	struct wlr_switch *switch_wlr;
 	enum wlr_switch_state state;
 	enum wlr_switch_type type;
 };

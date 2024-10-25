@@ -12,7 +12,7 @@ void node_init(struct wsm_node *node, enum wsm_node_type type, void *thing) {
 	static size_t next_id = 1;
 	node->id = next_id++;
 	node->type = type;
-	node->wsm_root = thing;
+	node->root = thing;
 	wl_signal_init(&node->events.destroy);
 }
 
@@ -39,7 +39,7 @@ void node_set_dirty(struct wsm_node *node) {
 }
 
 bool node_is_view(struct wsm_node *node) {
-	return node->type == N_CONTAINER && node->wsm_container->view;
+	return node->type == N_CONTAINER && node->container->view;
 }
 
 char *node_get_name(struct wsm_node *node) {
@@ -47,11 +47,11 @@ char *node_get_name(struct wsm_node *node) {
 	case N_ROOT:
 		return "root";
 	case N_OUTPUT:
-		return node->wsm_output->wlr_output->name;
+		return node->output->wlr_output->name;
 	case N_WORKSPACE:
-		return node->wsm_workspace->name;
+		return node->workspace->name;
 	case N_CONTAINER:
-		return node->wsm_container->title;
+		return node->container->title;
 	}
 	return NULL;
 }
@@ -59,16 +59,16 @@ char *node_get_name(struct wsm_node *node) {
 void node_get_box(struct wsm_node *node, struct wlr_box *box) {
 	switch (node->type) {
 	case N_ROOT:
-		root_get_box(global_server.wsm_scene, box);
+		root_get_box(global_server.scene, box);
 		break;
 	case N_OUTPUT:
-		output_get_box(node->wsm_output, box);
+		output_get_box(node->output, box);
 		break;
 	case N_WORKSPACE:
-		workspace_get_box(node->wsm_workspace, box);
+		workspace_get_box(node->workspace, box);
 		break;
 	case N_CONTAINER:
-		container_get_box(node->wsm_container, box);
+		container_get_box(node->container, box);
 		break;
 	}
 }
@@ -76,13 +76,13 @@ void node_get_box(struct wsm_node *node, struct wlr_box *box) {
 struct wsm_output *node_get_output(struct wsm_node *node) {
 	switch (node->type) {
 	case N_CONTAINER: {
-		struct wsm_workspace *ws = node->wsm_container->pending.workspace;
+		struct wsm_workspace *ws = node->container->pending.workspace;
 		return ws ? ws->output : NULL;
 	}
 	case N_WORKSPACE:
-		return node->wsm_workspace->output;
+		return node->workspace->output;
 	case N_OUTPUT:
-		return node->wsm_output;
+		return node->output;
 	case N_ROOT:
 		return NULL;
 	}
@@ -92,9 +92,9 @@ struct wsm_output *node_get_output(struct wsm_node *node) {
 enum wsm_container_layout node_get_layout(struct wsm_node *node) {
 	switch (node->type) {
 	case N_CONTAINER:
-		return node->wsm_container->pending.layout;
+		return node->container->pending.layout;
 	case N_WORKSPACE:
-		return node->wsm_workspace->layout;
+		return node->workspace->layout;
 	case N_OUTPUT:
 	case N_ROOT:
 		return L_NONE;
@@ -105,7 +105,7 @@ enum wsm_container_layout node_get_layout(struct wsm_node *node) {
 struct wsm_node *node_get_parent(struct wsm_node *node) {
 	switch (node->type) {
 	case N_CONTAINER: {
-		struct wsm_container *con = node->wsm_container;
+		struct wsm_container *con = node->container;
 		if (con->pending.parent) {
 			return &con->pending.parent->node;
 		}
@@ -115,14 +115,14 @@ struct wsm_node *node_get_parent(struct wsm_node *node) {
 	}
 	return NULL;
 	case N_WORKSPACE: {
-		struct wsm_workspace *ws = node->wsm_workspace;
+		struct wsm_workspace *ws = node->workspace;
 		if (ws->output) {
 			return &ws->output->node;
 		}
 	}
 		return NULL;
 	case N_OUTPUT:
-		return &global_server.wsm_scene->node;
+		return &global_server.scene->node;
 	case N_ROOT:
 		return NULL;
 	}
@@ -132,9 +132,9 @@ struct wsm_node *node_get_parent(struct wsm_node *node) {
 struct wsm_list *node_get_children(struct wsm_node *node) {
 	switch (node->type) {
 	case N_CONTAINER:
-		return node->wsm_container->pending.children;
+		return node->container->pending.children;
 	case N_WORKSPACE:
-		return node->wsm_workspace->tiling;
+		return node->workspace->tiling;
 	case N_OUTPUT:
 	case N_ROOT:
 		return NULL;
@@ -149,13 +149,13 @@ void scene_node_disown_children(struct wlr_scene_tree *tree) {
 
 	struct wlr_scene_node *child, *tmp_child;
 	wl_list_for_each_safe(child, tmp_child, &tree->children, link) {
-		wlr_scene_node_reparent(child, global_server.wsm_scene->staging);
+		wlr_scene_node_reparent(child, global_server.scene->staging);
 	}
 }
 
 bool node_has_ancestor(struct wsm_node *node, struct wsm_node *ancestor) {
 	if (ancestor->type == N_ROOT && node->type == N_CONTAINER &&
-		node->wsm_container->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
+		node->container->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
 		return true;
 	}
 	struct wsm_node *parent = node_get_parent(node);
@@ -164,7 +164,7 @@ bool node_has_ancestor(struct wsm_node *node, struct wsm_node *ancestor) {
 			return true;
 		}
 		if (ancestor->type == N_ROOT && parent->type == N_CONTAINER &&
-			parent->wsm_container->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
+			parent->container->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
 			return true;
 		}
 		parent = node_get_parent(parent);

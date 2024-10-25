@@ -80,16 +80,16 @@ static enum wlr_edges find_edge(struct wsm_container *cont,
 	}
 
 	enum wlr_edges edge = 0;
-	if (cursor->wlr_cursor->x < cont->pending.x + max_thickness) {
+	if (cursor->cursor_wlr->x < cont->pending.x + max_thickness) {
 		edge |= WLR_EDGE_LEFT;
 	}
-	if (cursor->wlr_cursor->y < cont->pending.y + max_thickness) {
+	if (cursor->cursor_wlr->y < cont->pending.y + max_thickness) {
 		edge |= WLR_EDGE_TOP;
 	}
-	if (cursor->wlr_cursor->x >= cont->pending.x + cont->pending.width - max_thickness) {
+	if (cursor->cursor_wlr->x >= cont->pending.x + cont->pending.width - max_thickness) {
 		edge |= WLR_EDGE_RIGHT;
 	}
-	if (cursor->wlr_cursor->y >= cont->pending.y + cont->pending.height - max_thickness) {
+	if (cursor->cursor_wlr->y >= cont->pending.y + cont->pending.height - max_thickness) {
 		edge |= WLR_EDGE_BOTTOM;
 	}
 
@@ -158,11 +158,11 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 		return;
 	}
 
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 	struct wlr_surface *surface = NULL;
 	double sx, sy;
 	struct wsm_node *node = node_at_coords(seat,
-		cursor->wlr_cursor->x, cursor->wlr_cursor->y, &surface, &sx, &sy);
+		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
 
 	if (!wsm_assert(surface,
 				"Expected null-surface tablet input to route through pointer emulation")) {
@@ -170,7 +170,7 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 	}
 
 	struct wsm_container *cont = node && node->type == N_CONTAINER ?
-		node->wsm_container : NULL;
+		node->container : NULL;
 
 	struct wlr_layer_surface_v1 *layer;
 #if HAVE_XWAYLAND
@@ -183,7 +183,7 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 	} else if (cont) {
 		bool is_floating_or_child = container_is_floating_or_child(cont);
 		bool is_fullscreen_or_child = container_is_fullscreen_or_child(cont);
-		struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->wlr_seat);
+		struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->seat);
 		bool mod_pressed = keyboard &&
 			(wlr_keyboard_get_modifiers(keyboard));
 
@@ -195,15 +195,15 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 		}
 
 		seat_set_focus_container(seat, cont);
-		seatop_begin_down(seat, node->wsm_container, sx, sy);
+		seatop_begin_down(seat, node->container, sx, sy);
 	}
 #if HAVE_XWAYLAND
 	// Handle tapping on an xwayland unmanaged view
 	else if ((xsurface = wlr_xwayland_surface_try_from_wlr_surface(surface)) &&
 			 xsurface->override_redirect &&
 			 wlr_xwayland_or_surface_wants_focus(xsurface)) {
-		struct wlr_xwayland *xwayland = global_server.xwayland.wlr_xwayland;
-		wlr_xwayland_set_seat(xwayland, seat->wlr_seat);
+		struct wlr_xwayland *xwayland = global_server.xwayland.xwayland_wlr;
+		wlr_xwayland_set_seat(xwayland, seat->seat);
 		seat_set_focus_surface(seat, xsurface->surface, false);
 		transaction_commit_dirty();
 	}
@@ -227,15 +227,15 @@ static bool trigger_pointer_button_binding(struct wsm_seat *seat,
 static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		struct wlr_input_device *device, uint32_t button,
 		enum wl_pointer_button_state state) {
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 
 	struct wlr_surface *surface = NULL;
 	double sx, sy;
 	struct wsm_node *node = node_at_coords(seat,
-		cursor->wlr_cursor->x, cursor->wlr_cursor->y, &surface, &sx, &sy);
+		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
 
 	struct wsm_container *cont = node && node->type == N_CONTAINER ?
-		node->wsm_container : NULL;
+		node->container : NULL;
 	bool is_floating_or_child = cont && container_is_floating_or_child(cont);
 	bool is_fullscreen_or_child = cont && container_is_fullscreen_or_child(cont);
 	enum wlr_edges edge = cont ? find_edge(cont, surface, cursor) : WLR_EDGE_NONE;
@@ -246,7 +246,7 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 	bool on_workspace = node && node->type == N_WORKSPACE;
 	bool on_titlebar = cont && !on_border && !surface;
 
-	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->wlr_seat);
+	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->seat);
 	uint32_t modifiers = keyboard ? wlr_keyboard_get_modifiers(keyboard) : 0;
 	if (trigger_pointer_button_binding(seat, device, button, state, modifiers,
 			on_titlebar, on_border, on_contents, on_workspace)) {
@@ -310,9 +310,9 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		if (mod_pressed && button == btn_resize) {
 			struct wsm_container *floater = container_toplevel_ancestor(cont);
 			edge = 0;
-			edge |= cursor->wlr_cursor->x > floater->pending.x + floater->pending.width / 2 ?
+			edge |= cursor->cursor_wlr->x > floater->pending.x + floater->pending.width / 2 ?
 					WLR_EDGE_RIGHT : WLR_EDGE_LEFT;
-			edge |= cursor->wlr_cursor->y > floater->pending.y + floater->pending.height / 2 ?
+			edge |= cursor->cursor_wlr->y > floater->pending.y + floater->pending.height / 2 ?
 					WLR_EDGE_BOTTOM : WLR_EDGE_TOP;
 			seat_set_focus_container(seat, floater);
 			seatop_begin_resize_floating(seat, floater, edge);
@@ -338,8 +338,8 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		(xsurface = wlr_xwayland_surface_try_from_wlr_surface(surface)) &&
 		xsurface->override_redirect &&
 		wlr_xwayland_or_surface_wants_focus(xsurface)) {
-		struct wlr_xwayland *xwayland = global_server.xwayland.wlr_xwayland;
-		wlr_xwayland_set_seat(xwayland, seat->wlr_seat);
+		struct wlr_xwayland *xwayland = global_server.xwayland.xwayland_wlr;
+		wlr_xwayland_set_seat(xwayland, seat->seat);
 		seat_set_focus_surface(seat, xsurface->surface, false);
 		transaction_commit_dirty();
 		seat_pointer_notify_button(seat, time_msec, button, state);
@@ -355,16 +355,16 @@ static void check_focus_follows_mouse(struct wsm_seat *seat,
 
 	if (!hovered_node) {
 		struct wlr_output *wlr_output = wlr_output_layout_output_at(
-			global_server.wsm_scene->output_layout, seat->wsm_cursor->wlr_cursor->x,
-			seat->wsm_cursor->wlr_cursor->y);
+			global_server.scene->output_layout, seat->cursor->cursor_wlr->x,
+			seat->cursor->cursor_wlr->y);
 		if (wlr_output == NULL) {
 			return;
 		}
 
 		struct wlr_surface *surface = NULL;
 		double sx, sy;
-		node_at_coords(seat, seat->wsm_cursor->wlr_cursor->x,
-			seat->wsm_cursor->wlr_cursor->y, &surface, &sx, &sy);
+		node_at_coords(seat, seat->cursor->cursor_wlr->x,
+			seat->cursor->cursor_wlr->y, &surface, &sx, &sy);
 
 		struct wlr_layer_surface_v1 *layer = NULL;
 		if ((layer = toplevel_layer_surface_from_surface(surface)) &&
@@ -394,7 +394,7 @@ static void check_focus_follows_mouse(struct wsm_seat *seat,
 	}
 
 	if (node_is_view(hovered_node) &&
-		view_is_visible(hovered_node->wsm_container->view)) {
+		view_is_visible(hovered_node->container->view)) {
 		if (hovered_node != e->previous_node) {
 			seat_set_focus(seat, hovered_node);
 			transaction_commit_dirty();
@@ -404,23 +404,23 @@ static void check_focus_follows_mouse(struct wsm_seat *seat,
 
 static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 	struct seatop_default_event *e = seat->seatop_data;
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 
 	struct wlr_surface *surface = NULL;
 	double sx, sy;
 	struct wsm_node *node = node_at_coords(seat,
-		cursor->wlr_cursor->x, cursor->wlr_cursor->y, &surface, &sx, &sy);
+		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
 
 	check_focus_follows_mouse(seat, e, node);
 
 	if (surface) {
 		if (seat_is_input_allowed(seat, surface)) {
-			wlr_seat_pointer_notify_enter(seat->wlr_seat, surface, sx, sy);
-			wlr_seat_pointer_notify_motion(seat->wlr_seat, time_msec, sx, sy);
+			wlr_seat_pointer_notify_enter(seat->seat, surface, sx, sy);
+			wlr_seat_pointer_notify_motion(seat->seat, time_msec, sx, sy);
 		}
 	} else {
 		cursor_update_image(cursor, node);
-		wlr_seat_pointer_notify_clear_focus(seat->wlr_seat);
+		wlr_seat_pointer_notify_clear_focus(seat->seat);
 	}
 
 	drag_icons_update_position(seat);
@@ -431,12 +431,12 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 static void handle_tablet_tool_motion(struct wsm_seat *seat,
 		struct wsm_tablet_tool *tool, uint32_t time_msec) {
 	struct seatop_default_event *e = seat->seatop_data;
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 
 	struct wlr_surface *surface = NULL;
 	double sx, sy;
 	struct wsm_node *node = node_at_coords(seat,
-		cursor->wlr_cursor->x, cursor->wlr_cursor->y, &surface, &sx, &sy);
+		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
 
 	check_focus_follows_mouse(seat, e, node);
 
@@ -458,8 +458,8 @@ static void handle_tablet_tool_motion(struct wsm_seat *seat,
 static void handle_touch_down(struct wsm_seat *seat,
 		struct wlr_touch_down_event *event, double lx, double ly) {
 	struct wlr_surface *surface = NULL;
-	struct wlr_seat *wlr_seat = seat->wlr_seat;
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wlr_seat *wlr_seat = seat->seat;
+	struct wsm_cursor *cursor = seat->cursor;
 	double sx, sy;
 	node_at_coords(seat, seat->touch_x, seat->touch_y, &surface, &sx, &sy);
 
@@ -473,8 +473,8 @@ static void handle_touch_down(struct wsm_seat *seat,
 		cursor->simulating_pointer_from_touch = true;
 		cursor->pointer_touch_id = seat->touch_id;
 		double dx, dy;
-		dx = seat->touch_x - cursor->wlr_cursor->x;
-		dy = seat->touch_y - cursor->wlr_cursor->y;
+		dx = seat->touch_x - cursor->cursor_wlr->x;
+		dy = seat->touch_y - cursor->cursor_wlr->y;
 		pointer_motion(cursor, event->time_msec, &event->touch->base, dx, dy,
 			dx, dy);
 		dispatch_cursor_button(cursor, &event->touch->base, event->time_msec,
@@ -498,25 +498,25 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 		struct wlr_pointer_axis_event *event) {
 	struct wsm_input_device *input_device =
 			event->pointer ? event->pointer->base.data : NULL;
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 	struct seatop_default_event *e = seat->seatop_data;
 
 	struct wlr_surface *surface = NULL;
 	double sx, sy;
 	struct wsm_node *node = node_at_coords(seat,
-		cursor->wlr_cursor->x, cursor->wlr_cursor->y, &surface, &sx, &sy);
+		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
 	struct wsm_container *cont = node && node->type == N_CONTAINER ?
-		node->wsm_container : NULL;
+		node->container : NULL;
 	enum wlr_edges edge = cont ? find_edge(cont, surface, cursor) : WLR_EDGE_NONE;
 	bool on_border = edge != WLR_EDGE_NONE;
 	bool on_titlebar = cont && !on_border && !surface;
 	bool on_titlebar_border = cont && on_border &&
-		cursor->wlr_cursor->y < cont->pending.content_y;
+		cursor->cursor_wlr->y < cont->pending.content_y;
 
 		float scroll_factor =1.0f;
 	bool handled = false;
 	struct wlr_input_device *device =
-		input_device ? input_device->wlr_device : NULL;
+		input_device ? input_device->input_device_wlr : NULL;
 	char *dev_id = device ? input_device_get_identifier(device) : strdup("*");
 	uint32_t button = wl_axis_to_button(event);
 	state_add_button(e, button);
@@ -527,7 +527,7 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 		struct wsm_node *active =
 			seat_get_active_tiling_child(seat, tabcontainer);
 		struct wsm_list *siblings = container_get_siblings(cont);
-		int desired = list_find(siblings, active->wsm_container) +
+		int desired = list_find(siblings, active->container) +
 			roundf(scroll_factor * event->delta_discrete / WLR_POINTER_AXIS_DISCRETE_STEP);
 		if (desired < 0) {
 			desired = 0;
@@ -548,7 +548,7 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 	free(dev_id);
 
 	if (!handled) {
-		wlr_seat_pointer_notify_axis(cursor->wsm_seat->wlr_seat, event->time_msec,
+		wlr_seat_pointer_notify_axis(cursor->seat_wsm->seat, event->time_msec,
 			event->orientation, scroll_factor * event->delta,
 			roundf(scroll_factor * event->delta_discrete), event->source,
 			event->relative_direction);
@@ -557,86 +557,86 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 
 static void handle_hold_begin(struct wsm_seat *seat,
 		struct wlr_pointer_hold_begin_event *event) {
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 	wlr_pointer_gestures_v1_send_hold_begin(
-		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
+		global_server.input_manager->pointer_gestures_wlr, cursor->seat_wsm->seat,
 		event->time_msec, event->fingers);
 }
 
 static void handle_hold_end(struct wsm_seat *seat,
 		struct wlr_pointer_hold_end_event *event) {
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 	wlr_pointer_gestures_v1_send_hold_end(
-		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
+		global_server.input_manager->pointer_gestures_wlr, cursor->seat_wsm->seat,
 		event->time_msec, event->cancelled);
 }
 
 static void handle_pinch_begin(struct wsm_seat *seat,
 		struct wlr_pointer_pinch_begin_event *event) {
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 	wlr_pointer_gestures_v1_send_pinch_begin(
-		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
+		global_server.input_manager->pointer_gestures_wlr, cursor->seat_wsm->seat,
 		event->time_msec, event->fingers);
 }
 
 static void handle_pinch_update(struct wsm_seat *seat,
 		struct wlr_pointer_pinch_update_event *event) {
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 	wlr_pointer_gestures_v1_send_pinch_update(
-		global_server.wsm_input_manager->pointer_gestures,
-		cursor->wsm_seat->wlr_seat,
+		global_server.input_manager->pointer_gestures_wlr,
+		cursor->seat_wsm->seat,
 		event->time_msec, event->dx, event->dy,
 		event->scale, event->rotation);
 }
 
 static void handle_pinch_end(struct wsm_seat *seat,
 		struct wlr_pointer_pinch_end_event *event) {
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 	wlr_pointer_gestures_v1_send_pinch_end(
-		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
+		global_server.input_manager->pointer_gestures_wlr, cursor->seat_wsm->seat,
 		event->time_msec, event->cancelled);
 }
 
 static void handle_swipe_begin(struct wsm_seat *seat,
 		struct wlr_pointer_swipe_begin_event *event) {
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 	wlr_pointer_gestures_v1_send_swipe_begin(
-		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
+		global_server.input_manager->pointer_gestures_wlr, cursor->seat_wsm->seat,
 		event->time_msec, event->fingers);
 }
 
 static void handle_swipe_update(struct wsm_seat *seat,
 		struct wlr_pointer_swipe_update_event *event) {
 
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 	wlr_pointer_gestures_v1_send_swipe_update(
-		global_server.wsm_input_manager->pointer_gestures, cursor->wsm_seat->wlr_seat,
+		global_server.input_manager->pointer_gestures_wlr, cursor->seat_wsm->seat,
 		event->time_msec, event->dx, event->dy);
 }
 
 static void handle_swipe_end(struct wsm_seat *seat,
 		struct wlr_pointer_swipe_end_event *event) {
-	struct wsm_cursor *cursor = seat->wsm_cursor;
-	wlr_pointer_gestures_v1_send_swipe_end(global_server.wsm_input_manager->pointer_gestures,
-		cursor->wsm_seat->wlr_seat, event->time_msec, event->cancelled);
+	struct wsm_cursor *cursor = seat->cursor;
+	wlr_pointer_gestures_v1_send_swipe_end(global_server.input_manager->pointer_gestures_wlr,
+		cursor->seat_wsm->seat, event->time_msec, event->cancelled);
 }
 
 static void handle_rebase(struct wsm_seat *seat, uint32_t time_msec) {
 	struct seatop_default_event *e = seat->seatop_data;
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 	struct wlr_surface *surface = NULL;
 	double sx = 0.0, sy = 0.0;
 	e->previous_node = node_at_coords(seat,
-		cursor->wlr_cursor->x, cursor->wlr_cursor->y, &surface, &sx, &sy);
+		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
 
 	if (surface) {
 		if (seat_is_input_allowed(seat, surface)) {
-			wlr_seat_pointer_notify_enter(seat->wlr_seat, surface, sx, sy);
-			wlr_seat_pointer_notify_motion(seat->wlr_seat, time_msec, sx, sy);
+			wlr_seat_pointer_notify_enter(seat->seat, surface, sx, sy);
+			wlr_seat_pointer_notify_motion(seat->seat, time_msec, sx, sy);
 		}
 	} else {
 		cursor_update_image(cursor, e->previous_node);
-		wlr_seat_pointer_notify_clear_focus(seat->wlr_seat);
+		wlr_seat_pointer_notify_clear_focus(seat->seat);
 	}
 }
 
@@ -664,7 +664,10 @@ void seatop_begin_default(struct wsm_seat *seat) {
 
 	struct seatop_default_event *e =
 		calloc(1, sizeof(struct seatop_default_event));
-	wsm_assert(e, "Unable to allocate seatop_default_event");
+	if (!e) {
+		wsm_log(WSM_ERROR, "Could not create seatop_default_event: allocation failed!");
+		return;
+	}
 
 	seat->seatop_impl = &seatop_impl;
 	seat->seatop_data = e;

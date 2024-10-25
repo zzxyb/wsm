@@ -41,11 +41,11 @@ static struct wsm_layer_surface *wsm_layer_surface_create(
 		struct wlr_scene_layer_surface_v1 *scene) {
 	struct wsm_layer_surface *surface = calloc(1, sizeof(struct wsm_layer_surface));
 	if (!surface) {
-		wsm_log(WSM_ERROR, "Could not allocate a scene_layer surface");
+		wsm_log(WSM_ERROR, "Could not create wsm_layer_surface: allocation failed!");
 		return NULL;
 	}
 
-	struct wlr_scene_tree *popups = wlr_scene_tree_create(global_server.wsm_scene->layers.popup);
+	struct wlr_scene_tree *popups = wlr_scene_tree_create(global_server.scene->layers.popup);
 	if (!popups) {
 		wsm_log(WSM_ERROR, "Could not allocate a scene_layer popup node");
 		free(surface);
@@ -64,9 +64,9 @@ static struct wsm_layer_surface *wsm_layer_surface_create(
 
 	surface->tree = scene->tree;
 	surface->scene = scene;
-	surface->layer_surface = scene->layer_surface;
+	surface->layer_surface_wlr = scene->layer_surface;
 	surface->popups = popups;
-	surface->layer_surface->data = surface;
+	surface->layer_surface_wlr->data = surface;
 
 	return surface;
 }
@@ -75,7 +75,7 @@ static void handle_surface_commit(struct wl_listener *listener, void *data) {
 	struct wsm_layer_surface *surface =
 		wl_container_of(listener, surface, surface_commit);
 
-	struct wlr_layer_surface_v1 *layer_surface = surface->layer_surface;
+	struct wlr_layer_surface_v1 *layer_surface = surface->layer_surface_wlr;
 	if (!layer_surface->initialized) {
 		return;
 	}
@@ -105,9 +105,9 @@ static void handle_map(struct wl_listener *listener, void *data) {
 			(layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY ||
 			layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_TOP)) {
 		struct wsm_seat *seat;
-		wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
-			if (!seat->focused_layer ||
-				seat->focused_layer->current.layer >= layer_surface->current.layer) {
+		wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+			if (!seat->focused_layer_wlr ||
+				seat->focused_layer_wlr->current.layer >= layer_surface->current.layer) {
 				seat_set_focus_layer(seat, layer_surface);
 			}
 		}
@@ -121,8 +121,8 @@ static void handle_unmap(struct wl_listener *listener, void *data) {
 	struct wsm_layer_surface *surface = wl_container_of(
 		listener, surface, unmap);
 	struct wsm_seat *seat;
-	wl_list_for_each(seat, &global_server.wsm_input_manager->seats, link) {
-		if (seat->focused_layer == surface->layer_surface) {
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		if (seat->focused_layer_wlr == surface->layer_surface_wlr) {
 			seat_set_focus_layer(seat, NULL);
 		}
 	}
@@ -147,8 +147,8 @@ static void handle_output_destroy(struct wl_listener *listener, void *data) {
 
 static struct wsm_layer_surface *find_mapped_layer_by_client(
 	struct wl_client *client, struct wsm_output *ignore_output) {
-	for (int i = 0; i < global_server.wsm_scene->outputs->length; ++i) {
-		struct wsm_output *output = global_server.wsm_scene->outputs->items[i];
+	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
+		struct wsm_output *output = global_server.scene->outputs->items[i];
 		if (output == ignore_output) {
 			continue;
 		}
@@ -161,7 +161,7 @@ static struct wsm_layer_surface *find_mapped_layer_by_client(
 				continue;
 			}
 
-			struct wlr_layer_surface_v1 *layer_surface = surface->layer_surface;
+			struct wlr_layer_surface_v1 *layer_surface = surface->layer_surface_wlr;
 			struct wl_resource *resource = layer_surface->resource;
 			if (wl_resource_get_client(resource) == client
 					&& layer_surface->surface->mapped) {
@@ -180,12 +180,12 @@ static void handle_node_destroy(struct wl_listener *listener, void *data) {
 	wsm_scene_descriptor_destroy(&layer->tree->node, WSM_SCENE_DESC_LAYER_SHELL);
 	struct wsm_seat *seat = input_manager_get_default_seat();
 	struct wl_client *client =
-		wl_resource_get_client(layer->layer_surface->resource);
+		wl_resource_get_client(layer->layer_surface_wlr->resource);
 	if (!global_server.session_lock.lock) {
 		struct wsm_layer_surface *consider_layer =
 			find_mapped_layer_by_client(client, layer->output);
 		if (consider_layer) {
-			seat_set_focus_layer(seat, consider_layer->layer_surface);
+			seat_set_focus_layer(seat, consider_layer->layer_surface_wlr);
 		}
 	}
 
@@ -202,7 +202,7 @@ static void handle_node_destroy(struct wl_listener *listener, void *data) {
 	wl_list_remove(&layer->node_destroy.link);
 	wl_list_remove(&layer->output_destroy.link);
 
-	layer->layer_surface->data = NULL;
+	layer->layer_surface_wlr->data = NULL;
 	free(layer);
 }
 
@@ -230,8 +230,8 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 				output = ws->output;
 			}
 		}
-		if (!output || output == global_server.wsm_scene->fallback_output) {
-			if (!global_server.wsm_scene->outputs->length) {
+		if (!output || output == global_server.scene->fallback_output) {
+			if (!global_server.scene->outputs->length) {
 				wsm_log(WSM_ERROR,
 					"no output to auto-assign layer surface '%s' to",
 					layer_surface->namespace);
@@ -239,7 +239,7 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 
 				return;
 			}
-			output = global_server.wsm_scene->outputs->items[0];
+			output = global_server.scene->outputs->items[0];
 		}
 		layer_surface->output = output->wlr_output;
 	}
@@ -274,9 +274,9 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 
 	surface->output = output;
 
-	wlr_fractional_scale_v1_notify_scale(surface->layer_surface->surface,
+	wlr_fractional_scale_v1_notify_scale(surface->layer_surface_wlr->surface,
 		layer_surface->output->scale);
-	wlr_surface_set_preferred_buffer_scale(surface->layer_surface->surface,
+	wlr_surface_set_preferred_buffer_scale(surface->layer_surface_wlr->surface,
 		ceil(layer_surface->output->scale));
 
 	surface->surface_commit.notify = handle_surface_commit;
@@ -298,7 +298,8 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 
 struct wsm_layer_shell *wsm_layer_shell_create(const struct wsm_server *server) {
 	struct wsm_layer_shell *layer_shell = calloc(1, sizeof(struct wsm_layer_shell));
-	if (!wsm_assert(layer_shell, "Could not create wsm_layer_shell: allocation failed!")) {
+	if (!layer_shell) {
+		wsm_log(WSM_ERROR, "Could not create wsm_layer_shell: allocation failed!");
 		return NULL;
 	}
 

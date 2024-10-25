@@ -17,7 +17,7 @@ struct wsm_session_lock {
 
 	struct wl_list outputs; // struct wsm_session_lock_output
 
-	struct wlr_session_lock_v1 *lock;
+	struct wlr_session_lock_v1 *session_lock_wlr;
 	struct wlr_surface *focused;
 	bool abandoned;
 };

@@ -6,6 +6,7 @@
 #include "wsm_arrange.h"
 #include "wsm_container.h"
 #include "wsm_transaction.h"
+#include "wsm_log.h"
 
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_cursor.h>
@@ -13,7 +14,7 @@
 #include <wlr/types/wlr_xcursor_manager.h>
 
 struct seatop_resize_floating_event {
-	struct wsm_container *con;
+	struct wsm_container *container;
 	double ref_lx, ref_ly;
 	double ref_width, ref_height;
 	double ref_con_lx, ref_con_ly;
@@ -25,9 +26,9 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		struct wlr_input_device *device, uint32_t button,
 		enum wl_pointer_button_state state) {
 	struct seatop_resize_floating_event *e = seat->seatop_data;
-	struct wsm_container *con = e->con;
+	struct wsm_container *con = e->container;
 
-	if (seat->wsm_cursor->pressed_button_count == 0) {
+	if (seat->cursor->pressed_button_count == 0) {
 		container_set_resizing(con, false);
 		wsm_arrange_container_auto(con); // Send configure w/o resizing hint
 		transaction_commit_dirty();
@@ -37,12 +38,12 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 
 static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 	struct seatop_resize_floating_event *e = seat->seatop_data;
-	struct wsm_container *con = e->con;
+	struct wsm_container *con = e->container;
 	enum wlr_edges edge = e->edge;
-	struct wsm_cursor *cursor = seat->wsm_cursor;
+	struct wsm_cursor *cursor = seat->cursor;
 
-	double mouse_move_x = cursor->wlr_cursor->x - e->ref_lx;
-	double mouse_move_y = cursor->wlr_cursor->y - e->ref_ly;
+	double mouse_move_x = cursor->cursor_wlr->x - e->ref_lx;
+	double mouse_move_y = cursor->cursor_wlr->y - e->ref_ly;
 
 	if (edge == WLR_EDGE_TOP || edge == WLR_EDGE_BOTTOM) {
 		mouse_move_x = 0;
@@ -137,7 +138,7 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 
 static void handle_unref(struct wsm_seat *seat, struct wsm_container *con) {
 	struct seatop_resize_floating_event *e = seat->seatop_data;
-	if (e->con == con) {
+	if (e->container == con) {
 		seatop_begin_default(seat);
 	}
 }
@@ -155,17 +156,18 @@ void seatop_begin_resize_floating(struct wsm_seat *seat,
 	struct seatop_resize_floating_event *e =
 		calloc(1, sizeof(struct seatop_resize_floating_event));
 	if (!e) {
+		wsm_log(WSM_ERROR, "Could not create seatop_resize_floating_event: allocation failed!");
 		return;
 	}
-	e->con = con;
+	e->container = con;
 
-	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->wlr_seat);
+	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->seat);
 	e->preserve_ratio = keyboard &&
 		(wlr_keyboard_get_modifiers(keyboard) & WLR_MODIFIER_SHIFT);
 
 	e->edge = edge == WLR_EDGE_NONE ? WLR_EDGE_BOTTOM | WLR_EDGE_RIGHT : edge;
-	e->ref_lx = seat->wsm_cursor->wlr_cursor->x;
-	e->ref_ly = seat->wsm_cursor->wlr_cursor->y;
+	e->ref_lx = seat->cursor->cursor_wlr->x;
+	e->ref_ly = seat->cursor->cursor_wlr->y;
 	e->ref_con_lx = con->pending.x;
 	e->ref_con_ly = con->pending.y;
 	e->ref_width = con->pending.width;
@@ -180,6 +182,6 @@ void seatop_begin_resize_floating(struct wsm_seat *seat,
 
 	const char *image = edge == WLR_EDGE_NONE ?
 		"se-resize" : wlr_xcursor_get_resize_name(edge);
-	cursor_set_image(seat->wsm_cursor, image, NULL);
-	wlr_seat_pointer_notify_clear_focus(seat->wlr_seat);
+	cursor_set_image(seat->cursor, image, NULL);
+	wlr_seat_pointer_notify_clear_focus(seat->seat);
 }

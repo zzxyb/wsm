@@ -72,8 +72,8 @@ struct wsm_keyboard {
 	struct wsm_binding *held_binding;
 	struct wl_event_source *key_repeat_source;
 	struct wsm_binding *repeat_binding;
-	struct wsm_seat_device *seat_device;
-	struct wlr_keyboard *wlr;
+	struct wsm_seat_device *device_wsm;
+	struct wlr_keyboard *keyboard_wlr;
 
 	struct xkb_keymap *keymap;
 	xkb_layout_index_t effective_layout;
@@ -89,16 +89,16 @@ struct wsm_keyboard_group {
 	struct wl_listener leave;
 	struct wl_list link;
 
-	struct wlr_keyboard_group *wlr_group;
+	struct wlr_keyboard_group *keyboard_group_wlr;
 	struct wsm_seat_device *seat_device;
 };
 
 struct wsm_keyboard_shortcuts_inhibitor {
 	struct wl_listener destroy;
 
-	struct wl_list link; // wsm_seat::keyboard_shortcuts_inhibitors
+	struct wl_list link; // keyboard_shortcuts_inhibitors
 
-	struct wlr_keyboard_shortcuts_inhibitor_v1 *inhibitor;
+	struct wlr_keyboard_shortcuts_inhibitor_v1 *inhibitor_wlr;
 };
 
 struct wsm_keyboard *wsm_keyboard_create(struct wsm_seat *seat,

@@ -19,22 +19,22 @@
 
 void arrange_root_auto(void) {
 	struct wlr_box layout_box;
-	wlr_output_layout_get_box(global_server.wsm_scene->output_layout, NULL, &layout_box);
-	global_server.wsm_scene->x = layout_box.x;
-	global_server.wsm_scene->y = layout_box.y;
-	global_server.wsm_scene->width = layout_box.width;
-	global_server.wsm_scene->height = layout_box.height;
+	wlr_output_layout_get_box(global_server.scene->output_layout, NULL, &layout_box);
+	global_server.scene->x = layout_box.x;
+	global_server.scene->y = layout_box.y;
+	global_server.scene->width = layout_box.width;
+	global_server.scene->height = layout_box.height;
 
-	if (global_server.wsm_scene->fullscreen_global) {
-		struct wsm_container *fs = global_server.wsm_scene->fullscreen_global;
-		fs->pending.x = global_server.wsm_scene->x;
-		fs->pending.y = global_server.wsm_scene->y;
-		fs->pending.width = global_server.wsm_scene->width;
-		fs->pending.height = global_server.wsm_scene->height;
+	if (global_server.scene->fullscreen_global) {
+		struct wsm_container *fs = global_server.scene->fullscreen_global;
+		fs->pending.x = global_server.scene->x;
+		fs->pending.y = global_server.scene->y;
+		fs->pending.width = global_server.scene->width;
+		fs->pending.height = global_server.scene->height;
 		wsm_arrange_container_auto(fs);
 	} else {
-		for (int i = 0; i < global_server.wsm_scene->outputs->length; ++i) {
-			struct wsm_output *output = global_server.wsm_scene->outputs->items[i];
+		for (int i = 0; i < global_server.scene->outputs->length; ++i) {
+			struct wsm_output *output = global_server.scene->outputs->items[i];
 			wsm_arrange_output_auto(output);
 		}
 	}
@@ -97,7 +97,7 @@ void arrange_root_scene(struct wsm_scene *root) {
 
 void wsm_arrange_output_auto(struct wsm_output *output) {
 	struct wlr_box output_box;
-	wlr_output_layout_get_box(global_server.wsm_scene->output_layout,
+	wlr_output_layout_get_box(global_server.scene->output_layout,
 		output->wlr_output, &output_box);
 	output->lx = output_box.x;
 	output->ly = output_box.y;
@@ -121,7 +121,7 @@ void arrange_output_width_size(struct wsm_output *output, int width, int height)
 
 		for (int i = 0; i < child->current.floating->length; i++) {
 			struct wsm_container *floater = child->current.floating->items[i];
-			wlr_scene_node_reparent(&floater->scene_tree->node, global_server.wsm_scene->layers.floating);
+			wlr_scene_node_reparent(&floater->scene_tree->node, global_server.scene->layers.floating);
 			wlr_scene_node_set_enabled(&floater->scene_tree->node, activated);
 		}
 
@@ -263,7 +263,7 @@ void wsm_arrange_layers(struct wsm_output *output) {
 		output->usable_area = usable_area;
 		wsm_arrange_output_auto(output);
 	} else {
-		wsm_arrange_popups(global_server.wsm_scene->layers.popup);
+		wsm_arrange_popups(global_server.scene->layers.popup);
 	}
 }
 
@@ -340,11 +340,11 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 		alloc_width = MAX(alloc_width, 0);
 
 		wsm_text_node_set_max_width(node, alloc_width);
-		wlr_scene_node_set_position(node->node,
+		wlr_scene_node_set_position(node->node_wlr,
 			h_padding, ((height - node->height) >> 1) + get_max_thickness(con->pending)
 			* con->pending.border_top);
 		pixman_region32_union_rect(&text_area, &text_area,
-			node->node->x, node->node->y, alloc_width, node->height);
+			node->node_wlr->x, node->node_wlr->y, alloc_width, node->height);
 	}
 
 	if (width <= 0 || height <= 0) {
@@ -367,7 +367,7 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 	if (con->title_bar->icon) {
 		int size = height - global_config.titlebar_v_padding;
 		wsm_image_node_set_size(con->title_bar->icon, size, size);
-		wlr_scene_node_set_position(con->title_bar->icon->node, ((height - size) >> 1),
+		wlr_scene_node_set_position(con->title_bar->icon->node_wlr, ((height - size) >> 1),
 			((height - size) >> 1) + get_max_thickness(con->pending)
 			* con->pending.border_top);
 	}
@@ -516,24 +516,24 @@ void arrange_workspace_tiling(struct wsm_workspace *ws,
 void arrange_workspace_floating(struct wsm_workspace *ws) {
 	for (int i = 0; i < ws->current.floating->length; i++) {
 		struct wsm_container *floater = ws->current.floating->items[i];
-		struct wlr_scene_tree *layer = global_server.wsm_scene->layers.floating;
+		struct wlr_scene_tree *layer = global_server.scene->layers.floating;
 
 		if (floater->current.fullscreen_mode != FULLSCREEN_NONE) {
 			continue;
 		}
 
-		if (global_server.wsm_scene->fullscreen_global) {
-			if (container_is_transient_for(floater, global_server.wsm_scene->fullscreen_global)) {
-				layer = global_server.wsm_scene->layers.fullscreen_global;
+		if (global_server.scene->fullscreen_global) {
+			if (container_is_transient_for(floater, global_server.scene->fullscreen_global)) {
+				layer = global_server.scene->layers.fullscreen_global;
 			}
 		} else {
-			for (int i = 0; i < global_server.wsm_scene->outputs->length; i++) {
-				struct wsm_output *output = global_server.wsm_scene->outputs->items[i];
+			for (int i = 0; i < global_server.scene->outputs->length; i++) {
+				struct wsm_output *output = global_server.scene->outputs->items[i];
 				struct wsm_workspace *active = output->current.active_workspace;
 
 				if (active && active->fullscreen &&
 					container_is_transient_for(floater, active->fullscreen)) {
-					layer = global_server.wsm_scene->layers.fullscreen;
+					layer = global_server.scene->layers.fullscreen;
 				}
 			}
 		}

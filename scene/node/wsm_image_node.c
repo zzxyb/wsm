@@ -145,6 +145,7 @@ struct wsm_image_node *wsm_image_node_create(struct wlr_scene_tree *parent,
 		int width, int height, char *path, float alpha) {
 	struct image_buffer *buffer = calloc(1, sizeof(struct image_buffer));
 	if (!buffer) {
+		wsm_log(WSM_ERROR, "Could not create image_buffer: allocation failed!");
 		return NULL;
 	}
 
@@ -155,7 +156,7 @@ struct wsm_image_node *wsm_image_node_create(struct wlr_scene_tree *parent,
 	}
 
 	buffer->buffer_node = node;
-	buffer->props.node = &node->node;
+	buffer->props.node_wlr = &node->node;
 	if (!path) {
 		free(buffer);
 		wlr_scene_node_destroy(&node->node);
@@ -350,7 +351,7 @@ void wsm_image_node_load(struct wsm_image_node *node, const char *file_path) {
 	if (!image_buffer->buffer_node->buffer) {
 		image_buffer->buffer = calloc(1, sizeof(struct cairo_buffer));
 		if (!image_buffer->buffer) {
-			wsm_log(WSM_ERROR, "cairo_buffer allocation failed");
+			wsm_log(WSM_ERROR, "Could not create cairo_buffer: allocation failed!");
 			return;
 		}
 	} else {

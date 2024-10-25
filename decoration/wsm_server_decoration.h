@@ -12,7 +12,7 @@ struct wsm_server_decoration {
 
 	struct wl_list link;
 
-	struct wlr_server_decoration *wlr_server_decoration;
+	struct wlr_server_decoration *server_decoration_wlr;
 };
 
 void handle_server_decoration(struct wl_listener *listener, void *data);

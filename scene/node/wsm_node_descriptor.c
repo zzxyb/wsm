@@ -40,7 +40,7 @@ bool wsm_scene_descriptor_assign(struct wlr_scene_node *node,
 		enum wsm_scene_descriptor_type type, void *data) {
 	struct scene_descriptor *desc = calloc(1, sizeof(*desc));
 	if (!desc) {
-		wsm_log(WSM_ERROR, "Could not allocate a scene descriptor");
+		wsm_log(WSM_ERROR, "Could not create scene_descriptor: allocation failed!");
 		return false;
 	}
 

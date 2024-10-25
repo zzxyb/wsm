@@ -9,6 +9,8 @@
 
 #include <xcb/xproto.h>
 
+struct wlr_xwayland;
+struct wlr_xcursor_manager;
 struct wlr_xwayland_surface;
 
 struct wsm_server;
@@ -36,7 +38,7 @@ enum atom_name {
 
 struct wsm_xwayland {
 	xcb_atom_t atoms[ATOM_LAST];
-	struct wlr_xwayland *wlr_xwayland;
+	struct wlr_xwayland *xwayland_wlr;
 	struct wlr_xcursor_manager *xcursor_manager;
 
 	xcb_connection_t *xcb_conn;
