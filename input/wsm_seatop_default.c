@@ -51,7 +51,7 @@ static bool edge_is_external(struct wsm_container *cont, enum wlr_edges edge) {
 			if (!siblings) {
 				return false;
 			}
-			int index = list_find(siblings, cont);
+			int index = wsm_list_find(siblings, cont);
 			if (index > 0 && (edge == WLR_EDGE_LEFT || edge == WLR_EDGE_TOP)) {
 				return false;
 			}
@@ -527,7 +527,7 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 		struct wsm_node *active =
 			seat_get_active_tiling_child(seat, tabcontainer);
 		struct wsm_list *siblings = container_get_siblings(cont);
-		int desired = list_find(siblings, active->container) +
+		int desired = wsm_list_find(siblings, active->container) +
 			roundf(scroll_factor * event->delta_discrete / WLR_POINTER_AXIS_DISCRETE_STEP);
 		if (desired < 0) {
 			desired = 0;

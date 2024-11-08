@@ -107,9 +107,9 @@ struct wsm_scene *wsm_scene_create(const struct wsm_server* server) {
 	scene->output_layout = wlr_output_layout_create(server->wl_display);
 	wl_list_init(&scene->all_outputs);
 	wl_signal_init(&scene->events.new_node);
-	scene->outputs = create_list();
-	scene->non_desktop_outputs = create_list();
-	scene->scratchpad = create_list();
+	scene->outputs = wsm_list_create();
+	scene->non_desktop_outputs = wsm_list_create();
+	scene->scratchpad = wsm_list_create();
 
 	return scene;
 }

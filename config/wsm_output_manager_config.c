@@ -43,7 +43,7 @@ struct wsm_output_manager_config *wsm_output_manager_config_create(struct wsm_ou
 		return NULL;
 	}
 
-	outputs_manager_config->configs = create_list();
+	outputs_manager_config->configs = wsm_list_create();
 	return outputs_manager_config;
 }
 

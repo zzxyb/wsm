@@ -4,27 +4,31 @@
 #include <stdbool.h>
 
 /**
- * @brief build-in effects enumeration
+ * @brief Enumeration of built-in effects features
  */
 enum wsm_effect_feature {
 	WSM_EFFECT_NOTHING = 0, /**< No build-id effect. */
-	WSM_EFFECT_BLUR,        /**< supprot window blur effect. */
-	WSM_EFFECT_BORDER,      /**< supprot window border effect. */
-	WSM_EFFECT_RADIUS,      /**< supprot scissors window radius effect. */
+	WSM_EFFECT_BLUR,        /**< Support for window blur effect. */
+	WSM_EFFECT_BORDER,      /**< Support for window border effect. */
+	WSM_EFFECT_RADIUS,      /**< Support for scissors window radius effect. */
 };
 
+/**
+ * @brief Structure representing the implementation of effects
+ */
 struct wsm_effect_impl {
 	/**
 	 * @brief Called before starting to render the screen.
 	 */
 	void (*pre_render_output) ();
+
 	/**
-	 * @brief render something on top of the windows.
+	 * @brief Renders something on top of the windows.
 	 */
 	void (*render_output) ();
 	
 	/**
-	 * @brief Called after all the render has been finished.
+	 * @brief Called after all rendering has been finished.
 	 */
 	void (*post_render_output) ();
 	
@@ -34,8 +38,8 @@ struct wsm_effect_impl {
 	void (*pre_render_window) ();
 	
 	/**
-	 * @brief do various transformations.
-	 * change opacity、brightness、saturation of the window
+	 * @brief Performs various transformations on the window.
+	 * Changes opacity, brightness, and saturation of the window.
 	 */
 	void (*render_window) ();
 	
@@ -45,17 +49,37 @@ struct wsm_effect_impl {
 	void (*post_render_window) ();
 	
 	/**
-	 * @brief Whether to support this special effect, distinguish different rendering APIs.
+	 * @brief Checks whether this special effect is supported,
+	 * distinguishing between different rendering APIs.
 	 */
 	bool (*is_supported) ();
 };
 
+/**
+ * @brief Structure representing an effect in the WSM
+ */
 struct wsm_effect {
-	const struct wsm_effect_impl *impl;
+	const struct wsm_effect_impl *impl; /**< Pointer to the effect implementation */
 };
 
+/**
+ * @brief Creates a new wsm_effect instance
+ * @return Pointer to the newly created wsm_effect instance
+ */
 struct wsm_effect* wsm_effect_create();
+
+/**
+ * @brief Destroys the specified wsm_effect instance
+ * @param effect Pointer to the wsm_effect instance to be destroyed
+ */
 void wsm_effect_destroy(struct wsm_effect* effect);
+
+/**
+ * @brief Checks if the specified effect provides a certain feature
+ * @param effect Pointer to the wsm_effect to be checked
+ * @param feature The feature to check for
+ * @return true if the feature is provided, false otherwise
+ */
 bool wsm_effect_provides_feature (struct wsm_effect *effect,
 	enum wsm_effect_feature feature);
 

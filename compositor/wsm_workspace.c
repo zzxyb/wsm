@@ -27,8 +27,8 @@ static int workspace_output_get_priority(struct wsm_workspace *ws,
 		struct wsm_output *output) {
 	char identifier[128];
 	output_get_identifier(identifier, sizeof(identifier), output);
-	int index_id = list_seq_find(ws->output_priority, find_output, identifier);
-	int index_name = list_seq_find(ws->output_priority, find_output,
+	int index_id = wsm_list_seq_find(ws->output_priority, find_output, identifier);
+	int index_name = wsm_list_seq_find(ws->output_priority, find_output,
 		output->wlr_output->name);
 	return index_name < 0 || index_id < index_name ? index_id : index_name;
 }
@@ -61,9 +61,9 @@ struct wsm_workspace *workspace_create(struct wsm_output *output,
 	ws->name = strdup(name);
 	ws->prev_split_layout = L_NONE;
 	ws->layout = L_NONE;
-	ws->floating = create_list();
-	ws->tiling = create_list();
-	ws->output_priority = create_list();
+	ws->floating = wsm_list_create();
+	ws->tiling = wsm_list_create();
+	ws->output_priority = wsm_list_create();
 
 	wsm_output_add_workspace(output, ws);
 	wl_signal_emit_mutable(&global_server.scene->events.new_node, &ws->node);
@@ -88,19 +88,19 @@ void workspace_destroy(struct wsm_workspace *workspace) {
 
 	free(workspace->name);
 	free(workspace->representation);
-	list_free_items_and_destroy(workspace->output_priority);
-	list_free(workspace->floating);
-	list_free(workspace->tiling);
-	list_free(workspace->current.floating);
-	list_free(workspace->current.tiling);
+	wsm_list_free_items_and_destroy(workspace->output_priority);
+	wsm_list_destroy(workspace->floating);
+	wsm_list_destroy(workspace->tiling);
+	wsm_list_destroy(workspace->current.floating);
+	wsm_list_destroy(workspace->current.tiling);
 	free(workspace);
 }
 
 void workspace_detach(struct wsm_workspace *workspace) {
 	struct wsm_output *output = workspace->output;
-	int index = list_find(output->workspaces, workspace);
+	int index = wsm_list_find(output->workspaces, workspace);
 	if (index != -1) {
-		list_del(output->workspaces, index);
+		wsm_list_delete(output->workspaces, index);
 	}
 	workspace->output = NULL;
 
@@ -194,7 +194,7 @@ void workspace_add_floating(struct wsm_workspace *workspace, struct wsm_containe
 	if (con->pending.workspace) {
 		container_detach(con);
 	}
-	list_add(workspace->floating, con);
+	wsm_list_add(workspace->floating, con);
 	con->pending.workspace = workspace;
 	container_for_each_child(con, set_workspace, NULL);
 	container_handle_fullscreen_reparent(con);
@@ -277,7 +277,7 @@ struct wsm_container *workspace_add_tiling(struct wsm_workspace *workspace,
 		}
 	}
 
-	list_add(workspace->tiling, con);
+	wsm_list_add(workspace->tiling, con);
 	con->pending.workspace = workspace;
 	container_for_each_child(con, set_workspace, NULL);
 	container_handle_fullscreen_reparent(con);
@@ -372,7 +372,7 @@ void workspace_output_add_priority(struct wsm_workspace *workspace,
 	if (workspace_output_get_priority(workspace, output) < 0) {
 		char identifier[128];
 		output_get_identifier(identifier, sizeof(identifier), output);
-		list_add(workspace->output_priority, strdup(identifier));
+		wsm_list_add(workspace->output_priority, strdup(identifier));
 	}
 }
 
@@ -381,7 +381,7 @@ void output_add_workspace(struct wsm_output *output,
 	if (workspace->output) {
 		workspace_detach(workspace);
 	}
-	list_add(output->workspaces, workspace);
+	wsm_list_add(output->workspaces, workspace);
 	workspace->output = output;
 	node_set_dirty(&output->node);
 	node_set_dirty(&workspace->node);
@@ -404,7 +404,7 @@ static int sort_workspace_cmp_qsort(const void *_a, const void *_b) {
 }
 
 void output_sort_workspaces(struct wsm_output *output) {
-	list_stable_sort(output->workspaces, sort_workspace_cmp_qsort);
+	wsm_list_stable_sort(output->workspaces, sort_workspace_cmp_qsort);
 }
 
 void disable_workspace(struct wsm_workspace *ws) {

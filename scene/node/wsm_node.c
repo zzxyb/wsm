@@ -35,7 +35,7 @@ void node_set_dirty(struct wsm_node *node) {
 		return;
 	}
 	node->dirty = true;
-	list_add(global_server.dirty_nodes, node);
+	wsm_list_add(global_server.dirty_nodes, node);
 }
 
 bool node_is_view(struct wsm_node *node) {

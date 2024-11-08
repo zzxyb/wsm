@@ -173,8 +173,8 @@ struct wsm_container *container_create(struct wsm_view *view) {
 	}
 
 	if (!view) {
-		c->pending.children = create_list();
-		c->current.children = create_list();
+		c->pending.children = wsm_list_create();
+		c->current.children = wsm_list_create();
 	}
 
 	c->pending.layout = L_NONE;
@@ -198,8 +198,8 @@ void container_destroy(struct wsm_container *con) {
 	}
 	free(con->title);
 	free(con->formatted_title);
-	list_free(con->pending.children);
-	list_free(con->current.children);
+	wsm_list_destroy(con->pending.children);
+	wsm_list_destroy(con->current.children);
 
 	if (con->view && con->view->container == con) {
 		con->view->container = NULL;
@@ -315,7 +315,7 @@ bool container_is_floating_or_child(struct wsm_container *container) {
 
 bool container_is_floating(struct wsm_container *container) {
 	if (!container->pending.parent && container->pending.workspace &&
-		list_find(container->pending.workspace->floating, container) != -1) {
+		wsm_list_find(container->pending.workspace->floating, container) != -1) {
 		return true;
 	}
 	if (container->scratchpad) {
@@ -332,7 +332,7 @@ void container_raise_floating(struct wsm_container *con) {
 	struct wsm_container *floater = container_toplevel_ancestor(con);
 	if (container_is_floating(floater) && floater->pending.workspace) {
 		wlr_scene_node_raise_to_top(&floater->scene_tree->node);
-		list_move_to_end(floater->pending.workspace->floating, floater);
+		wsm_list_move_to_end(floater->pending.workspace->floating, floater);
 		node_set_dirty(&floater->pending.workspace->node);
 	}
 }
@@ -599,9 +599,9 @@ void container_detach(struct wsm_container *child) {
 	struct wsm_workspace *old_workspace = child->pending.workspace;
 	struct wsm_list *siblings = container_get_siblings(child);
 	if (siblings) {
-		int index = list_find(siblings, child);
+		int index = wsm_list_find(siblings, child);
 		if (index != -1) {
-			list_del(siblings, index);
+			wsm_list_delete(siblings, index);
 		}
 	}
 	child->pending.parent = NULL;
@@ -625,7 +625,7 @@ struct wsm_list *container_get_siblings(struct wsm_container *container) {
 	if (!container->pending.workspace) {
 		return NULL;
 	}
-	if (list_find(container->pending.workspace->tiling, container) != -1) {
+	if (wsm_list_find(container->pending.workspace->tiling, container) != -1) {
 		return container->pending.workspace->tiling;
 	}
 	return container->pending.workspace->floating;
@@ -873,9 +873,9 @@ void root_scratchpad_remove_container(struct wsm_container *con) {
 		return;
 	}
 	con->scratchpad = false;
-	int index = list_find(global_server.scene->scratchpad, con);
+	int index = wsm_list_find(global_server.scene->scratchpad, con);
 	if (index != -1) {
-		list_del(global_server.scene->scratchpad, index);
+		wsm_list_delete(global_server.scene->scratchpad, index);
 	}
 }
 
@@ -885,8 +885,8 @@ void container_add_sibling(struct wsm_container *parent,
 		container_detach(child);
 	}
 	struct wsm_list *siblings = container_get_siblings(parent);
-	int index = list_find(siblings, parent);
-	list_insert(siblings, index + after, child);
+	int index = wsm_list_find(siblings, parent);
+	wsm_list_insert(siblings, index + after, child);
 	child->pending.parent = parent->pending.parent;
 	child->pending.workspace = parent->pending.workspace;
 	container_for_each_child(child, set_workspace, NULL);
@@ -994,7 +994,7 @@ void container_add_child(struct wsm_container *parent,
 	if (child->pending.workspace) {
 		container_detach(child);
 	}
-	list_add(parent->pending.children, child);
+	wsm_list_add(parent->pending.children, child);
 	child->pending.parent = parent;
 	child->pending.workspace = parent->pending.workspace;
 	container_for_each_child(child, set_workspace, NULL);

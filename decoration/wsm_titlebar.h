@@ -37,64 +37,85 @@ struct wsm_text_node;
 struct wsm_image_node;
 struct wsm_image_button;
 
+/**
+ * @brief Enumeration of titlebar states in the WSM
+ */
 enum wsm_titlebar_state {
-	WSM_ACTIVE = 0,
-	WSM_INACTIVE,
-	WSM_FOCUS_IN,
-	WSM_FOCUS_OUT,
+	WSM_ACTIVE = 0, /**< Titlebar is active */
+	WSM_INACTIVE, /**< Titlebar is inactive */
+	WSM_FOCUS_IN, /**< Titlebar has focus */
+	WSM_FOCUS_OUT, /**< Titlebar lost focus */
 };
 
+/**
+ * @brief Enumeration of parts in the server decoration
+ */
 enum ssd_part_type {
-	SSD_NONE = 0,
-	SSD_BUTTON_CLOSE,
-	SSD_BUTTON_MAXIMIZE,
-	SSD_BUTTON_MINIMIZE,
-	SSD_BUTTON_ICONIFY,
-	SSD_PART_TITLEBAR,
-	SSD_PART_TITLE,
-	SSD_PART_TOP_LEFT,
-	SSD_PART_TOP_RIGHT,
-	SSD_PART_BOTTOM_RIGHT,
-	SSD_PART_BOTTOM_LEFT,
-	SSD_PART_TOP,
-	SSD_PART_RIGHT,
-	SSD_PART_BOTTOM,
-	SSD_PART_LEFT,
-	SSD_CLIENT,
-	SSD_FRAME,
-	SSD_ROOT,
-	SSD_MENU,
-	SSD_OSD,
-	SSD_LAYER_SURFACE,
-	SSD_LAYER_SUBSURFACE,
-	SSD_UNMANAGED,
-	SSD_END_MARKER
+	SSD_NONE = 0, /**< No part */
+	SSD_BUTTON_CLOSE, /**< Close button part */
+	SSD_BUTTON_MAXIMIZE, /**< Maximize button part */
+	SSD_BUTTON_MINIMIZE, /**< Minimize button part */
+	SSD_BUTTON_ICONIFY, /**< Iconify button part */
+	SSD_PART_TITLEBAR, /**< Titlebar part */
+	SSD_PART_TITLE, /**< Title part */
+	SSD_PART_TOP_LEFT, /**< Top left part */
+	SSD_PART_TOP_RIGHT, /**< Top right part */
+	SSD_PART_BOTTOM_RIGHT, /**< Bottom right part */
+	SSD_PART_BOTTOM_LEFT, /**< Bottom left part */
+	SSD_PART_TOP, /**< Top part */
+	SSD_PART_RIGHT, /**< Right part */
+	SSD_PART_BOTTOM, /**< Bottom part */
+	SSD_PART_LEFT, /**< Left part */
+	SSD_CLIENT, /**< Client part */
+	SSD_FRAME, /**< Frame part */
+	SSD_ROOT, /**< Root part */
+	SSD_MENU, /**< Menu part */
+	SSD_OSD, /**< On-screen display part */
+	SSD_LAYER_SURFACE, /**< Layer surface part */
+	SSD_LAYER_SUBSURFACE, /**< Layer subsurface part */
+	SSD_UNMANAGED, /**< Unmanaged part */
+	SSD_END_MARKER /**< End marker for parts */
 };
 
+/**
+ * @brief Structure representing a titlebar in the WSM
+ */
 struct wsm_titlebar {
 	struct {
-		struct wl_signal double_click;
-		struct wl_signal request_state;
+		struct wl_signal double_click; /**< Signal for double-click events */
+		struct wl_signal request_state; /**< Signal for state request events */
 	} events;
 
-	struct wlr_scene_tree *tree;
+	struct wlr_scene_tree *tree; /**< Pointer to the scene tree for the titlebar */
 
-	struct wlr_scene_rect *background;
-	struct wsm_image_node *icon;
-	struct wsm_text_node *title_text;
+	struct wlr_scene_rect *background; /**< Pointer to the background rectangle */
+	struct wsm_image_node *icon; /**< Pointer to the icon node */
+	struct wsm_text_node *title_text; /**< Pointer to the title text node */
 
-	struct wsm_image_button *min_button;
-	struct wsm_image_button *max_button;
-	struct wsm_image_button *close_button;
-	bool active;
+	struct wsm_image_button *min_button; /**< Pointer to the minimize button */
+	struct wsm_image_button *max_button; /**< Pointer to the maximize button */
+	struct wsm_image_button *close_button; /**< Pointer to the close button */
+	bool active; /**< Flag indicating if the titlebar is active */
 };
 
+/**
+ * @brief Structure representing a request to change the state of a titlebar
+ */
 struct wsm_titlebar_event_request_state {
-	struct wsm_titlebar *titlebar;
-	enum wsm_titlebar_state state;
+	struct wsm_titlebar *titlebar; /**< Pointer to the associated titlebar */
+	enum wsm_titlebar_state state; /**< Desired state for the titlebar */
 };
 
+/**
+ * @brief Creates a new wsm_titlebar instance
+ * @return Pointer to the newly created wsm_titlebar instance
+ */
 struct wsm_titlebar* wsm_titlebar_create();
+
+/**
+ * @brief Destroys the specified wsm_titlebar instance
+ * @param titlebar Pointer to the wsm_titlebar instance to destroy
+ */
 void wsm_titlebar_destroy(struct wsm_titlebar *titlebar);
 
 #endif

@@ -356,7 +356,7 @@ bool wsm_server_init(struct wsm_server *server)
 		server->txn_timeout_ms = 200;
 	}
 
-	server->dirty_nodes = create_list();
+	server->dirty_nodes = wsm_list_create();
 	server->input_manager = wsm_input_manager_create(server);
 	input_manager_get_default_seat();
 
@@ -372,5 +372,5 @@ void server_finish(struct wsm_server *server) {
 	wl_display_destroy_clients(server->wl_display);
 	wlr_backend_destroy(server->backend);
 	wl_display_destroy(server->wl_display);
-	list_free(server->dirty_nodes);
+	wsm_list_destroy(server->dirty_nodes);
 }

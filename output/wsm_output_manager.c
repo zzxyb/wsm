@@ -44,7 +44,7 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
 				wlr_output);
 		}
 #endif
-		list_add(global_server.scene->non_desktop_outputs, non_desktop);
+		wsm_list_add(global_server.scene->non_desktop_outputs, non_desktop);
 		return;
 	}
 

@@ -35,13 +35,30 @@
 struct wsm_list;
 struct wsm_output_manager;
 
+/**
+ * @brief Structure representing the configuration for the output manager
+ */
 struct wsm_output_manager_config {
-	struct wsm_list *configs;
-	struct wsm_output_manager *output_manager;
+	struct wsm_list *configs; /**< List of output configurations */
+	struct wsm_output_manager *output_manager; /**< Pointer to the associated output manager */
 };
 
+/**
+ * @brief Creates a new output manager configuration
+ * @param output_manager Pointer to the WSM output manager to associate with the configuration
+ * @return Pointer to the newly created wsm_output_manager_config instance
+ */
 struct wsm_output_manager_config *wsm_output_manager_config_create(struct wsm_output_manager *output_manager);
+
+/**
+ * @brief Destroys the specified output manager configuration
+ * @param config Pointer to the wsm_output_manager_config instance to destroy
+ */
 void wwsm_output_manager_config_destory(struct wsm_output_manager_config *config);
+
+/**
+ * @brief Loads the default output configuration settings
+ */
 void load_default_output_config();
 
 #endif
