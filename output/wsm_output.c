@@ -413,8 +413,8 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
 	output->detected_subpixel = wlr_output->subpixel;
 	output->scale_filter = SCALE_FILTER_NEAREST;
 
-	output->workspaces = create_list();
-	output->current.workspaces = create_list();
+	output->workspaces = wsm_list_create();
+	output->current.workspaces = wsm_list_create();
 
 	wl_signal_init(&output->events.disable);
 
@@ -465,8 +465,8 @@ void wsm_output_destroy(struct wsm_output *output) {
 	}
 
 	destroy_scene_layers(output);
-	list_free(output->workspaces);
-	list_free(output->current.workspaces);
+	wsm_list_destroy(output->workspaces);
+	wsm_list_destroy(output->current.workspaces);
 	wl_event_source_remove(output->repaint_timer);
 	free(output);
 }
@@ -488,7 +488,7 @@ void output_enable(struct wsm_output *output) {
 	}
 
 	output->enabled = true;
-	list_add(global_server.scene->outputs, output);
+	wsm_list_add(global_server.scene->outputs, output);
 
 	struct wsm_workspace *ws = NULL;
 	if (!output->workspaces->length) {
@@ -586,7 +586,7 @@ void output_disable(struct wsm_output *output) {
 	if (!wsm_assert(output->enabled, "Expected an enabled output")) {
 		return;
 	}
-	int index = list_find(global_server.scene->outputs, output);
+	int index = wsm_list_find(global_server.scene->outputs, output);
 	if (!wsm_assert(index >= 0, "Output not found in root node")) {
 		return;
 	}
@@ -596,7 +596,7 @@ void output_disable(struct wsm_output *output) {
 
 	output_evacuate(output);
 
-	list_del(global_server.scene->outputs, index);
+	wsm_list_delete(global_server.scene->outputs, index);
 
 	output->enabled = false;
 
@@ -609,13 +609,13 @@ void wsm_output_add_workspace(struct wsm_output *output,
 	if (workspace->output) {
 		workspace_detach(workspace);
 	}
-	list_add(output->workspaces, workspace);
+	wsm_list_add(output->workspaces, workspace);
 	workspace->output = output;
 	node_set_dirty(&output->node);
 	node_set_dirty(&workspace->node);
 }
 
-struct wsm_output *wsm_wsm_output_nearest_to_cursor() {
+struct wsm_output *wsm_output_nearest_to_cursor() {
 	struct wsm_seat *seat = input_manager_get_default_seat();
 	return wsm_output_nearest_to(seat->cursor->cursor_wlr->x,
 		seat->cursor->cursor_wlr->y);
@@ -711,8 +711,8 @@ static void handle_destroy_non_desktop(struct wl_listener *listener, void *data)
 	struct wsm_output_non_desktop *output =
 		wl_container_of(listener, output, destroy);
 	wsm_log(WSM_DEBUG, "Destroying non-desktop output '%s'", output->wlr_output->name);
-	int index = list_find(global_server.scene->non_desktop_outputs, output);
-	list_del(global_server.scene->non_desktop_outputs, index);
+	int index = wsm_list_find(global_server.scene->non_desktop_outputs, output);
+	wsm_list_delete(global_server.scene->non_desktop_outputs, index);
 
 	wl_list_remove(&output->destroy.link);
 	free(output);

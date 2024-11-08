@@ -111,7 +111,7 @@ static void handle_seat_destroy(struct wl_listener *listener, void *data) {
 	wl_list_remove(&seat->link);
 	wl_list_remove(&seat->destroy.link);
 	wlr_scene_node_destroy(&seat->scene_tree->node);
-	list_free(seat->deferred_bindings);
+	wsm_list_destroy(seat->deferred_bindings);
 	free(seat);
 }
 
@@ -469,7 +469,7 @@ struct wsm_seat *seat_create(const char *seat_name) {
 	root_for_each_workspace(collect_focus_workspace_iter, seat);
 	root_for_each_container(collect_focus_container_iter, seat);
 
-	seat->deferred_bindings = create_list();
+	seat->deferred_bindings = wsm_list_create();
 
 	seat->new_node.notify = handle_new_node;
 	wl_signal_add(&global_server.scene->events.new_node, &seat->new_node);
@@ -1137,7 +1137,7 @@ struct wsm_node *seat_get_active_tiling_child(struct wsm_seat *seat,
 		}
 		if (parent->type == N_WORKSPACE) {
 			struct wsm_workspace *ws = parent->workspace;
-			if (list_find(ws->tiling, node->container) == -1) {
+			if (wsm_list_find(ws->tiling, node->container) == -1) {
 				continue;
 			}
 		}

@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct wsm_list *create_list(void) {
+struct wsm_list *wsm_list_create(void) {
 	struct wsm_list *list = malloc(sizeof(struct wsm_list));
 	if (!list) {
 		return NULL;
@@ -24,7 +24,7 @@ static void list_resize(struct wsm_list *list) {
 	}
 }
 
-void list_free(struct wsm_list *list) {
+void wsm_list_destroy(struct wsm_list *list) {
 	if (list == NULL) {
 		return;
 	}
@@ -32,12 +32,12 @@ void list_free(struct wsm_list *list) {
 	free(list);
 }
 
-void list_add(struct wsm_list *list, void *item) {
+void wsm_list_add(struct wsm_list *list, void *item) {
 	list_resize(list);
 	list->items[list->length++] = item;
 }
 
-void list_insert(struct wsm_list *list, int index, void *item) {
+void wsm_list_insert(struct wsm_list *list, int index, void *item) {
 	list_resize(list);
 	memmove(&list->items[index + 1], &list->items[index],
 		sizeof(void*) * (list->length - index));
@@ -45,23 +45,23 @@ void list_insert(struct wsm_list *list, int index, void *item) {
 	list->items[index] = item;
 }
 
-void list_del(struct wsm_list *list, int index) {
+void wsm_list_delete(struct wsm_list *list, int index) {
 	list->length--;
 	memmove(&list->items[index], &list->items[index + 1],
 		sizeof(void*) * (list->length - index));
 }
 
-void list_cat(struct wsm_list *list, struct wsm_list *source) {
+void wsm_list_cat(struct wsm_list *list, struct wsm_list *source) {
 	for (int i = 0; i < source->length; ++i) {
-		list_add(list, source->items[i]);
+		wsm_list_add(list, source->items[i]);
 	}
 }
 
-void list_qsort(struct wsm_list *list, int compare(const void *left, const void *right)) {
+void wsm_list_qsort(struct wsm_list *list, int compare(const void *left, const void *right)) {
 	qsort(list->items, list->length, sizeof(void *), compare);
 }
 
-int list_seq_find(struct wsm_list *list,
+int wsm_list_seq_find(struct wsm_list *list,
 		int compare(const void *item, const void *data), const void *data) {
 	for (int i = 0; i < list->length; i++) {
 		void *item = list->items[i];
@@ -73,7 +73,7 @@ int list_seq_find(struct wsm_list *list,
 	return -1;
 }
 
-int list_find(struct wsm_list *list, const void *item) {
+int wsm_list_find(struct wsm_list *list, const void *item) {
 	for (int i = 0; i < list->length; i++) {
 		if (list->items[i] == item) {
 			return i;
@@ -83,13 +83,13 @@ int list_find(struct wsm_list *list, const void *item) {
 	return -1;
 }
 
-void list_swap(struct wsm_list *list, int src, int dest) {
+void wsm_list_swap(struct wsm_list *list, int src, int dest) {
 	void *tmp = list->items[src];
 	list->items[src] = list->items[dest];
 	list->items[dest] = tmp;
 }
 
-void list_move_to_end(struct wsm_list *list, void *item) {
+void wsm_list_move_to_end(struct wsm_list *list, void *item) {
 	int i;
 	for (i = 0; i < list->length; ++i) {
 		if (list->items[i] == item) {
@@ -99,8 +99,8 @@ void list_move_to_end(struct wsm_list *list, void *item) {
 	if (!wsm_assert(i < list->length, "Item not found in list")) {
 		return;
 	}
-	list_del(list, i);
-	list_add(list, item);
+	wsm_list_delete(list, i);
+	wsm_list_add(list, item);
 }
 
 static void list_rotate(struct wsm_list *list, int from, int to) {
@@ -141,7 +141,7 @@ static void list_inplace_sort(struct wsm_list *list, int first,
 	} else if ((last - first) == 1) {
 		if (compare(&list->items[first],
 					&list->items[last]) > 0) {
-			list_swap(list, first, last);
+			wsm_list_swap(list, first, last);
 		}
 	} else {
 		int mid = (int)((last + first) / 2);
@@ -151,14 +151,14 @@ static void list_inplace_sort(struct wsm_list *list, int first,
 	}
 }
 
-void list_stable_sort(struct wsm_list *list,
+void wsm_list_stable_sort(struct wsm_list *list,
 		int compare(const void *a, const void *b)) {
 	if (list->length > 1) {
 		list_inplace_sort(list, 0, list->length - 1, compare);
 	}
 }
 
-void list_free_items_and_destroy(struct wsm_list *list) {
+void wsm_list_free_items_and_destroy(struct wsm_list *list) {
 	if (!list) {
 		wsm_log(WSM_ERROR, "wsm_list is NULL!");
 		return;
@@ -167,5 +167,5 @@ void list_free_items_and_destroy(struct wsm_list *list) {
 	for (int i = 0; i < list->length; ++i) {
 		free(list->items[i]);
 	}
-	list_free(list);
+	wsm_list_destroy(list);
 }

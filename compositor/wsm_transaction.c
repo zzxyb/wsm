@@ -49,7 +49,7 @@ static struct wsm_transaction *transaction_create(void) {
 		wsm_log(WSM_ERROR, "Unable to allocate wsm_transaction: allocation failed!");
 		return NULL;
 	}
-	transaction->instructions = create_list();
+	transaction->instructions = wsm_list_create();
 	return transaction;
 }
 
@@ -80,7 +80,7 @@ static void transaction_destroy(struct wsm_transaction *transaction) {
 		}
 		free(instruction);
 	}
-	list_free(transaction->instructions);
+	wsm_list_destroy(transaction->instructions);
 
 	if (transaction->timer) {
 		wl_event_source_remove(transaction->timer);
@@ -94,9 +94,9 @@ static void copy_output_state(struct wsm_output *output,
 	if (state->workspaces) {
 		state->workspaces->length = 0;
 	} else {
-		state->workspaces = create_list();
+		state->workspaces = wsm_list_create();
 	}
-	list_cat(state->workspaces, output->workspaces);
+	wsm_list_cat(state->workspaces, output->workspaces);
 
 	state->active_workspace = output_get_active_workspace(output);
 }
@@ -116,15 +116,15 @@ static void copy_workspace_state(struct wsm_workspace *ws,
 	if (state->floating) {
 		state->floating->length = 0;
 	} else {
-		state->floating = create_list();
+		state->floating = wsm_list_create();
 	}
 	if (state->tiling) {
 		state->tiling->length = 0;
 	} else {
-		state->tiling = create_list();
+		state->tiling = wsm_list_create();
 	}
-	list_cat(state->floating, ws->floating);
-	list_cat(state->tiling, ws->tiling);
+	wsm_list_cat(state->floating, ws->floating);
+	wsm_list_cat(state->tiling, ws->tiling);
 
 	struct wsm_seat *seat = input_manager_current_seat();
 	state->focused = seat_get_focus(seat) == &ws->node;
@@ -143,14 +143,14 @@ static void copy_container_state(struct wsm_container *container,
 	struct wsm_container_state *state = &instruction->container_state;
 
 	if (state->children) {
-		list_free(state->children);
+		wsm_list_destroy(state->children);
 	}
 
 	memcpy(state, &container->pending, sizeof(struct wsm_container_state));
 
 	if (!container->view) {
-		state->children = create_list();
-		list_cat(state->children, container->pending.children);
+		state->children = wsm_list_create();
+		wsm_list_cat(state->children, container->pending.children);
 	} else {
 		state->children = NULL;
 	}
@@ -190,7 +190,7 @@ static void transaction_add_node(struct wsm_transaction *transaction,
 		instruction->node = node;
 		instruction->server_request = server_request;
 
-		list_add(transaction->instructions, instruction);
+		wsm_list_add(transaction->instructions, instruction);
 		node->ntxnrefs++;
 	} else if (server_request) {
 		instruction->server_request = true;
@@ -213,21 +213,21 @@ static void transaction_add_node(struct wsm_transaction *transaction,
 
 static void apply_output_state(struct wsm_output *output,
 		struct wsm_output_state *state) {
-	list_free(output->current.workspaces);
+	wsm_list_destroy(output->current.workspaces);
 	memcpy(&output->current, state, sizeof(struct wsm_output_state));
 }
 
 static void apply_workspace_state(struct wsm_workspace *ws,
 		struct wsm_workspace_state *state) {
-	list_free(ws->current.floating);
-	list_free(ws->current.tiling);
+	wsm_list_destroy(ws->current.floating);
+	wsm_list_destroy(ws->current.tiling);
 	memcpy(&ws->current, state, sizeof(struct wsm_workspace_state));
 }
 
 static void apply_container_state(struct wsm_container *container,
 		struct wsm_container_state *state) {
 	struct wsm_view *view = container->view;
-	list_free(container->current.children);
+	wsm_list_destroy(container->current.children);
 
 	memcpy(&container->current, state, sizeof(struct wsm_container_state));
 
