@@ -22,7 +22,8 @@ protocols = [
         ['wlr-output-power-management-unstable-v1.xml'],
         ['wsm-effects.xml'],
         ['wsm-surfacecopy-unstable-v1.xml'],
-        ['wsm-output-brightness-management-unstable-v1.xml']
+        ['wsm-output-brightness-management-unstable-v1.xml'],
+        ['ext-input-management-v1.xml']
 ]
 
 client_protocols = [
