@@ -1,0 +1,537 @@
+<protocol name="ext_input_management_v1">
+  <copyright>
+    Copyright 2024 YaoBing Xiao
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice (including the next
+    paragraph) shall be included in all copies or substantial portions of the
+    Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+  </copyright>
+
+  <description summary="Control input management configuration">
+    This protocol allows clients to control input management configuration.
+
+    The intent is to allow special clients like desktop shells to configure
+    input devices.
+
+    Warning! The protocol described in this file is experimental, and
+    backward-incompatible changes may be made. Backward-compatible changes
+    may be added together with the corresponding interface version bump.
+    Backward-incompatible changes are done by bumping the version number in
+    the protocol and interface names and resetting the interface version.
+    Once the protocol is declared stable, the 'z' prefix and the
+    version number in the protocol and interface names are removed, and the
+    interface version number is reset.
+  </description>
+
+  <interface name="ext_input_management_v1" version="1">
+    <description summary="Manager for input devices">
+      This interface is a manager that allows configuring input devices.
+    </description>
+
+    <enum name="device_type">
+      <entry name="unknown" value="0"
+             summary="unknown or unrecognized input device type"/>
+      <entry name="keyboard" value="1"
+             summary="keyboard input device, such as a standard keyboard"/>
+      <entry name="mouse" value="2"
+             summary="mouse input device, used for standard pointing devices"/>
+      <entry name="touchpad" value="3"
+             summary="touchpad input device, commonly found on laptops"/>
+      <entry name="trackball" value="4"
+             summary="trackball input device, used in specialized pointing devices"/>
+      <entry name="joystick" value="5"
+             summary="joystick input device, typically found in gaming controllers"/>
+      <entry name="pointing_stick" value="6"
+             summary="pointing stick input device, often found on laptop keyboards"/>
+      <entry name="touchscreen" value="7"
+             summary="touchscreen input device, supporting direct touch input"/>
+      <entry name="tablet_tool" value="8"
+             summary="tablet tool input device, such as a stylus on a graphics tablet"/>
+      <entry name="tablet_pad" value="9"
+             summary="tablet pad input device, used for additional tablet controls"/>
+      <entry name="switch" value="10"
+             summary="switch input device, representing toggleable controls"/>
+    </enum>
+
+    <enum name="failure_reason">
+      <entry name="unknown" value="0">
+        <description summary="unknown runtime error">
+          An unspecified runtime error has occurred. The client may retry the request.
+        </description>
+      </entry>
+
+      <entry name="nonexistent_object" value="1">
+        <description summary="object not found">
+          The specified object or resource does not exist on the server. This may occur
+          if the object was destroyed or the identifier was invalid.
+        </description>
+      </entry>
+
+      <entry name="arg_exceeds_limit" value="2">
+        <description summary="parameter exceeds allowed limits">
+          The provided parameter value is outside the acceptable range. For example,
+          this may include numeric limits, unsupported enum values, or buffer overflows.
+        </description>
+      </entry>
+
+      <entry name="unsupported" value="3">
+        <description summary="operation or value not supported">
+          The requested operation or parameter is not supported by the compositor or
+          input backend. This may be due to hardware limitations or lack of implementation.
+        </description>
+      </entry>
+
+      <entry name="permission_denied" value="4">
+        <description summary="permission denied">
+          The client does not have the required privileges to perform the requested
+          operation. For example, this may occur when attempting to modify system input
+          settings from an untrusted context.
+        </description>
+      </entry>
+
+      <entry name="device_busy" value="5">
+        <description summary="device is currently busy">
+          The input device is currently in use or locked by another client or system
+          component, and cannot accept the requested configuration change at this time.
+        </description>
+      </entry>
+
+      <entry name="invalid_state" value="6">
+        <description summary="operation not allowed in current state">
+          The requested action cannot be performed in the current state of the object
+          or protocol. The client may need to wait for a specific event or perform a
+          prerequisite operation first.
+        </description>
+      </entry>
+
+      <entry name="already_applied" value="7">
+        <description summary="operation already applied">
+          The requested operation has already been applied and cannot be performed again.
+          This may occur when attempting to reapply a one-time configuration or state change
+          that has already taken effect.
+        </description>
+      </entry>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        All objects created by the manager will remain valid until their
+        appropriate destroy request has been called.
+      </description>
+    </request>
+
+    <request name="get_keyboard_device">
+      <description summary="get a keyboard device for a sysname">
+      </description>
+      <arg name="id" type="new_id" interface="ext_keyboard_device_v1"/>
+      <arg name="sys_name" type="string" summary="input device sys name"/>
+      <arg name="seat" type="object" interface="wl_seat" summary="seat associated with the ext_keyboard_device_v1"/>
+    </request>
+
+    <request name="get_pointer_device">
+      <description summary="get a pointer device for a sysname">
+      </description>
+      <arg name="id" type="new_id" interface="ext_pointer_device_v1"/>
+      <arg name="sys_name" type="string" summary="input device sys name"/>
+      <arg name="seat" type="object" interface="wl_seat" summary="seat associated with the ext_pointer_device_v1"/>
+    </request>
+
+    <request name="get_touch_device">
+      <description summary="get a touch device for a sysname">
+      </description>
+      <arg name="id" type="new_id" interface="ext_touch_device_v1"/>
+      <arg name="sys_name" type="string" summary="input device sys name"/>
+      <arg name="seat" type="object" interface="wl_seat" summary="seat associated with the ext_touch_device_v1"/>
+    </request>
+
+    <request name="get_tablet_tool_device">
+      <description summary="get a tablet tool for a sysname">
+      </description>
+      <arg name="id" type="new_id" interface="ext_tablet_tool_device_v1"/>
+      <arg name="sys_name" type="string" summary="input device sys name"/>
+      <arg name="seat" type="object" interface="wl_seat" summary="seat associated with the ext_tablet_tool_device_v1"/>
+    </request>
+
+    <request name="get_tablet_pad_device">
+      <description summary="get a tablet pad for a sysname">
+      </description>
+      <arg name="id" type="new_id" interface="ext_tablet_pad_device_v1"/>
+      <arg name="sys_name" type="string" summary="input device sys name"/>
+      <arg name="seat" type="object" interface="wl_seat" summary="seat associated with the ext_tablet_pad_device_v1"/>
+    </request>
+
+    <request name="get_switch_device">
+      <description summary="get a switch device for a sysname">
+      </description>
+      <arg name="id" type="new_id" interface="ext_switch_device_v1"/>
+      <arg name="sys_name" type="string" summary="input device sys name"/>
+      <arg name="seat" type="object" interface="wl_seat" summary="seat associated with the ext_switch_device_v1"/>
+    </request>
+
+    <event name="device_added">
+      <description summary="a new input device added">
+        This event is emitted whenever a new device is added.
+      </description>
+      <arg name="type" type="uint" enum="device_type"/>
+      <arg name="sys_name" type="string" summary="system name of the device"/>
+      <arg name="current_seat" type="object" interface="wl_seat" summary="seat associated with the input device"/>
+    </event>
+
+    <event name="device_removed">
+      <description summary="an input device removed">
+        This event is emitted whenever a device is removed.
+      </description>
+      <arg name="sys_name" type="string" summary="system name of the device"/>
+    </event>
+  </interface>
+
+  <interface name="ext_keyboard_device_v1" version="1">
+    <description summary="Configure keyboard device interface">
+      This object provides requests to configure input keyboard devices.
+    </description>
+
+    <enum name="key_state">
+      <entry name="on" value="0" summary="turn on the state"/>
+      <entry name="off" value="1" summary="turn off the state"/>
+      <entry name="unchanged" value="2" summary="leave the state unchanged"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the ext_keyboard_device_v1 object">
+      </description>
+    </request>
+
+    <request name="enabled">
+      <description summary="enable or disable the device">
+      </description>
+      <arg name="enable" type="uint" summary="1 to enable, 0 to disable"/>
+    </request>
+
+    <request name="apply">
+      <description summary="apply configuration changes to keyboard device">
+        Asks the server to apply device changes requested.
+      </description>
+    </request>
+
+    <request name="set_repeat">
+      <description summary="set keyboard repeat rate and delay">
+      </description>
+      <arg name="rate" type="int" summary="the rate of repeating keys in characters per second"/>
+      <arg name="delay" type="int" summary="delay in milliseconds before repeating starts"/>
+    </request>
+
+    <request name="set_model">
+      <description summary="set keyboard model">
+      </description>
+      <arg name="model" type="string" summary="specific layout or configuration of the keyboard hardware"/>
+    </request>
+
+    <request name="set_numlock_on_startup">
+      <description summary="configure numlock state on startup">
+      </description>
+      <arg name="state" type="uint" enum="key_state" summary="desired numlock state"/>
+    </request>
+
+    <request name="notify_numlock_state">
+      <description summary="report current numlock state on startup">
+      </description>
+      <arg name="state" type="uint" enum="key_state" summary="current numlock state"/>
+    </request>
+
+    <request name="set_xkb_map">
+      <description summary="set keyboard layout">
+      </description>
+      <arg name="layout" type="string" summary="keyboard layout configuration"/>
+    </request>
+
+    <event name="device_name">
+      <description summary="device name change notification">
+        This event is emitted whenever the device name of the keyboard changes.
+      </description>
+      <arg name="device_name" type="string" summary="device name"/>
+    </event>
+
+    <event name="failed">
+      <description summary="configuration failure notification">
+        This event indicates that the attempted configuration change failed.
+      </description>
+      <arg name="reason" type="uint" enum="ext_input_management_v1.failure_reason" summary="reason for failure"/>
+    </event>
+  </interface>
+
+  <interface name="ext_pointer_device_v1" version="1">
+    <description summary="Configure pointer device interface">
+      This object provides requests to configure input pointer devices.
+    </description>
+
+    <enum name="handed_mode">
+      <entry name="right" value="0" summary="right-handed mode"/>
+      <entry name="left" value="1" summary="left-handed mode"/>
+    </enum>
+
+    <enum name="accel_profile">
+      <entry name="none" value="0" summary="no acceleration profile"/>
+      <entry name="flat" value="1" summary="flat acceleration profile"/>
+      <entry name="adaptive" value="2" summary="adaptive acceleration profile"/>
+      <entry name="custom" value="3" summary="custom acceleration profile"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the ext_pointer_device_v1 object">
+      </description>
+    </request>
+
+    <request name="enabled">
+      <description summary="enable or disable the device">
+      </description>
+      <arg name="enable" type="uint" summary="1 to enable, 0 to disable"/>
+    </request>
+
+    <request name="apply">
+      <description summary="apply configuration changes to pointer device">
+        Asks the server to apply device changes requested.
+      </description>
+    </request>
+
+    <request name="set_handed_mode">
+      <description summary="set handed mode (left or right)">
+      </description>
+      <arg name="mode" type="uint" enum="handed_mode"/>
+    </request>
+
+    <request name="set_pointer_speed">
+      <description summary="set pointer speed">
+      </description>
+      <arg name="speed" type="fixed" summary="pointer speed factor"/>
+    </request>
+
+    <request name="set_pointer_acceleration">
+      <description summary="set pointer acceleration profile">
+      </description>
+      <arg name="profile" type="uint" enum="accel_profile" summary="acceleration profile"/>
+    </request>
+
+    <request name="set_scrolling_speed">
+      <description summary="set scrolling speed">
+      </description>
+      <arg name="speed" type="fixed" summary="scrolling speed factor"/>
+    </request>
+
+    <request name="set_natural_scroll">
+      <description summary="enable or disable natural scrolling">
+      </description>
+      <arg name="natural" type="uint" summary="1 for natural scrolling, 0 for standard scrolling"/>
+    </request>
+
+    <request name="set_middle_button_scroll">
+      <description summary="enable or disable middle-button scrolling">
+      </description>
+      <arg name="enable" type="uint" summary="1 to enable, 0 to disable"/>
+    </request>
+
+    <request name="set_simulate_middle_click">
+      <description summary="enable or disable left+right button as middle-click">
+      </description>
+      <arg name="enable" type="uint" summary="1 to enable, 0 to disable"/>
+    </request>
+
+    <event name="device_name">
+      <description summary="device name change notification">
+        This event is emitted whenever the device name of the pointer device changes.
+      </description>
+      <arg name="device_name" type="string" summary="updated device name"/>
+    </event>
+
+    <event name="failed">
+      <description summary="configuration failure notification">
+        This event indicates that the attempted configuration change failed.
+      </description>
+      <arg name="reason" type="uint" enum="ext_input_management_v1.failure_reason" summary="reason for failure"/>
+    </event>
+  </interface>
+
+  <interface name="ext_touch_device_v1" version="1">
+    <description summary="configure touch device interface">
+      This object provides requests to configure an input touch device.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the ext_touch_device_v1 object">
+      </description>
+    </request>
+
+    <request name="enabled">
+      <description summary="enable or disable the device">
+      </description>
+      <arg name="enable" type="uint" summary="1 to enable, 0 to disable"/>
+    </request>
+
+    <request name="apply">
+      <description summary="apply configuration changes to touch device">
+        Asks the server to apply device changes requested.
+      </description>
+    </request>
+
+    <request name="set_map_output">
+      <description summary="map the touch device to a specific output">
+        This request maps the touch device to the specified output.
+        If the output does not support this operation, a 'failed' event is sent.
+      </description>
+      <arg name="output" type="object" interface="wl_output"/>
+    </request>
+
+    <request name="set_blank_region">
+      <description summary="set a region that does not receive touch events">
+        This request sets a blank region on the touch device where touch events
+        will not be registered. Passing 'null' cancels the blank region setting.
+      </description>
+      <arg name="region" type="object" interface="wl_region" allow-null="true" summary="blank region for touch panel, null cancels"/>
+    </request>
+
+    <request name="set_edge_safe_area">
+      <description summary="set safe area on the edges of the touch panel">
+        This request sets a safe area along the four sides of the touch panel. Touch
+        events will be sent normally outside this area.
+      </description>
+      <arg name="left_edge_width" type="int" summary="width of the left safe area"/>
+      <arg name="top_edge_height" type="int" summary="height of the top safe area"/>
+      <arg name="right_edge_width" type="int" summary="width of the right safe area"/>
+      <arg name="bottom_edge_height" type="int" summary="height of the bottom safe area"/>
+    </request>
+
+    <event name="device_name">
+      <description summary="device name change">
+        This event is emitted whenever the device name of the touch device changes.
+      </description>
+      <arg name="device_name" type="string"/>
+    </event>
+
+    <event name="failed">
+      <description summary="configuration failed">
+        This event indicates that the attempted configuration change has failed.
+      </description>
+      <arg name="reason" type="uint" enum="ext_input_management_v1.failure_reason"/>
+    </event>
+  </interface>
+
+  <interface name="ext_tablet_tool_device_v1" version="1">
+    <description summary="configure tablet tool device interface">
+      This object provides requests to configure an input tablet tool device.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the ext_tablet_tool_device_v1 object">
+      </description>
+    </request>
+
+    <request name="enabled">
+      <description summary="enable or disable the tablet tool device">
+      </description>
+      <arg name="enable" type="uint" summary="1 to enable, 0 to disable"/>
+    </request>
+
+    <event name="device_name">
+      <description summary="device name change">
+        This event is emitted whenever the device name of the tablet tool device changes.
+      </description>
+      <arg name="device_name" type="string"/>
+    </event>
+
+    <event name="failed">
+      <description summary="configuration failed">
+        This event indicates that the attempted configuration has failed.
+      </description>
+      <arg name="reason" type="uint" enum="ext_input_management_v1.failure_reason"/>
+    </event>
+  </interface>
+
+  <interface name="ext_tablet_pad_device_v1" version="1">
+    <description summary="Configure tablet pad device interface">
+      Configure tablet pad device interface.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the ext_touch_device_v1 object">
+      </description>
+    </request>
+
+    <request name="enabled">
+      <description summary="make device enabled or disabled">
+        1 to enable, 0 to disable.
+      </description>
+      <arg name="enable" type="uint"/>
+    </request>
+
+    <event name="device_name">
+      <description summary="device_name change">
+        This event is emitted whenever the device_name of the tablet pa device changes.
+      </description>
+      <arg name="device_name" type="string"/>
+    </event>
+
+    <event name="failed">
+      <description summary="config failed">
+        This event indicates that the attempted configuration has failed.
+      </description>
+      <arg name="reason" type="uint" enum="ext_input_management_v1.failure_reason"/>
+    </event>
+  </interface>
+
+  <interface name="ext_switch_device_v1" version="1">
+    <description summary="configure switch device interface">
+      This object provides requests to configure an input switch device.
+    </description>
+
+    <enum name="switch_state">
+      <entry name="state_off" value="0" summary="the switch device is off or disabled"/>
+      <entry name="state_on" value="1" summary="the switch device is on or enabled"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the ext_switch_device_v1 object">
+      </description>
+    </request>
+
+    <request name="enabled">
+      <description summary="enable or disable the switch device">
+      </description>
+      <arg name="enable" type="uint" summary="1 to enable, 0 to disable"/>
+    </request>
+
+    <event name="device_name">
+      <description summary="device name update notification">
+        This event is emitted whenever the device name of the switch device changes.
+      </description>
+      <arg name="device_name" type="string"/>
+    </event>
+
+    <event name="toggle">
+      <description summary="switch device state change">
+        This event is emitted whenever the state of the switch device changes (on/off).
+      </description>
+      <arg name="state" type="uint" enum="switch_state"/>
+    </event>
+
+    <event name="failed">
+      <description summary="configuration failed">
+        This event indicates that the attempted configuration has failed.
+      </description>
+      <arg name="reason" type="uint" enum="ext_input_management_v1.failure_reason"/>
+    </event>
+  </interface>
+</protocol>
