@@ -9,13 +9,61 @@ doxygen_conf = configuration_data()
 doxygen_conf.set('VERSION', meson.project_version())
 doxygen_conf.set('top_builddir', meson.project_build_root())
 wsm_doxygen = configure_file(
-        input: 'wsm.doxygen.in',
-        output: 'wsm.doxygen',
+		input: 'wsm.doxygen.in',
+		output: 'wsm.doxygen',
 	configuration: doxygen_conf,
 )
 
 src_files = files([
-        '../../main.c',
+		'../../common/wsm_cairo.h',
+		'../../common/wsm_common.h',
+		'../../common/wsm_desktop.h',
+		'../../common/wsm_list.h',
+		'../../common/wsm_log.h',
+		'../../common/wsm_pango.h',
+		'../../common/wsm_parser.h',
+		'../../compositor/wsm_container.h',
+		'../../compositor/wsm_idle_inhibit_v1.h',
+		'../../compositor/wsm_server.h',
+		'../../compositor/wsm_session_lock.h',
+		'../../compositor/wsm_transaction.h',
+		'../../compositor/wsm_view.h',
+		'../../compositor/wsm_workspace.h',
+		'../../compositor/wsm_workspace_manager.h',
+		'../../config/wsm_config.h',
+		'../../config/wsm_input_config.h',
+		'../../config/wsm_keyboard_shortcuts_config.h',
+		'../../config/wsm_output_config.h',
+		'../../decoration/wsm_titlebar.h',
+		'../../decoration/wsm_server_decoration.h',
+		'../../decoration/wsm_server_decoration_manager.h',
+		'../../decoration/wsm_xdg_decoration_manager.h',
+		'../../decoration/wsm_xdg_decoration.h',
+		'../../input/wsm_input_manager.h',
+		'../../input/wsm_seat.h',
+		'../../input/wsm_seatop_move_floating.h',
+		'../../input/wsm_tablet.h',
+		'../../input/wsm_cursor.h',
+		'../../input/wsm_keyboard.h',
+		'../../input/wsm_seatop_resize_floating.h',
+		'../../input/wsm_text_input.h',
+		'../../input/wsm_input.h',
+		'../../input/wsm_pointer.h',
+		'../../input/wsm_seatop_down.h',
+		'../../input/wsm_switch.h',
+		'../../output/wsm_backlight.h',
+		'../../output/wsm_output.h',
+		'../../output/wsm_output_manager.h',
+		'../../scene/wsm_scene.h',
+		'../../scene/node/wsm_image_node.h',
+		'../../scene/node/wsm_node_descriptor.h',
+		'../../scene/node/wsm_text_node.h',
+		'../../shell/wsm_arrange.h',
+		'../../shell/wsm_layer_popup.h',
+		'../../shell/wsm_layer_shell.h',
+		'../../shell/wsm_xdg_popup.h',
+		'../../shell/wsm_xdg_shell.h',
+		'../../xwl/wsm_xwayland.h',
 ])
 
 gen_doxygen = find_program('gen-doxygen.py')
@@ -24,7 +72,7 @@ subdir('xml')
 
 formats = {
 	'html': {
-                'wsm': src_files,
+		'wsm': src_files,
 	},
 }
 
@@ -45,7 +93,7 @@ foreach f_name, sections: formats
 				'--section=@0@'.format(s_name),
 				'--output-format=@0@'.format(f_name),
 				'--stamp=@0@'.format(stamp),
-                                wsm_doxygen,
+					wsm_doxygen,
 				'@INPUT@',
 			],
 			input: s_files,
@@ -65,7 +113,7 @@ custom_target(
 		'--builddir=@OUTDIR@',
 		'--output-format=man3',
 		'--stamp=@0@'.format(stamp),
-                wsm_doxygen,
+			wsm_doxygen,
 		'@INPUT@',
 	],
 	input: man_files,
