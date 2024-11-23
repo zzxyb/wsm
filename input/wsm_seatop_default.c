@@ -1,6 +1,7 @@
 #include "wsm_seatop_default.h"
 #include "wsm_seat.h"
 #include "wsm_log.h"
+#include "wsm_drag.h"
 #include "wsm_list.h"
 #include "wsm_view.h"
 #include "wsm_server.h"
@@ -423,7 +424,7 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 		wlr_seat_pointer_notify_clear_focus(seat->seat);
 	}
 
-	drag_icons_update_position(seat);
+	wsm_drag_icons_update_position(seat);
 
 	e->previous_node = node;
 }
@@ -451,7 +452,7 @@ static void handle_tablet_tool_motion(struct wsm_seat *seat,
 		wlr_tablet_v2_tablet_tool_notify_proximity_out(tool->tablet_v2_tool);
 	}
 
-	drag_icons_update_position(seat);
+	wsm_drag_icons_update_position(seat);
 	e->previous_node = node;
 }
 

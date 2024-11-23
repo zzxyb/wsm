@@ -8,6 +8,7 @@ wsm_input = static_library(
 		'gesture/wsm_gesture.c',
 		'wsm_input_manager.c',
 		'wsm_seat.c',
+		'wsm_drag.c',
 		'wsm_cursor.c',
 		'wsm_keyboard.c',
 		'wsm_tablet.c',

@@ -87,15 +87,6 @@ struct wsm_seat_node {
 };
 
 /**
- * @brief Structure representing a drag operation
- */
-struct wsm_drag {
-	struct wl_listener destroy; /**< Listener for destruction events */
-	struct wsm_seat *seat; /**< Pointer to the associated WSM seat */
-	struct wlr_drag *drag; /**< Pointer to the WLR drag instance */
-};
-
-/**
  * @brief Structure representing a seat in the WSM
  */
 struct wsm_seat {
@@ -395,12 +386,6 @@ void seat_set_focus_surface(struct wsm_seat *seat, struct wlr_surface *surface, 
  * @param layer Pointer to the WLR layer surface to focus
  */
 void seat_set_focus_layer(struct wsm_seat *seat, struct wlr_layer_surface_v1 *layer);
-
-/**
- * @brief Updates the position of drag icons for the specified seat
- * @param seat Pointer to the wsm_seat instance
- */
-void drag_icons_update_position(struct wsm_seat *seat);
 
 /**
  * @brief Notifies the seat of a pointer button event
