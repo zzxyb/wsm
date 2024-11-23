@@ -3,6 +3,7 @@
 #include "wsm_seat.h"
 #include "wsm_log.h"
 #include "wsm_view.h"
+#include "wsm_drag.h"
 #include "wsm_tablet.h"
 #include "wsm_common.h"
 #include "wsm_scene.h"
@@ -259,7 +260,7 @@ static void handle_touch_motion(struct wl_listener *listener, void *data) {
 	if (seat->touch_id == event->touch_id) {
 		seat->touch_x = lx;
 		seat->touch_y = ly;
-		drag_icons_update_position(seat);
+		wsm_drag_icons_update_position(seat);
 	}
 
 	if (cursor->simulating_pointer_from_touch) {

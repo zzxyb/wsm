@@ -9,6 +9,7 @@
 #include "wsm_keyboard.h"
 #include "wsm_tablet.h"
 #include "wsm_output.h"
+#include "wsm_drag.h"
 #include "wsm_session_lock.h"
 #include "wsm_input_manager.h"
 #include "wsm_seatop_default.h"
@@ -313,78 +314,15 @@ static void handle_request_start_drag(struct wl_listener *listener, void *data) 
 	wlr_data_source_destroy(event->drag->source);
 }
 
-static void drag_handle_destroy(struct wl_listener *listener, void *data) {
-	struct wsm_drag *drag = wl_container_of(listener, drag, destroy);
-
-	struct wsm_seat *seat = drag->seat;
-	if (seat->focused_layer_wlr) {
-		struct wlr_layer_surface_v1 *layer = seat->focused_layer_wlr;
-		seat_set_focus_layer(seat, NULL);
-		seat_set_focus_layer(seat, layer);
-	} else {
-		struct wlr_surface *surface = seat->seat->keyboard_state.focused_surface;
-		seat_set_focus_surface(seat, NULL, false);
-		seat_set_focus_surface(seat, surface, false);
-	}
-
-	drag->drag->data = NULL;
-	wl_list_remove(&drag->destroy.link);
-	free(drag);
-}
-
-static void drag_icon_update_position(struct wsm_seat *seat, struct wlr_scene_node *node) {
-	struct wlr_drag_icon *wlr_icon = wsm_scene_descriptor_try_get(node, WSM_SCENE_DESC_DRAG_ICON);
-	struct wlr_cursor *cursor = seat->cursor->cursor_wlr;
-
-	switch (wlr_icon->drag->grab_type) {
-	case WLR_DRAG_GRAB_KEYBOARD:
-		return;
-	case WLR_DRAG_GRAB_KEYBOARD_POINTER:
-		wlr_scene_node_set_position(node, cursor->x, cursor->y);
-		break;
-	case WLR_DRAG_GRAB_KEYBOARD_TOUCH:;
-		struct wlr_touch_point *point =
-			wlr_seat_touch_get_point(seat->seat, wlr_icon->drag->touch_id);
-		if (point == NULL) {
-			return;
-		}
-		wlr_scene_node_set_position(node, seat->touch_x, seat->touch_y);
-	}
-}
-
 static void handle_start_drag(struct wl_listener *listener, void *data) {
 	struct wsm_seat *seat = wl_container_of(listener, seat, start_drag);
 	struct wlr_drag *wlr_drag = data;
 
-	struct wsm_drag *drag = calloc(1, sizeof(struct wsm_drag));
+	struct wsm_drag *drag = wsm_drag_create(seat, wlr_drag);
 	if (!drag) {
-		wsm_log(WSM_ERROR, "Could not create wsm_drag: allocation failed!");
 		return;
 	}
-	drag->seat = seat;
-	drag->drag = wlr_drag;
-	wlr_drag->data = drag;
 
-	drag->destroy.notify = drag_handle_destroy;
-	wl_signal_add(&wlr_drag->events.destroy, &drag->destroy);
-
-	struct wlr_drag_icon *wlr_drag_icon = wlr_drag->icon;
-	if (wlr_drag_icon != NULL) {
-		struct wlr_scene_tree *tree = wlr_scene_drag_icon_create(seat->drag_icons, wlr_drag_icon);
-		if (!tree) {
-			wsm_log(WSM_ERROR, "Failed to allocate a drag icon scene tree");
-			return;
-		}
-
-		if (!wsm_scene_descriptor_assign(&tree->node, WSM_SCENE_DESC_DRAG_ICON,
-				wlr_drag_icon)) {
-			wsm_log(WSM_ERROR, "Failed to allocate a drag icon scene descriptor");
-			wlr_scene_node_destroy(&tree->node);
-			return;
-		}
-		
-		drag_icon_update_position(seat, &tree->node);
-	}
 	seatop_begin_default(seat);
 }
 
@@ -900,13 +838,6 @@ void seat_set_focus_layer(struct wsm_seat *seat,
 	seat->focused_layer_wlr = layer;
 }
 
-void drag_icons_update_position(struct wsm_seat *seat) {
-	struct wlr_scene_node *node;
-	wl_list_for_each(node, &seat->drag_icons->children, link) {
-		drag_icon_update_position(seat, node);
-	}
-}
-
 void seat_pointer_notify_button(struct wsm_seat *seat, uint32_t time_msec,
 		uint32_t button, enum wl_pointer_button_state state) {
 	seat->last_button_serial = wlr_seat_pointer_notify_button(seat->seat,
@@ -1253,4 +1184,3 @@ void seat_configure_device_mapping(struct wsm_seat *seat,
 
 	seat_apply_input_mapping(seat, seat_device);
 }
-
