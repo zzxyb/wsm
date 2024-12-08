@@ -53,12 +53,13 @@ size_t escape_markup_text(const char *src, char *dest) {
 PangoLayout *get_pango_layout(cairo_t *cairo, const PangoFontDescription *desc,
 		const char *text, double scale, bool markup) {
 	PangoLayout *layout = pango_cairo_create_layout(cairo);
+	pango_context_set_round_glyph_positions(pango_layout_get_context(layout), false);
 	PangoAttrList *attrs;
 	if (markup) {
 		char *buf;
 		GError *error = NULL;
 		if (pango_parse_markup(text, -1, 0, &attrs, &buf, NULL, &error)) {
-				pango_layout_set_text(layout, buf, -1);
+			pango_layout_set_text(layout, buf, -1);
 			free(buf);
 		} else {
 			wsm_log(WSM_ERROR, "pango_parse_markup '%s' -> error %s", text,

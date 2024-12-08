@@ -3,7 +3,6 @@
 
 #include <wayland-server-core.h>
 
-#include <gio/gio.h>
 #include <pango/pangocairo.h>
 
 /**
@@ -23,11 +22,12 @@ struct wsm_desktop_interface {
 		struct wl_signal font_change; /**< Signal emitted when the font changes */
 		struct wl_signal cursor_size_change; /**< Signal emitted when the cursor size changes */
 		struct wl_signal color_theme_change; /**< Signal emitted when the color theme changes */
+		struct wl_signal style_theme_change; /**< Signal emitted when the style theme changes */
+		struct wl_signal cursor_theme_change; /**< Signal emitted when the cursor theme changes */
 		struct wl_signal destroy; /**< Signal emitted when the desktop interface is destroyed */
 	} events; /**< Events associated with the desktop interface */
 
 	PangoFontDescription *font_description; /**< Font description for the desktop interface */
-	GSettings *settings; /**< Settings for the desktop interface */
 
 	char *style_name; /**< Name of the style */
 	char *icon_theme; /**< Current icon theme */
@@ -56,6 +56,21 @@ void wsm_desktop_interface_destory(struct wsm_desktop_interface *desktop);
  * @param desktop Pointer to the wsm_desktop_interface instance.
  */
 void update_font_height(struct wsm_desktop_interface *desktop);
+
+/**
+ * @brief Sets the style name for the desktop interface.
+ * @param desktop Pointer to the wsm_desktop_interface instance.
+ * @param style_name Pointer to the new style name string.
+ * @return Pointer to the new style name string.
+ */
+void set_style_name(struct wsm_desktop_interface *desktop, char *style_name);
+
+/**
+ * @brief Sets the cursor theme for the desktop interface.
+ * @param desktop Pointer to the wsm_desktop_interface instance.
+ * @param cursor_theme Pointer to the new cursor theme string.
+ */
+void set_cursor_theme(struct wsm_desktop_interface *desktop, char *cursor_theme);
 
 /**
  * @brief Sets the icon theme for the desktop interface.
