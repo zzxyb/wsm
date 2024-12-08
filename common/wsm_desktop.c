@@ -27,54 +27,29 @@ struct wsm_desktop_interface *wsm_desktop_interface_create() {
 	wl_signal_init(&desktop->events.font_change);
 	wl_signal_init(&desktop->events.cursor_size_change);
 	wl_signal_init(&desktop->events.color_theme_change);
+	wl_signal_init(&desktop->events.style_theme_change);
+	wl_signal_init(&desktop->events.cursor_theme_change);
+	wl_signal_init(&desktop->events.destroy);
 
-	desktop->settings = g_settings_new("org.gnome.desktop.interface");
-	gchar *style_name, *icon_theme, *font_name, *color_scheme, *cursor_theme;
-	style_name = g_settings_get_string(desktop->settings, "gtk-theme");
-	desktop->style_name = strdup(style_name);
-	g_free(style_name);
-
-	icon_theme = g_settings_get_string(desktop->settings, "icon-theme");
-	desktop->icon_theme = strdup(icon_theme);
-	g_free(icon_theme);
-
-	font_name = g_settings_get_string(desktop->settings, "font-name");
-	desktop->font_name = strdup(font_name);
-	g_free(font_name);
-
-	color_scheme = g_settings_get_string(desktop->settings, "color-scheme");
-	desktop->color_scheme = ends_with_str(color_scheme, "dark");
-	g_free(color_scheme);
-
-	cursor_theme = g_settings_get_string(desktop->settings, "cursor-theme");
-	desktop->cursor_theme = strdup(cursor_theme);
-	g_free(cursor_theme);
-
-	desktop->cursor_size = g_settings_get_int(desktop->settings, "cursor-size");
-	PangoFontDescription *font_description = pango_font_description_from_string(desktop->font_name);
-	const char *family = pango_font_description_get_family(font_description);
-	if (family == NULL) {
-		pango_font_description_free(font_description);
-		wsm_log(WSM_ERROR, "Invalid font family.");
-		free(desktop);
-		return NULL;
-	}
-
-	const gint size = pango_font_description_get_size(font_description);
-	if (size == 0) {
-		pango_font_description_free(font_description);
-		wsm_log(WSM_ERROR, "Invalid font size.");
-	}
-
-	desktop->font_description = font_description;
-	update_font_height(desktop);
+	// TODO: use config
+	set_style_name(desktop, "Breeze");
+	set_icon_theme(desktop, "breeze");
+	set_font_name(desktop, "Noto Sans 10");
+	set_color_scheme(desktop, Light);
+	set_cursor_theme(desktop, "breeze_cursors");
+	set_cursor_size(desktop, 24);
 
 	return desktop;
 }
 
 void wsm_desktop_interface_destory(struct wsm_desktop_interface *desktop) {
 	wl_signal_emit_mutable(&desktop->events.destroy, desktop);
-	g_object_ref(desktop->settings);
+
+	pango_font_description_free(desktop->font_description);
+	free(desktop->style_name);
+	free(desktop->icon_theme);
+	free(desktop->font_name);
+	free(desktop->cursor_theme);
 	free(desktop);
 }
 
@@ -82,33 +57,59 @@ void update_font_height(struct wsm_desktop_interface *desktop) {
 	get_text_metrics(desktop->font_description, &desktop->font_height, &desktop->font_baseline);
 }
 
-void set_icon_theme(struct wsm_desktop_interface *desktop, char *icon_theme) {
-	if (strcmp(desktop->icon_theme, icon_theme) == 0) {
+void set_style_name(struct wsm_desktop_interface *desktop, char *style_name) {
+	if (!style_name) {
 		return;
 	}
 
-	char *new_text = strdup(icon_theme);
-	if (!new_text) {
+	if (desktop->style_name && strcmp(desktop->style_name, style_name) == 0) {
+		return;
+	}
+
+	free(desktop->style_name);
+	desktop->style_name = strdup(style_name);
+	wl_signal_emit_mutable(&desktop->events.style_theme_change, desktop);
+}
+
+void set_cursor_theme(struct wsm_desktop_interface *desktop, char *cursor_theme) {
+	if (!cursor_theme) {
+		return;
+	}
+
+	if (desktop->cursor_theme && strcmp(desktop->cursor_theme, cursor_theme) == 0) {
+		return;
+	}
+
+	free(desktop->cursor_theme);
+	desktop->cursor_theme = strdup(cursor_theme);
+	wl_signal_emit_mutable(&desktop->events.cursor_theme_change, desktop);
+}
+
+void set_icon_theme(struct wsm_desktop_interface *desktop, char *icon_theme) {
+	if (!icon_theme) {
+		return;
+	}
+
+	if (desktop->icon_theme && strcmp(desktop->icon_theme, icon_theme) == 0) {
 		return;
 	}
 
 	free(desktop->icon_theme);
-	desktop->icon_theme = new_text;
+	desktop->icon_theme = strdup(icon_theme);
 	wl_signal_emit_mutable(&desktop->events.icon_theme_change, desktop);
 }
 
 void set_font_name(struct wsm_desktop_interface *desktop, char *font_name) {
-	if (strcmp(desktop->font_name, font_name) == 0) {
+	if (!font_name) {
 		return;
 	}
 
-	char *new_text = strdup(font_name);
-	if (!new_text) {
+	if (desktop->font_name && strcmp(desktop->font_name, font_name) == 0) {
 		return;
 	}
 
 	free(desktop->font_name);
-	desktop->font_name = new_text;
+	desktop->font_name = strdup(font_name);
 
 	PangoFontDescription *font_description =
 		pango_font_description_from_string(desktop->font_name);

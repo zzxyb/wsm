@@ -719,7 +719,7 @@ void container_update_title_bar(struct wsm_container *con) {
 	}
 
 	con->title_bar->title_text = wsm_text_node_create(con->title_bar->tree,
-		global_server.desktop_interface, con->formatted_title, colors->text, true);
+		global_server.desktop_interface, con->formatted_title, colors->text, false);
 	
 	container_arrange_title_bar_node(con);
 }
