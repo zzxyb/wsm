@@ -98,7 +98,7 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 	float *background = (float *)&buffer->props.background;
 	PangoContext *pango = NULL;
 	cairo_font_options_t *fo = cairo_font_options_create();
-	cairo_font_options_set_hint_style(fo, CAIRO_HINT_STYLE_FULL);
+	cairo_font_options_set_hint_style(fo, CAIRO_HINT_STYLE_DEFAULT);
 	enum wl_output_subpixel subpixel = buffer->subpixel;
 	if (subpixel == WL_OUTPUT_SUBPIXEL_NONE || subpixel == WL_OUTPUT_SUBPIXEL_UNKNOWN) {
 		cairo_font_options_set_antialias(fo, CAIRO_ANTIALIAS_GRAY);
@@ -129,7 +129,7 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 		goto err;
 	}
 
-	cairo_set_antialias(cairo, CAIRO_ANTIALIAS_BEST);
+	cairo_set_antialias(cairo, CAIRO_ANTIALIAS_DEFAULT);
 	cairo_set_font_options(cairo, fo);
 	pango = pango_cairo_create_context(cairo);
 	cairo_set_source_rgba(cairo, background[0], background[1], background[2], background[3]);
