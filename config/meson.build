@@ -21,6 +21,7 @@ wsm_config = static_library(
 		cairo,
 		pango,
 		pangocairo,
+		drm_full,
 	],
 	include_directories:[common_inc, compositor_inc, scene_inc, output_inc, xwl_inc, input_inc, decoration_inc]
 )

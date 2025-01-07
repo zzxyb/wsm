@@ -23,6 +23,7 @@ wsm_scene = static_library(
 		xpm,
 		jpeg,
 		svg,
+		drm_full,
 	],
 	include_directories:[common_inc, xwl_inc, input_inc, output_inc, compositor_inc, decoration_inc, shell_inc]
 )
