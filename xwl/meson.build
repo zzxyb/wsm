@@ -2,6 +2,7 @@ wsm_xwl = static_library(
 	'wsm_xwl',
 	files(
 		'wsm_xwayland.c',
+		'wsm_xwayland_unmanaged.c',
 	),
 	dependencies: [
 		xcb,
