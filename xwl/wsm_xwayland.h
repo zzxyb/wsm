@@ -63,7 +63,10 @@ bool xwayland_start(struct wsm_server *server);
  * @return Pointer to the corresponding WSM view
  */
 struct wsm_view *view_from_wlr_xwayland_surface(
-	struct wlr_xwayland_surface *xsurface);
+	const struct wlr_xwayland_surface *xsurface);
+struct wsm_xwayland_view *create_xwayland_view(struct wlr_xwayland_surface *xsurface);
+void wsm_xwayland_associate(struct wsm_xwayland_view *xwayland_view);
+void wsm_xwayland_map(struct wsm_xwayland_view *xwayland_view);
 
 #endif
 

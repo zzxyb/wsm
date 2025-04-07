@@ -14,7 +14,6 @@ struct wlr_xdg_toplevel;
 #if HAVE_XWAYLAND
 struct wlr_xwayland_surface;
 #endif
-struct wlr_scene_surface;
 struct wlr_foreign_toplevel_handle_v1;
 struct wlr_ext_foreign_toplevel_handle_v1;
 
@@ -179,25 +178,6 @@ struct wsm_xwayland_view {
 	struct wlr_scene_tree *surface_tree; /**< Scene tree for the surface */
 };
 
-/**
- * @brief Structure representing an unmanaged XWayland surface
- */
-struct wsm_xwayland_unmanaged {
-	struct wlr_xwayland_surface *wlr_xwayland_surface; /**< Pointer to the WLR XWayland surface */
-
-	struct wlr_scene_surface *surface_scene; /**< Scene surface for the unmanaged surface */
-
-	struct wl_listener request_activate; /**< Listener for activate requests */
-	struct wl_listener request_configure; /**< Listener for configure requests */
-	struct wl_listener request_fullscreen; /**< Listener for fullscreen requests */
-	struct wl_listener set_geometry; /**< Listener for geometry set events */
-	struct wl_listener associate; /**< Listener for associate events */
-	struct wl_listener dissociate; /**< Listener for dissociate events */
-	struct wl_listener map; /**< Listener for map events */
-	struct wl_listener unmap; /**< Listener for unmap events */
-	struct wl_listener destroy; /**< Listener for destroy events */
-	struct wl_listener override_redirect; /**< Listener for override redirect events */
-};
 #endif
 
 /**
