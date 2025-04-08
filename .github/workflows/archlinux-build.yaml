@@ -23,12 +23,6 @@ jobs:
         pacman-key --init
         pacman-key --populate archlinux
 
-    - name: Enable testing repository
-      run: |
-        echo "[testing]" | tee -a /etc/pacman.conf
-        echo "Include = /etc/pacman.d/mirrorlist" | tee -a /etc/pacman.conf
-        pacman -Sy --noconfirm
-
     - name: Update package databases
       run: pacman -Sy
 
