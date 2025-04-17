@@ -29,7 +29,7 @@ jobs:
     - name: Install dep
       run: |
         pacman -S --noconfirm base-devel meson pkgconfig wlroots wayland wayland-protocols libdrm systemd libxcb xcb-util-wm libxml2 cairo pango libxpm libjpeg-turbo librsvg
-        pacman -S --noconfirm clang ninja cppcheck doxygen graphviz libxslt xmlto
+        pacman -S --noconfirm clang ninja cppcheck doxygen graphviz libxslt xmlto wlr-protocols
 
     - name: Build with Meson
       run: |
