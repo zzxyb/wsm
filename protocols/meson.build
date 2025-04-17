@@ -1,4 +1,6 @@
 wl_protocol_dir = wayland_protos.get_variable('pkgdatadir')
+wlr_protocols  = dependency('wlr-protocols')
+wlr_protocols_dir = wlr_protocols.get_variable('pkgdatadir')
 
 wayland_scanner_dep = dependency('wayland-scanner', required: false, native: true)
 if wayland_scanner_dep.found()
@@ -18,8 +20,8 @@ protocols = [
         [wl_protocol_dir, 'unstable/linux-dmabuf/linux-dmabuf-unstable-v1.xml'],
         [wl_protocol_dir, 'staging/content-type/content-type-v1.xml'],
         [wl_protocol_dir, 'staging/cursor-shape/cursor-shape-v1.xml'],
-        ['wlr-layer-shell-unstable-v1.xml'],
-        ['wlr-output-power-management-unstable-v1.xml'],
+        [wlr_protocols_dir, 'unstable/wlr-layer-shell-unstable-v1.xml'],
+        [wlr_protocols_dir, 'unstable/wlr-output-power-management-unstable-v1.xml'],
         ['wsm-effects.xml'],
         ['wsm-surfacecopy-unstable-v1.xml'],
         ['wsm-output-brightness-management-unstable-v1.xml']
