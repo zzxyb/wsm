@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<protocol name="wsm_output_brightness_management_unstable_v1">
+<protocol name="ext_brightness_control_v1">
   <copyright>
     Copyright (c) 2024 YaoBing Xiao
 
@@ -41,7 +41,7 @@
     interface version number is reset.
   </description>
 
-  <interface name="zwsm_output_brightness_manager_v1" version="1">
+  <interface name="ext_brightness_control_manager_v1" version="1">
     <description summary="manager to create per-output brightness management">
       This interface is a manager that allows creating per-output brightness
       management controls.
@@ -51,8 +51,12 @@
       <description summary="get a brightness management for an output">
         Create a output brightness management control that can be used to
         adjust the brightness management for a given output.
+
+        If the given output does not support brightness control, the compositor
+        may return a null object (i.e., the new_id will be NULL). Clients should
+        handle this gracefully.
       </description>
-      <arg name="id" type="new_id" interface="zwsm_output_brightness_v1"/>
+      <arg name="id" type="new_id" interface="ext_brightness_control_v1"/>
       <arg name="output" type="object" interface="wl_output"/>
     </request>
 
@@ -64,7 +68,7 @@
     </request>
   </interface>
 
-  <interface name="zwsm_output_brightness_v1" version="1">
+  <interface name="ext_brightness_control_v1" version="1">
     <description summary="adjust brightness management for an output">
       This object offers requests to set the brightness management value of
       an output.
@@ -78,12 +82,26 @@
       <arg name="value" type="uint" summary="the brightness value to set"/>
     </request>
 
+    <request name="destroy" type="destructor">
+      <description summary="destroy this brightness management">
+        Destroys the output brightness management control object.
+      </description>
+    </request>
+
     <event name="brightness">
-      <description summary="Report a brightness management value change">
-        Report the brightness management value change of an output.
+      <description summary="Report a brightness  value change">
+        This event is sent immediately when the ext_brightness_control_v1 object is created.
       </description>
       <arg name="value" type="uint"
-           summary="the output's new brightness management"/>
+           summary="the output's new brightness value"/>
+    </event>
+
+    <event name="max_brightness">
+      <description summary="Report a max_brightness value change">
+        This event is sent immediately when the ext_brightness_control_v1 object is created.
+      </description>
+      <arg name="value" type="uint"
+           summary="the output's new max_brightness value"/>
     </event>
 
     <event name="failed">
@@ -92,18 +110,10 @@
         is no longer valid. This can happen for a number of reasons,
         including:
         - The output doesn't support brightness management
-        - Another client already has exclusive brightness management control
-          for this output
         - The output disappeared
 
         Upon receiving this event, the client should destroy this object.
       </description>
     </event>
-
-    <request name="destroy" type="destructor">
-      <description summary="destroy this brightness management">
-        Destroys the output brightness management control object.
-      </description>
-    </request>
   </interface>
 </protocol>

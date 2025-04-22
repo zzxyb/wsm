@@ -16,6 +16,7 @@
 #include "wsm_cursor.h"
 #include "wsm_session_lock.h"
 #include "wsm_desktop.h"
+#include "wsm_brightness_control_v1.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -362,6 +363,8 @@ bool wsm_server_init(struct wsm_server *server)
 
 	if (global_config.primary_selection)
 		wlr_primary_selection_v1_device_manager_create(server->wl_display);
+	
+	wsm_brightness_control_manager_v1_create(server->wl_display);
 	return true;
 }
 

@@ -200,4 +200,40 @@ int64_t timespec_to_nsec(const struct timespec *a);
  */
 bool ends_with_str(const char *src, const char * dst);
 
+/**
+ * @brief Checks if a string starts with another string.
+ * @param src Source string.
+ * @param dst Destination string to check against.
+ * @return true if src starts with dst, false otherwise.
+ */
+static inline void __attribute__ ((format (printf, 2, 3)))
+str_printf(char **str_out, const char *fmt, ...)
+{
+	if (!str_out) {
+		return;
+	}
+
+	va_list ap;
+	va_start(ap, fmt);
+	int len = vsnprintf(NULL, 0, fmt, ap);
+	va_end(ap);
+
+	if (len < 0) {
+		*str_out = NULL;
+		return;
+	}
+
+	char *msg = malloc(len + 1);
+	if (!msg) {
+		*str_out = NULL;
+		return;
+    }
+
+	va_start(ap, fmt);
+	vsnprintf(msg, len + 1, fmt, ap);
+	va_end(ap);
+
+	*str_out = msg;
+}
+
 #endif
