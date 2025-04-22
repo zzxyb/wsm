@@ -30,7 +30,7 @@ wsm_input = static_library(
 		xkbcommon,
 		xcb,
 		xcb_icccm,
-		libudev,
+		udev,
 	],
 	include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc, shell_inc, decoration_inc, config_inc]
 )

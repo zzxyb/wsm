@@ -16,6 +16,7 @@
 #include "wsm_layer_shell.h"
 #include "wsm_output_config.h"
 #include "node/wsm_node_descriptor.h"
+#include "wsm_backlight_device.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -416,6 +417,8 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
 	output->workspaces = wsm_list_create();
 	output->current.workspaces = wsm_list_create();
 
+	output->backlight_device = wsm_backlight_device_create(output);
+
 	wl_signal_init(&output->events.disable);
 
 	wl_list_insert(&global_server.scene->all_outputs, &output->link);
@@ -468,6 +471,9 @@ void wsm_output_destroy(struct wsm_output *output) {
 	wsm_list_destroy(output->workspaces);
 	wsm_list_destroy(output->current.workspaces);
 	wl_event_source_remove(output->repaint_timer);
+	if (output->backlight_device) {
+		wsm_backlight_device_destroy(output->backlight_device);
+	}
 	free(output);
 }
 

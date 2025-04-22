@@ -23,7 +23,7 @@ protocols = [
         [wlr_protocols_dir, 'unstable/wlr-layer-shell-unstable-v1.xml'],
         [wlr_protocols_dir, 'unstable/wlr-output-power-management-unstable-v1.xml'],
         ['wsm-effects.xml'],
-        ['wsm-output-brightness-management-unstable-v1.xml']
+        ['ext-brightness-control-v1.xml']
 ]
 
 client_protocols = [

@@ -51,7 +51,7 @@ src_files = files([
 		'../../input/wsm_pointer.h',
 		'../../input/wsm_seatop_down.h',
 		'../../input/wsm_switch.h',
-		'../../output/wsm_backlight.h',
+		'../../output/wsm_backlight_device.h',
 		'../../output/wsm_output.h',
 		'../../output/wsm_output_manager.h',
 		'../../scene/wsm_scene.h',
