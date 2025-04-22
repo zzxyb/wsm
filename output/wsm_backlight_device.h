@@ -1,5 +1,5 @@
-#ifndef WSM_BACKLIGHT_H
-#define WSM_BACKLIGHT_H
+#ifndef WSM_BACKLIGHT_DEVICE_H
+#define WSM_BACKLIGHT_DEVICE_H
 
 #include <stdbool.h>
 
@@ -12,7 +12,7 @@ struct wsm_output;
  * so that they can be processed and optimized accordingly. Reference type in
  * the /sys/class/backlight directory.
  */
-enum wsm_backlight_type {
+enum wsm_backlight_device_type {
 	/**< Default value indicating an unknown backlight type. */
 	WSM_BACKLIGHT_UNKNOW,
 	/**< Low-level interface for direct control of backlight hardware. */
@@ -30,53 +30,56 @@ enum wsm_backlight_type {
 /**
  * @brief Structure representing a backlight device
  */
-struct wsm_backlight {
+struct wsm_backlight_device {
+	char *path;
+	char *backlight_class; /**< Path to the backlight device */
 	struct wsm_output* output; /**< Pointer to the associated output */
+	struct wlr_session *session; /**< Pointer to the session */
 	int max_brightness; /**< Maximum brightness level of the backlight */
 	int brightness; /**< Current brightness level of the backlight */
-	enum wsm_backlight_type type; /**< Type of the backlight device */
+	enum wsm_backlight_device_type type; /**< Type of the backlight device */
 };
 
 /**
- * @brief Creates a new wsm_backlight instance
+ * @brief Creates a new wsm_backlight_device instance
  * @param output Pointer to the wsm_output associated with the backlight
- * @return Pointer to the newly created wsm_backlight instance
+ * @return Pointer to the newly created wsm_backlight_device instance
  */
-struct wsm_backlight *wsm_backlight_create(struct wsm_output *output);
+struct wsm_backlight_device *wsm_backlight_device_create(struct wsm_output *output);
 
 /**
- * @brief Destroys the specified wsm_backlight instance
- * @param backlight Pointer to the wsm_backlight instance to be destroyed
+ * @brief Destroys the specified wsm_backlight_device instance
+ * @param backlight Pointer to the wsm_backlight_device instance to be destroyed
  */
-void wsm_backlight_destroy(struct wsm_backlight *backlight);
+void wsm_backlight_device_destroy(struct wsm_backlight_device *device);
 
 /**
  * @brief Retrieves the maximum brightness level of the specified backlight
- * @param backlight Pointer to the wsm_backlight instance
+ * @param backlight Pointer to the wsm_backlight_device instance
  * @return Maximum brightness level
  */
-int wsm_backlight_get_max_brightness(struct wsm_backlight *backlight);
+long wsm_backlight_device_get_max_brightness(const struct wsm_backlight_device *device);
 
 /**
  * @brief Retrieves the current brightness level of the specified backlight
- * @param backlight Pointer to the wsm_backlight instance
+ * @param backlight Pointer to the wsm_backlight_device instance
  * @return Current brightness level
  */
-int wsm_backlight_get_brightness(struct wsm_backlight *backlight);
+long wsm_backlight_device_get_brightness(const struct wsm_backlight_device *device);
 
 /**
  * @brief Retrieves the actual brightness level of the specified backlight
- * @param backlight Pointer to the wsm_backlight instance
+ * @param backlight Pointer to the wsm_backlight_device instance
  * @return Actual brightness level
  */
-int wsm_backlight_get_actual_brightness(struct wsm_backlight *backlight);
+long wsm_backlight_device_get_actual_brightness(const struct wsm_backlight_device *device);
 
 /**
  * @brief Sets the brightness level of the specified backlight
- * @param backlight Pointer to the wsm_backlight instance
+ * @param backlight Pointer to the wsm_backlight_device instance
  * @param brightness New brightness level to set
  * @return true if the brightness was set successfully, false otherwise
  */
-bool wsm_backlight_set_brightness(struct wsm_backlight *backlight, long brightness);
+bool wsm_backlight_device_set_brightness(struct wsm_backlight_device *device, long brightness);
 
 #endif

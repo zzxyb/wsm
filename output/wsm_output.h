@@ -21,6 +21,7 @@ struct wlr_output_power_v1_set_mode_event;
 
 struct wsm_workspace;
 struct wsm_workspace_manager;
+struct wsm_backlight_device;
 
 /**
  * @brief Enumeration of scale filter modes for output rendering
@@ -85,6 +86,8 @@ struct wsm_output {
 	struct wlr_color_transform *color_transform; /**< Pointer to the color transform for the output */
 
 	struct wl_event_source *repaint_timer; /**< Pointer to the repaint timer event source */
+
+	struct wsm_backlight_device *backlight_device; /**< Pointer to the backlight device, maybe is NULL */
 
 	uint32_t refresh_nsec; /**< Refresh rate in nanoseconds */
 	int max_render_time; /**< Maximum render time in milliseconds */

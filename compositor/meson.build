@@ -21,5 +21,5 @@ wsm_compositor = static_library(
 		pangocairo,
 		xcb_icccm,
 	],
-	include_directories:[common_inc, xwl_inc, input_inc, output_inc, scene_inc, decoration_inc, shell_inc, config_inc]
+	include_directories:[common_inc, xwl_inc, input_inc, output_inc, scene_inc, decoration_inc, shell_inc, config_inc, wayland_inc]
 )

@@ -67,10 +67,10 @@ wayland_protos = dependency('wayland-protocols', version: '>=1.24')
 drm_full = dependency('libdrm') # only needed for drm_fourcc.h
 drm = drm_full.partial_dependency(compile_args: true, includes: true)
 threads = dependency('threads') # for pthread_setschedparam
-systemd_dep = dependency('libsystemd')
+systemd = dependency('libsystemd')
 xcb = wlroots_features['xwayland'] ? dependency('xcb') : null_dep
 xcb_icccm = wlroots_features['xwayland'] ? dependency('xcb-icccm') : null_dep
-libudev = wlroots_features['libinput_backend'] ? dependency('libudev') : null_dep
+udev = wlroots_features['libinput_backend'] ? dependency('libudev') : null_dep
 cairo = dependency('cairo')
 pango = dependency('pango')
 xpm = dependency('xpm')
@@ -136,8 +136,11 @@ config_inc = include_directories('config')
 scene_inc = include_directories('scene')
 decoration_inc = include_directories('decoration')
 shell_inc = include_directories('shell')
+wayland_inc = include_directories('wayland')
+drm_inc = include_directories('drm')
 
 subdir('protocols')
+subdir('wayland')
 subdir('common')
 subdir('compositor')
 subdir('scene')
@@ -148,6 +151,7 @@ subdir('config')
 subdir('decoration')
 subdir('shell')
 subdir('man')
+subdir('drm')
 
 if get_option('documentation').enabled()
 	subdir('doc')
@@ -160,7 +164,7 @@ wsm_sources = files(
 wsm_deps = [
 	wlroots,
 	drm_full,
-	systemd_dep,
+	systemd,
 	wayland_server,
 	cairo,
 	pango,
@@ -193,7 +197,7 @@ executable(
 	'wsm',
 	wsm_sources,
 	dependencies: wsm_deps,
-	link_with: [wsm_common, wsm_compositor, wsm_input, wsm_config, wsm_xwl, wsm_output, wsm_scene, wsm_decoration, wsm_shell],
-	include_directories:[common_inc, compositor_inc, xwl_inc, output_inc, config_inc, scene_inc, decoration_inc],
+	link_with: [wsm_common, wsm_compositor, wsm_input, wsm_config, wsm_xwl, wsm_output, wsm_scene, wsm_decoration, wsm_shell, wsm_wayland, wsm_drm],
+	include_directories:[common_inc, compositor_inc, xwl_inc, output_inc, config_inc, scene_inc, decoration_inc, wayland_inc, drm_inc],
 	install: true
 )
