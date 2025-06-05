@@ -1,0 +1,2 @@
+option('documentation', description: 'Build the documentation (requires Doxygen)', type: 'feature', value: 'disabled')
+option('xwayland', description: 'Enable support for X11 applications', type: 'feature', value: 'disabled')
