@@ -48,6 +48,11 @@ foreach name, _ : wlroots_features
 	wlroots_features += { name: have }
 endforeach
 
+subproject(
+ 	'wlframe',
+ 	required: true,
+)
+
 null_dep = dependency('', required: false)
 wayland_server = dependency('wayland-server', version: '>=1.20.0')
 wayland_client = dependency('wayland-client')
