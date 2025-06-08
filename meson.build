@@ -118,6 +118,10 @@ endif
 
 subdir('protocols')
 
+if get_option('documentation').enabled()
+	subdir('doc')
+endif
+
 dir_prefix = get_option('prefix')
 dir_bin = join_paths(dir_prefix, get_option('bindir'))
 dir_data = join_paths(dir_prefix, get_option('datadir'))
