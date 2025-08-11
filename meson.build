@@ -49,6 +49,7 @@ foreach name, _ : wlroots_features
 endforeach
 
 null_dep = dependency('', required: false)
+wlframe = dependency('wlframe-0.0 ', required: false, version: '>=0.0.1')
 wayland_server = dependency('wayland-server', version: '>=1.20.0')
 wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
@@ -112,6 +113,10 @@ else
 endif
 
 subdir('protocols')
+
+if get_option('documentation').enabled()
+	subdir('doc')
+endif
 
 dir_prefix = get_option('prefix')
 dir_bin = join_paths(dir_prefix, get_option('bindir'))
