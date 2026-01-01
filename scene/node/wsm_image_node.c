@@ -36,6 +36,8 @@ struct image_buffer {
 	enum wl_output_subpixel subpixel;
 
 	bool visible;
+	int image_width;
+	int image_height;
 };
 
 static void cairo_buffer_handle_destroy(struct wlr_buffer *wlr_buffer) {
@@ -74,13 +76,15 @@ static int is_target_image(const char *image_path, const char *lower_suffix, con
 }
 
 static void update_source_box(struct image_buffer *buffer) {
-	int width = cairo_image_surface_get_width(buffer->buffer->surface);
-	int height = cairo_image_surface_get_height(buffer->buffer->surface);
+	if (buffer->image_width <= 0 || buffer->image_height <= 0) {
+		return;
+	}
+
 	struct wlr_fbox source_box = {
 		.x = 0,
 		.y = 0,
-		.width = width,
-		.height = height,
+		.width = buffer->image_width,
+		.height = buffer->image_height,
 	};
 
 	wlr_scene_buffer_set_source_box(buffer->buffer_node, &source_box);
@@ -363,6 +367,8 @@ void wsm_image_node_load(struct wsm_image_node *node, const char *file_path) {
 		return;
 	}
 
+	image_buffer->image_width = cairo_image_surface_get_width(image_buffer->buffer->surface);
+	image_buffer->image_height = cairo_image_surface_get_height(image_buffer->buffer->surface);
 	cairo_surface_flush(image_buffer->buffer->surface);
 
 	wlr_buffer_init(&image_buffer->buffer->base, &cairo_buffer_impl,
