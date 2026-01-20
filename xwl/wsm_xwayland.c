@@ -854,6 +854,8 @@ void handle_xwayland_ready(struct wl_listener *listener, void *data) {
 			break;
 		}
 	}
+
+	input_manager_configure_xcursor();
 }
 
 /**

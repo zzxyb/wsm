@@ -1,8 +1,10 @@
 #include "wsm_log.h"
 #include "wsm_server.h"
 #include "wsm_seat.h"
+#include "wsm_scene.h"
 #include "wsm_common.h"
 #include "wsm_config.h"
+#include "wsm_output.h"
 #include "wsm_input_config.h"
 #include "wsm_input_manager.h"
 
@@ -13,10 +15,16 @@
 
 #include <wlr/config.h>
 #include <wlr/backend/libinput.h>
+#include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_seat.h>
+#include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_virtual_keyboard_v1.h>
 #include <wlr/types/wlr_virtual_pointer_v1.h>
 #include <wlr/types/wlr_pointer_gestures_v1.h>
+
+#if HAVE_XWAYLAND
+#include <wlr/xwayland.h>
+#endif
 
 #define DEFAULT_SEAT "seat0"
 
@@ -156,6 +164,36 @@ char *input_device_get_identifier(struct wlr_input_device *device) {
 }
 
 void input_manager_configure_xcursor(void) {
+#if HAVE_XWAYLAND
+	if (global_server.xcursor_manager) {
+		if (global_server.scene && global_server.scene->outputs) {
+			for (int i = 0; i < global_server.scene->outputs->length; ++i) {
+				struct wsm_output *output =
+					global_server.scene->outputs->items[i];
+				wlr_xcursor_manager_load(global_server.xcursor_manager,
+					output->wlr_output->scale);
+			}
+		}
+		wlr_xcursor_manager_load(global_server.xcursor_manager, 1.0f);
+
+		if (global_server.xwayland.xwayland_wlr) {
+			struct wlr_xcursor *xcursor =
+				wlr_xcursor_manager_get_xcursor(
+					global_server.xcursor_manager, "left_ptr", 1.0f);
+			if (!xcursor) {
+				xcursor = wlr_xcursor_manager_get_xcursor(
+					global_server.xcursor_manager, "default", 1.0f);
+			}
+			if (xcursor && xcursor->image_count > 0) {
+				struct wlr_xcursor_image *image = xcursor->images[0];
+				wlr_xwayland_set_cursor(global_server.xwayland.xwayland_wlr,
+					image->buffer, image->width * 4, image->width,
+					image->height, image->hotspot_x, image->hotspot_y);
+			}
+		}
+	}
+#endif
+
 	struct wsm_seat *seat = NULL;
 	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 		seat_configure_xcursor(seat);

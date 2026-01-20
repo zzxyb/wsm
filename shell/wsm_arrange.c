@@ -420,6 +420,7 @@ void wsm_arrange_container_with_title_bar(struct wsm_container *con,
 		int max_thickness = get_max_thickness(con->current);
 		int border_top = container_titlebar_height() + max_thickness * con->current.border_top;
 		int border_width = max_thickness;
+		int sensing_width = max_thickness;
 
 		if (con->current.border == B_NORMAL) {
 			if (title_bar) {
@@ -431,6 +432,7 @@ void wsm_arrange_container_with_title_bar(struct wsm_container *con,
 			container_update(con);
 			border_top = 0;
 			border_width = 0;
+			sensing_width = 0;
 		} else if (con->current.border == B_CSD) {
 			border_top = 0;
 			border_width = 0;
@@ -438,25 +440,26 @@ void wsm_arrange_container_with_title_bar(struct wsm_container *con,
 			wsm_assert(false, "unreachable");
 		}
 
-		int border_bottom = con->current.border_bottom ? border_width : 0;
 		int border_left = con->current.border_left ? border_width : 0;
-		int border_right = con->current.border_right ? border_width : 0;
-		int page_top = con->current.border_top ? border_width : 0;
+		int sensing_bottom = con->current.border_bottom ? sensing_width : 0;
+		int sensing_left = con->current.border_left ? sensing_width : 0;
+		int sensing_right = con->current.border_right ? sensing_width : 0;
+		int sensing_top = con->current.border_top ? sensing_width : 0;
 
-		wlr_scene_rect_set_size(con->sensing.top, width, page_top);
-		wlr_scene_rect_set_size(con->sensing.bottom, width, border_bottom);
+		wlr_scene_rect_set_size(con->sensing.top, width, sensing_top);
+		wlr_scene_rect_set_size(con->sensing.bottom, width, sensing_bottom);
 		wlr_scene_rect_set_size(con->sensing.left,
-			border_left, height - border_bottom - page_top);
+			sensing_left, height - sensing_bottom - sensing_top);
 		wlr_scene_rect_set_size(con->sensing.right,
-			border_right, height - border_bottom - page_top);
+			sensing_right, height - sensing_bottom - sensing_top);
 
 		wlr_scene_node_set_position(&con->sensing.top->node, 0, 0);
 		wlr_scene_node_set_position(&con->sensing.bottom->node,
-			0, height - border_bottom);
+			0, height - sensing_bottom);
 		wlr_scene_node_set_position(&con->sensing.left->node,
-			0, page_top);
+			0, sensing_top);
 		wlr_scene_node_set_position(&con->sensing.right->node,
-			width - border_right, page_top);
+			width - sensing_right, sensing_top);
 
 		wlr_scene_node_reparent(&con->view->scene_tree->node, con->content_tree);
 		wlr_scene_node_set_position(&con->view->scene_tree->node,

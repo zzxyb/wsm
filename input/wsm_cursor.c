@@ -705,9 +705,6 @@ void wsm_cursor_destroy(struct wsm_cursor *cursor) {
 	wl_list_remove(&cursor->tool_button.link);
 	wl_list_remove(&cursor->request_set_cursor.link);
 
-	wlr_xcursor_manager_destroy(global_server.xcursor_manager);
-	global_server.xcursor_manager = NULL;
-
 	wlr_cursor_destroy(cursor->cursor_wlr);
 	free(cursor);
 }

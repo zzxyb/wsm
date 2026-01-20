@@ -370,10 +370,28 @@ bool wsm_server_init(struct wsm_server *server)
 
 void server_finish(struct wsm_server *server) {
 #if HAVE_XWAYLAND
-	wlr_xwayland_destroy(server->xwayland.xwayland_wlr);
+	if (server->xwayland.xwayland_wlr) {
+		wlr_xwayland_destroy(server->xwayland.xwayland_wlr);
+		server->xwayland.xwayland_wlr = NULL;
+	}
 #endif
-	wl_display_destroy_clients(server->wl_display);
-	wlr_backend_destroy(server->backend);
-	wl_display_destroy(server->wl_display);
-	wsm_list_destroy(server->dirty_nodes);
+	if (server->wl_display) {
+		wl_display_destroy_clients(server->wl_display);
+	}
+	if (server->backend) {
+		wlr_backend_destroy(server->backend);
+		server->backend = NULL;
+	}
+	if (server->wl_display) {
+		wl_display_destroy(server->wl_display);
+		server->wl_display = NULL;
+	}
+	if (server->xcursor_manager) {
+		wlr_xcursor_manager_destroy(server->xcursor_manager);
+		server->xcursor_manager = NULL;
+	}
+	if (server->dirty_nodes) {
+		wsm_list_destroy(server->dirty_nodes);
+		server->dirty_nodes = NULL;
+	}
 }

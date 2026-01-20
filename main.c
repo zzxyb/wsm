@@ -136,8 +136,7 @@ int main(int argc, char **argv) {
 	wsm_log(WSM_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s",socket);
 	
 	wl_display_run(global_server.wl_display);
-	wl_display_destroy_clients(global_server.wl_display);
-	wl_display_destroy(global_server.wl_display);
+	server_finish(&global_server);
 
 	return EXIT_SUCCESS;
 
