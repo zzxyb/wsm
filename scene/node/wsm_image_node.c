@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-#include <bits/types/FILE.h>
 
 #include <cairo.h>
 #include <librsvg/rsvg.h>
