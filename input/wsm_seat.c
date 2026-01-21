@@ -1107,6 +1107,10 @@ void seat_set_focus_container(struct wsm_seat *seat,
 }
 
 void seatop_unref(struct wsm_seat *seat, struct wsm_container *con) {
+	if (seat->last_titlebar_click_container == con) {
+		seat->last_titlebar_click_container = NULL;
+		seat->last_titlebar_click_msec = 0;
+	}
 	if (seat->seatop_impl->unref) {
 		seat->seatop_impl->unref(seat, con);
 	}

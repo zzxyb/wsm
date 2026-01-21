@@ -72,6 +72,7 @@ xcb = wlroots_features['xwayland'] ? dependency('xcb') : null_dep
 xcb_icccm = wlroots_features['xwayland'] ? dependency('xcb-icccm') : null_dep
 udev = wlroots_features['libinput_backend'] ? dependency('libudev') : null_dep
 cairo = dependency('cairo')
+gio = dependency('gio-2.0')
 pango = dependency('pango')
 xpm = dependency('xpm')
 jpeg = dependency('libjpeg')

@@ -271,6 +271,10 @@ static void handle_set_decorations(struct wl_listener *listener, void *data) {
 
 	bool csd = xsurface->decorations != WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
 	view_update_csd_from_client(view, csd);
+	if (view->container) {
+		wsm_arrange_container_auto(view->container);
+		transaction_commit_dirty();
+	}
 }
 
 static bool is_transient_for(struct wsm_view *child,
@@ -303,6 +307,7 @@ static void _minimize(struct wsm_view *view, bool minimize) {
 	}
 
 	wlr_xwayland_surface_set_minimized(view->wlr_xwayland_surface, minimize);
+	view_set_enable(view, !minimize);
 }
 
 static void _close(struct wsm_view *view) {
@@ -409,6 +414,7 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 	wl_list_remove(&xwayland_view->destroy.link);
 	wl_list_remove(&xwayland_view->request_configure.link);
 	wl_list_remove(&xwayland_view->request_fullscreen.link);
+	wl_list_remove(&xwayland_view->request_maximize.link);
 	wl_list_remove(&xwayland_view->request_minimize.link);
 	wl_list_remove(&xwayland_view->request_move.link);
 	wl_list_remove(&xwayland_view->request_resize.link);
@@ -463,7 +469,8 @@ void wsm_xwayland_map(struct wsm_xwayland_view *xwayland_view) {
 	wl_signal_add(&xsurface->surface->events.commit, &xwayland_view->commit);
 	xwayland_view->commit.notify = handle_commit;
 
-	view_map(view, xsurface->surface, xsurface->fullscreen, NULL, false);
+	bool csd = xsurface->decorations != WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
+	view_map(view, xsurface->surface, xsurface->fullscreen, NULL, csd);
 
 	xwayland_view->surface_tree = wlr_scene_subsurface_tree_create(
 		xwayland_view->view.content_tree, xsurface->surface);
@@ -555,7 +562,8 @@ static void handle_request_fullscreen(struct wl_listener *listener, void *data) 
 		return;
 	}
 
-	container_set_fullscreen(view->container, xsurface->fullscreen);
+	container_set_fullscreen(view->container,
+		xsurface->fullscreen ? FULLSCREEN_WORKSPACE : FULLSCREEN_NONE);
 	arrange_root_auto();
 	transaction_commit_dirty();
 }
@@ -570,9 +578,26 @@ static void handle_request_minimize(struct wl_listener *listener, void *data) {
 	}
 
 	struct wlr_xwayland_minimize_event *e = data;
-	struct wsm_seat *seat = input_manager_current_seat();
-	bool focused = seat_get_focus(seat) == &view->container->node;
-	wlr_xwayland_surface_set_minimized(xsurface, !focused && e->minimize);
+	if (e->minimize) {
+		container_minimize(view->container);
+	} else {
+		view_minimize(view, false);
+		transaction_commit_dirty();
+	}
+}
+
+static void handle_request_maximize(struct wl_listener *listener, void *data) {
+	struct wsm_xwayland_view *xwayland_view =
+		wl_container_of(listener, xwayland_view, request_maximize);
+	struct wsm_view *view = &xwayland_view->view;
+	struct wlr_xwayland_surface *xsurface = view->wlr_xwayland_surface;
+	if (xsurface->surface == NULL || !xsurface->surface->mapped) {
+		return;
+	}
+
+	container_set_maximized(view->container,
+		xsurface->maximized_horz && xsurface->maximized_vert);
+	transaction_commit_dirty();
 }
 
 static void handle_request_move(struct wl_listener *listener, void *data) {
@@ -755,6 +780,10 @@ struct wsm_xwayland_view *create_xwayland_view(struct wlr_xwayland_surface *xsur
 	wl_signal_add(&xsurface->events.request_minimize,
 		&xwayland_view->request_minimize);
 	xwayland_view->request_minimize.notify = handle_request_minimize;
+
+	wl_signal_add(&xsurface->events.request_maximize,
+		&xwayland_view->request_maximize);
+	xwayland_view->request_maximize.notify = handle_request_maximize;
 
 	wl_signal_add(&xsurface->events.request_activate,
 		&xwayland_view->request_activate);

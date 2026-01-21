@@ -220,6 +220,10 @@ struct wsm_container {
 
 	double saved_x, saved_y; /**< Saved position of the container */
 	double saved_width, saved_height; /**< Saved dimensions of the container */
+	double saved_maximized_x, saved_maximized_y; /**< Saved position before maximizing */
+	double saved_maximized_width, saved_maximized_height; /**< Saved size before maximizing */
+	double saved_maximized_content_x, saved_maximized_content_y; /**< Saved content position before maximizing */
+	double saved_maximized_content_width, saved_maximized_content_height; /**< Saved content size before maximizing */
 	double width_fraction; /**< Fraction of the width */
 	double height_fraction; /**< Fraction of the height */
 	double child_total_width; /**< Total width of child containers */
@@ -232,6 +236,7 @@ struct wsm_container {
 
 	bool scratchpad; /**< Flag indicating if the container is a scratchpad */
 	bool is_sticky; /**< Flag indicating if the container is sticky */
+	bool maximized; /**< Flag indicating if the container is maximized */
 };
 
 /**
@@ -333,6 +338,19 @@ size_t container_titlebar_height(void);
  * @param con Pointer to the wsm_container to raise
  */
 void container_raise_floating(struct wsm_container *con);
+
+/**
+ * @brief Sets the maximized state for a floating container
+ * @param con Pointer to the wsm_container to maximize or restore
+ * @param maximized true to maximize, false to restore
+ */
+void container_set_maximized(struct wsm_container *con, bool maximized);
+
+/**
+ * @brief Minimizes a container's view
+ * @param con Pointer to the wsm_container to minimize
+ */
+void container_minimize(struct wsm_container *con);
 
 /**
  * @brief Disables fullscreen mode for the specified container

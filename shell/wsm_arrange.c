@@ -14,6 +14,7 @@
 #include "node/wsm_node_descriptor.h"
 #include "node/wsm_text_node.h"
 #include "node/wsm_image_node.h"
+#include "node/wsm_button_node.h"
 
 #include <wlr/types/wlr_scene.h>
 
@@ -122,7 +123,8 @@ void arrange_output_width_size(struct wsm_output *output, int width, int height)
 		for (int i = 0; i < child->current.floating->length; i++) {
 			struct wsm_container *floater = child->current.floating->items[i];
 			wlr_scene_node_reparent(&floater->scene_tree->node, global_server.scene->layers.floating);
-			wlr_scene_node_set_enabled(&floater->scene_tree->node, activated);
+			wlr_scene_node_set_enabled(&floater->scene_tree->node,
+				activated && (!floater->view || floater->view->enabled));
 		}
 
 		if (activated) {
@@ -318,6 +320,18 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 	int marks_buffer_width = 0;
 	int width = con->title_width;
 	int height = container_titlebar_height();
+	int button_gap = 2;
+	int button_size = MAX(height - global_config.titlebar_v_padding, 0);
+	bool show_min_button = con->title_bar->min_button &&
+		con->view && view_can_minimize(con->view);
+	bool show_max_button = con->title_bar->max_button &&
+		con->view && view_can_maximize(con->view);
+	bool show_close_button = con->title_bar->close_button;
+	int button_count = (show_min_button ? 1 : 0) + (show_max_button ? 1 : 0) +
+		(show_close_button ? 1 : 0);
+	int button_area_width = button_count > 0 ?
+		button_size * button_count + button_gap * (button_count - 1) +
+		global_config.titlebar_h_padding : 0;
 
 	pixman_region32_t text_area;
 	pixman_region32_init(&text_area);
@@ -336,7 +350,7 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 
 		h_padding = MAX(h_padding, 0);		
 		int alloc_width = MIN((int) node->width,
-			width - h_padding - global_config.titlebar_h_padding);
+			width - h_padding - global_config.titlebar_h_padding - button_area_width);
 		alloc_width = MAX(alloc_width, 0);
 
 		wsm_text_node_set_max_width(node, alloc_width);
@@ -370,6 +384,36 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 		wlr_scene_node_set_position(con->title_bar->icon->node_wlr, ((height - size) >> 1),
 			((height - size) >> 1) + get_max_thickness(con->pending)
 			* con->pending.border_top);
+	}
+
+	if (con->title_bar->close_button) {
+		int top = ((height - button_size) >> 1) + get_max_thickness(con->pending)
+			* con->pending.border_top;
+		int x = width - global_config.titlebar_h_padding - button_size;
+
+		wsm_button_node_set_enabled(con->title_bar->min_button, show_min_button);
+		wsm_button_node_set_enabled(con->title_bar->max_button, show_max_button);
+		wsm_button_node_set_enabled(con->title_bar->close_button, show_close_button);
+		wsm_button_node_set_clickable(con->title_bar->min_button, show_min_button);
+		wsm_button_node_set_clickable(con->title_bar->max_button, show_max_button);
+		wsm_button_node_set_clickable(con->title_bar->close_button, show_close_button);
+
+		if (show_close_button) {
+			wsm_button_node_set_size(con->title_bar->close_button, button_size, button_size);
+			wsm_button_node_set_position(con->title_bar->close_button, x, top);
+			x -= button_size + button_gap;
+		}
+
+		if (show_max_button) {
+			wsm_button_node_set_size(con->title_bar->max_button, button_size, button_size);
+			wsm_button_node_set_position(con->title_bar->max_button, x, top);
+			x -= button_size + button_gap;
+		}
+
+		if (show_min_button) {
+			wsm_button_node_set_size(con->title_bar->min_button, button_size, button_size);
+			wsm_button_node_set_position(con->title_bar->min_button, x, top);
+		}
 	}
 
 	container_update(con);
@@ -544,7 +588,8 @@ void arrange_workspace_floating(struct wsm_workspace *ws) {
 		wlr_scene_node_reparent(&floater->scene_tree->node, layer);
 		wlr_scene_node_set_position(&floater->scene_tree->node,
 			floater->current.x, floater->current.y);
-		wlr_scene_node_set_enabled(&floater->scene_tree->node, true);		
+		wlr_scene_node_set_enabled(&floater->scene_tree->node,
+			!floater->view || floater->view->enabled);
 		wsm_arrange_container_with_title_bar(floater, floater->current.width, floater->current.height,
 			true, ws->gaps_inner);
 	}

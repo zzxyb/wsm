@@ -6,6 +6,7 @@ wsm_scene = static_library(
 		'node/wsm_node.c',
 		'node/wsm_text_node.c',
 		'node/wsm_image_node.c',
+		'node/wsm_button_node.c',
 		'node/wsm_node_descriptor.c',
 		'effects/wsm_effect.c',
 		'effects/blur/wsm_gl_blur_base.c',

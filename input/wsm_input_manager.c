@@ -7,6 +7,7 @@
 #include "wsm_output.h"
 #include "wsm_input_config.h"
 #include "wsm_input_manager.h"
+#include "wsm_xwayland.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -164,32 +165,50 @@ char *input_device_get_identifier(struct wlr_input_device *device) {
 }
 
 void input_manager_configure_xcursor(void) {
-#if HAVE_XWAYLAND
-	if (global_server.xcursor_manager) {
-		if (global_server.scene && global_server.scene->outputs) {
-			for (int i = 0; i < global_server.scene->outputs->length; ++i) {
-				struct wsm_output *output =
-					global_server.scene->outputs->items[i];
-				wlr_xcursor_manager_load(global_server.xcursor_manager,
+	if (!global_server.xcursor_manager) {
+		global_server.xcursor_manager =
+			wlr_xcursor_manager_create(NULL, 24);
+		if (!global_server.xcursor_manager) {
+			wsm_log(WSM_ERROR, "Could not create xcursor manager");
+			return;
+		}
+	}
+
+	if (global_server.scene && global_server.scene->outputs &&
+			global_server.scene->outputs->length > 0) {
+		for (int i = 0; i < global_server.scene->outputs->length; ++i) {
+			struct wsm_output *output =
+				global_server.scene->outputs->items[i];
+			if (!wlr_xcursor_manager_load(global_server.xcursor_manager,
+					output->wlr_output->scale)) {
+				wsm_log(WSM_ERROR, "Could not load xcursor theme '%s' at scale %f",
+					global_server.xcursor_manager->name ?
+					global_server.xcursor_manager->name : "(default)",
 					output->wlr_output->scale);
 			}
 		}
-		wlr_xcursor_manager_load(global_server.xcursor_manager, 1.0f);
+	} else if (!wlr_xcursor_manager_load(global_server.xcursor_manager, 1.0f)) {
+		wsm_log(WSM_ERROR, "Could not load xcursor theme '%s'",
+			global_server.xcursor_manager->name ?
+			global_server.xcursor_manager->name : "(default)");
+	}
 
-		if (global_server.xwayland.xwayland_wlr) {
-			struct wlr_xcursor *xcursor =
-				wlr_xcursor_manager_get_xcursor(
-					global_server.xcursor_manager, "left_ptr", 1.0f);
-			if (!xcursor) {
-				xcursor = wlr_xcursor_manager_get_xcursor(
-					global_server.xcursor_manager, "default", 1.0f);
-			}
-			if (xcursor && xcursor->image_count > 0) {
-				struct wlr_xcursor_image *image = xcursor->images[0];
-				wlr_xwayland_set_cursor(global_server.xwayland.xwayland_wlr,
-					image->buffer, image->width * 4, image->width,
-					image->height, image->hotspot_x, image->hotspot_y);
-			}
+#if HAVE_XWAYLAND
+	if (global_server.xwayland.xwayland_wlr) {
+		struct wlr_xcursor *xcursor =
+			wlr_xcursor_manager_get_xcursor(global_server.xcursor_manager,
+				"left_ptr", 1.0f);
+		if (!xcursor) {
+			xcursor = wlr_xcursor_manager_get_xcursor(
+				global_server.xcursor_manager, "default", 1.0f);
+		}
+		if (xcursor && xcursor->image_count > 0) {
+			struct wlr_xcursor_image *image = xcursor->images[0];
+			wlr_xwayland_set_cursor(global_server.xwayland.xwayland_wlr,
+				image->buffer, image->width * 4, image->width,
+				image->height, image->hotspot_x, image->hotspot_y);
+		} else {
+			wsm_log(WSM_ERROR, "Could not load default XWayland cursor");
 		}
 	}
 #endif

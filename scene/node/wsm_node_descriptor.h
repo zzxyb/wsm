@@ -19,6 +19,7 @@ enum wsm_scene_descriptor_type {
 	WSM_SCENE_DESC_XWAYLAND_UNMANAGED, /**< Descriptor for unmanaged XWayland elements */
 	WSM_SCENE_DESC_POPUP, /**< Descriptor for popup elements */
 	WSM_SCENE_DESC_DRAG_ICON, /**< Descriptor for drag icon elements */
+	WSM_SCENE_DESC_BUTTON, /**< Descriptor for button nodes */
 };
 
 /**

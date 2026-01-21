@@ -179,7 +179,7 @@ static void _maximize(struct wsm_view *view, bool maximize) {
 }
 
 static void _minimize(struct wsm_view *view, bool minimize) {
-	view_set_enable(view, minimize);
+	view_set_enable(view, !minimize);
 }
 
 static void close_popups(struct wsm_view *view) {
@@ -227,7 +227,9 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 		}
 		wlr_xdg_surface_schedule_configure(xdg_surface);
 		wlr_xdg_toplevel_set_wm_capabilities(view->wlr_xdg_toplevel,
-			XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN);
+			WLR_XDG_TOPLEVEL_WM_CAPABILITIES_MAXIMIZE |
+			WLR_XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN |
+			WLR_XDG_TOPLEVEL_WM_CAPABILITIES_MINIMIZE);
 		return;
 	}
 
@@ -301,7 +303,34 @@ static void handle_request_maximize(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_shell_view *xdg_shell_view =
 		wl_container_of(listener, xdg_shell_view, request_maximize);
 	struct wlr_xdg_toplevel *toplevel = xdg_shell_view->view.wlr_xdg_toplevel;
-	wlr_xdg_surface_schedule_configure(toplevel->base);
+	struct wsm_view *view = &xdg_shell_view->view;
+
+	if (!toplevel->base->surface->mapped) {
+		wlr_xdg_surface_schedule_configure(toplevel->base);
+		return;
+	}
+
+	container_set_maximized(view->container, toplevel->requested.maximized);
+	transaction_commit_dirty();
+}
+
+static void handle_request_minimize(struct wl_listener *listener, void *data) {
+	struct wsm_xdg_shell_view *xdg_shell_view =
+		wl_container_of(listener, xdg_shell_view, request_minimize);
+	struct wlr_xdg_toplevel *toplevel = xdg_shell_view->view.wlr_xdg_toplevel;
+	struct wsm_view *view = &xdg_shell_view->view;
+
+	if (!toplevel->base->surface->mapped) {
+		wlr_xdg_surface_schedule_configure(toplevel->base);
+		return;
+	}
+
+	if (toplevel->requested.minimized) {
+		container_minimize(view->container);
+	} else {
+		view_minimize(view, false);
+		transaction_commit_dirty();
+	}
 }
 
 static void handle_request_fullscreen(struct wl_listener *listener, void *data) {
@@ -311,6 +340,7 @@ static void handle_request_fullscreen(struct wl_listener *listener, void *data) 
 	struct wsm_view *view = &xdg_shell_view->view;
 
 	if (!toplevel->base->surface->mapped) {
+		wlr_xdg_surface_schedule_configure(toplevel->base);
 		return;
 	}
 
@@ -329,7 +359,8 @@ static void handle_request_fullscreen(struct wl_listener *listener, void *data) 
 		}
 	}
 
-	container_set_fullscreen(container, req->fullscreen);
+	container_set_fullscreen(container,
+		req->fullscreen ? FULLSCREEN_WORKSPACE : FULLSCREEN_NONE);
 
 	arrange_root_auto();
 	transaction_commit_dirty();
@@ -376,8 +407,6 @@ static void handle_unmap(struct wl_listener *listener, void *data) {
 	view_unmap(view);
 
 	wl_list_remove(&xdg_shell_view->new_popup.link);
-	wl_list_remove(&xdg_shell_view->request_maximize.link);
-	wl_list_remove(&xdg_shell_view->request_fullscreen.link);
 	wl_list_remove(&xdg_shell_view->request_move.link);
 	wl_list_remove(&xdg_shell_view->request_resize.link);
 	wl_list_remove(&xdg_shell_view->set_title.link);
@@ -415,19 +444,18 @@ static void handle_map(struct wl_listener *listener, void *data) {
 		toplevel->requested.fullscreen_output,
 		csd);
 
+	if (toplevel->requested.maximized) {
+		container_set_maximized(view->container, true);
+	}
+	if (toplevel->requested.minimized) {
+		container_minimize(view->container);
+	}
+
 	transaction_commit_dirty();
 
 	xdg_shell_view->new_popup.notify = handle_new_popup;
 	wl_signal_add(&toplevel->base->events.new_popup,
 		&xdg_shell_view->new_popup);
-
-	xdg_shell_view->request_maximize.notify = handle_request_maximize;
-	wl_signal_add(&toplevel->events.request_maximize,
-		&xdg_shell_view->request_maximize);
-
-	xdg_shell_view->request_fullscreen.notify = handle_request_fullscreen;
-	wl_signal_add(&toplevel->events.request_fullscreen,
-		&xdg_shell_view->request_fullscreen);
 
 	xdg_shell_view->request_move.notify = handle_request_move;
 	wl_signal_add(&toplevel->events.request_move,
@@ -457,6 +485,9 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 	wl_list_remove(&xdg_shell_view->map.link);
 	wl_list_remove(&xdg_shell_view->unmap.link);
 	wl_list_remove(&xdg_shell_view->commit.link);
+	wl_list_remove(&xdg_shell_view->request_maximize.link);
+	wl_list_remove(&xdg_shell_view->request_minimize.link);
+	wl_list_remove(&xdg_shell_view->request_fullscreen.link);
 	view->wlr_xdg_toplevel = NULL;
 	if (view->xdg_decoration) {
 		view->xdg_decoration->view = NULL;
@@ -497,6 +528,18 @@ void handle_xdg_shell_toplevel(struct wl_listener *listener, void *data) {
 
 	xdg_shell_view->destroy.notify = handle_destroy;
 	wl_signal_add(&xdg_toplevel->events.destroy, &xdg_shell_view->destroy);
+
+	xdg_shell_view->request_maximize.notify = handle_request_maximize;
+	wl_signal_add(&xdg_toplevel->events.request_maximize,
+		&xdg_shell_view->request_maximize);
+
+	xdg_shell_view->request_minimize.notify = handle_request_minimize;
+	wl_signal_add(&xdg_toplevel->events.request_minimize,
+		&xdg_shell_view->request_minimize);
+
+	xdg_shell_view->request_fullscreen.notify = handle_request_fullscreen;
+	wl_signal_add(&xdg_toplevel->events.request_fullscreen,
+		&xdg_shell_view->request_fullscreen);
 
 	wlr_scene_xdg_surface_create(xdg_shell_view->view.content_tree, xdg_toplevel->base);
 	xdg_toplevel->base->data = xdg_shell_view;

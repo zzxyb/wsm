@@ -3,6 +3,7 @@ wsm_node = static_library(
 	files(
 		'wsm_text_node.c',
 		'wsm_image_node.c',
+		'wsm_button_node.c',
 		'wsm_node_descriptor.c',
 	),
 	dependencies: [

@@ -125,6 +125,8 @@ struct wsm_seat {
 
 	double touch_x, touch_y; /**< Coordinates of the last touch event */
 	int32_t touch_id; /**< ID of the last touch event */
+	struct wsm_container *last_titlebar_click_container; /**< Container from the last titlebar click */
+	uint32_t last_titlebar_click_msec; /**< Timestamp of the last titlebar click */
 	uint32_t last_button_serial; /**< Serial number of the last button event */
 	uint32_t idle_inhibit_sources, idle_wake_sources; /**< Sources for idle inhibition and wake */
 	bool has_focus; /**< Flag indicating if the seat has focus */

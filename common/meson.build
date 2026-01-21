@@ -11,6 +11,7 @@ wsm_common = static_library(
 	),
 	dependencies: [
 		cairo,
+		gio,
 		pango,
 		pangocairo,
 	],

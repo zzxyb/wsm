@@ -46,6 +46,13 @@ struct wsm_desktop_interface {
 struct wsm_desktop_interface *wsm_desktop_interface_create();
 
 /**
+ * @brief Refreshes desktop settings from the current system configuration.
+ * @param desktop Pointer to the wsm_desktop_interface instance.
+ */
+void wsm_desktop_interface_refresh_system_settings(
+	struct wsm_desktop_interface *desktop);
+
+/**
  * @brief Destroys the specified desktop interface instance.
  * @param desktop Pointer to the wsm_desktop_interface instance to destroy.
  */
