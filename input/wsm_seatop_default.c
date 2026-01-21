@@ -18,6 +18,8 @@
 #include "wsm_seatop_move_floating.h"
 #include "wsm_seatop_resize_floating.h"
 #include "node/wsm_node.h"
+#include "node/wsm_button_node.h"
+#include "node/wsm_node_descriptor.h"
 
 #include <linux/input-event-codes.h>
 
@@ -42,6 +44,49 @@ struct seatop_default_event {
 	struct wsm_node *previous_node;
 	size_t pressed_button_count;
 };
+
+static struct wsm_button_node *button_at_coords(double lx, double ly) {
+	struct wlr_scene_node *scene_node = NULL;
+	struct wlr_scene_node *node;
+	double sx, sy;
+
+	wl_list_for_each_reverse(node, &global_server.scene->layer_tree->children, link) {
+		struct wlr_scene_tree *layer = wlr_scene_tree_from_node(node);
+
+		bool non_interactive = wsm_scene_descriptor_try_get(&layer->node,
+			WSM_SCENE_DESC_NON_INTERACTIVE);
+		if (non_interactive) {
+			continue;
+		}
+
+		scene_node = wlr_scene_node_at(&layer->node, lx, ly, &sx, &sy);
+		if (scene_node) {
+			break;
+		}
+	}
+
+	while (scene_node) {
+		struct wsm_button_node *button = wsm_scene_descriptor_try_get(scene_node,
+			WSM_SCENE_DESC_BUTTON);
+		if (button) {
+			return button;
+		}
+		if (!scene_node->parent) {
+			break;
+		}
+		scene_node = &scene_node->parent->node;
+	}
+
+	return NULL;
+}
+
+static struct wsm_button_node *update_button_hover(struct wsm_seat *seat) {
+	struct wsm_cursor *cursor = seat->cursor;
+	struct wsm_button_node *button =
+		button_at_coords(cursor->cursor_wlr->x, cursor->cursor_wlr->y);
+	wsm_button_node_set_hovered(button, button != NULL);
+	return button;
+}
 
 static bool edge_is_external(struct wsm_container *cont, enum wlr_edges edge) {
 	enum wsm_container_layout layout = L_NONE;
@@ -243,9 +288,21 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 	bool on_contents = cont && !on_border && surface;
 	bool on_workspace = node && node->type == N_WORKSPACE;
 	bool on_titlebar = cont && !on_border && !surface;
+	struct wsm_button_node *titlebar_button = update_button_hover(seat);
 
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->seat);
 	uint32_t modifiers = keyboard ? wlr_keyboard_get_modifiers(keyboard) : 0;
+
+	if (titlebar_button) {
+		if (cont && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+			seat_set_focus(seat, &cont->node);
+			transaction_commit_dirty();
+		}
+
+		wsm_button_node_notify_button(titlebar_button, button, state);
+		return;
+	}
+
 	if (trigger_pointer_button_binding(seat, device, button, state, modifiers,
 			on_titlebar, on_border, on_contents, on_workspace)) {
 		return;
@@ -408,6 +465,7 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 	double sx, sy;
 	struct wsm_node *node = node_at_coords(seat,
 		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
+	update_button_hover(seat);
 
 	check_focus_follows_mouse(seat, e, node);
 
@@ -435,6 +493,7 @@ static void handle_tablet_tool_motion(struct wsm_seat *seat,
 	double sx, sy;
 	struct wsm_node *node = node_at_coords(seat,
 		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
+	update_button_hover(seat);
 
 	check_focus_follows_mouse(seat, e, node);
 
@@ -525,7 +584,20 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 		struct wsm_node *active =
 			seat_get_active_tiling_child(seat, tabcontainer);
 		struct wsm_list *siblings = container_get_siblings(cont);
-		int desired = wsm_list_find(siblings, active->container) +
+		if (!siblings || siblings->length == 0) {
+			goto axis_done;
+		}
+
+		int active_index = active && active->type == N_CONTAINER ?
+			wsm_list_find(siblings, active->container) : -1;
+		if (active_index == -1) {
+			active_index = wsm_list_find(siblings, cont);
+		}
+		if (active_index == -1) {
+			goto axis_done;
+		}
+
+		int desired = active_index +
 			roundf(scroll_factor * event->delta_discrete / WLR_POINTER_AXIS_DISCRETE_STEP);
 		if (desired < 0) {
 			desired = 0;
@@ -542,6 +614,7 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 		handled = true;
 	}
 
+axis_done:
 	state_erase_button(e, button);
 	free(dev_id);
 

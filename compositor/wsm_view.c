@@ -342,10 +342,33 @@ void view_maximize(struct wsm_view *view, bool maximize) {
 	}
 }
 
+bool view_can_maximize(struct wsm_view *view) {
+	if (!view || !view->impl->maximize) {
+		return false;
+	}
+
+	double min_width, max_width, min_height, max_height;
+	view_get_constraints(view, &min_width, &max_width, &min_height, &max_height);
+	if ((min_width > 0 && max_width < DBL_MAX && min_width == max_width) ||
+			(min_height > 0 && max_height < DBL_MAX && min_height == max_height)) {
+		return false;
+	}
+
+	return true;
+}
+
 void view_minimize(struct wsm_view *view, bool minimize) {
 	if (view->impl->minimize) {
 		view->impl->minimize(view, minimize);
 	}
+}
+
+bool view_can_minimize(struct wsm_view *view) {
+	if (!view || !view->impl->minimize) {
+		return false;
+	}
+
+	return true;
 }
 
 void view_close(struct wsm_view *view) {
@@ -455,6 +478,9 @@ static void handle_foreign_activate_request(
 	struct wsm_seat *seat;
 	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 		if (seat->seat == event->seat) {
+			if (!view->enabled) {
+				view_minimize(view, false);
+			}
 			if (container_is_scratchpad_hidden_or_child(view->container)) {
 				root_scratchpad_show(view->container);
 			}
@@ -608,7 +634,7 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
 		container->pending.workspace->fullscreen->view) {
 		struct wsm_container *fs = container->pending.workspace->fullscreen;
 		if (view_is_transient_for(view, fs->view)) {
-			container_set_fullscreen(fs, false);
+			container_set_fullscreen(fs, FULLSCREEN_NONE);
 		}
 	}
 
@@ -616,7 +642,7 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
 	container_update_representation(container);
 
 	if (fullscreen) {
-		container_set_fullscreen(view->container, true);
+		container_set_fullscreen(view->container, FULLSCREEN_WORKSPACE);
 		wsm_arrange_workspace_auto(view->container->pending.workspace);
 	} else {
 		if (container->pending.parent) {

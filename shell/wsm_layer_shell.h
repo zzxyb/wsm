@@ -46,6 +46,7 @@ struct wsm_layer_surface {
 	struct wlr_layer_surface_v1 *layer_surface_wlr; /**< Pointer to the WLR layer surface instance */
 
 	bool mapped; /**< Indicates whether the layer surface is currently mapped */
+	bool panel; /**< Whether this layer surface reserves maximized window space */
 };
 
 /**

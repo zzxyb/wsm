@@ -17,6 +17,8 @@
 #include "wsm_session_lock.h"
 #include "wsm_desktop.h"
 #include "wsm_brightness_control_v1.h"
+#include "wsm_transaction.h"
+#include "wsm_workspace.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -80,6 +82,28 @@
 #define WSM_WLR_FRACTIONAL_SCALE_V1_VERSION 1
 #define WSM_FOREIGN_TOPLEVEL_LIST_VERSION 1
 #define WINDOW_TITLE "Wsm Compositor"
+#define THEME_CHECK_INTERVAL_MS 1000
+
+static void mark_container_dirty(struct wsm_container *con, void *data) {
+	node_set_dirty(&con->node);
+}
+
+static void handle_desktop_theme_change(struct wl_listener *listener, void *data) {
+	if (!global_server.scene) {
+		return;
+	}
+
+	root_for_each_container(mark_container_dirty, NULL);
+	transaction_commit_dirty();
+}
+
+static int handle_theme_check_timer(void *data) {
+	struct wsm_server *server = data;
+	wsm_desktop_interface_refresh_system_settings(server->desktop_interface);
+	wl_event_source_timer_update(server->theme_check_timer,
+		THEME_CHECK_INTERVAL_MS);
+	return 0;
+}
 
 static void handle_pointer_constraint_set_region(struct wl_listener *listener,
 		void *data) {
@@ -266,6 +290,18 @@ bool wsm_server_init(struct wsm_server *server)
 	server->wlr_compositor = wlr_compositor_create(server->wl_display, 6, server->wlr_renderer);
 	wlr_subcompositor_create(server->wl_display);
 	server->scene = wsm_scene_create(server);
+	server->icon_theme_change.notify = handle_desktop_theme_change;
+	wl_signal_add(&server->desktop_interface->events.icon_theme_change,
+		&server->icon_theme_change);
+	server->color_theme_change.notify = handle_desktop_theme_change;
+	wl_signal_add(&server->desktop_interface->events.color_theme_change,
+		&server->color_theme_change);
+	server->theme_check_timer = wl_event_loop_add_timer(server->wl_event_loop,
+		handle_theme_check_timer, server);
+	if (server->theme_check_timer) {
+		wl_event_source_timer_update(server->theme_check_timer,
+			THEME_CHECK_INTERVAL_MS);
+	}
 
 	server->xcursor_manager = wlr_xcursor_manager_create(NULL, 24);
 	server->data_device_manager = wlr_data_device_manager_create(server->wl_display);
@@ -369,6 +405,18 @@ bool wsm_server_init(struct wsm_server *server)
 }
 
 void server_finish(struct wsm_server *server) {
+	if (server->icon_theme_change.link.next) {
+		wl_list_remove(&server->icon_theme_change.link);
+		wl_list_init(&server->icon_theme_change.link);
+	}
+	if (server->color_theme_change.link.next) {
+		wl_list_remove(&server->color_theme_change.link);
+		wl_list_init(&server->color_theme_change.link);
+	}
+	if (server->theme_check_timer) {
+		wl_event_source_remove(server->theme_check_timer);
+		server->theme_check_timer = NULL;
+	}
 #if HAVE_XWAYLAND
 	if (server->xwayland.xwayland_wlr) {
 		wlr_xwayland_destroy(server->xwayland.xwayland_wlr);

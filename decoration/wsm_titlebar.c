@@ -13,10 +13,24 @@ struct wsm_titlebar* wsm_titlebar_create() {
 		return NULL;
 	}
 
+	wl_list_init(&titlebar->min_button_clicked.link);
+	wl_list_init(&titlebar->max_button_clicked.link);
+	wl_list_init(&titlebar->close_button_clicked.link);
+
 	return titlebar;
 }
 
 void wsm_titlebar_destroy(struct wsm_titlebar *titlebar) {
+	if (!wl_list_empty(&titlebar->min_button_clicked.link)) {
+		wl_list_remove(&titlebar->min_button_clicked.link);
+	}
+	if (!wl_list_empty(&titlebar->max_button_clicked.link)) {
+		wl_list_remove(&titlebar->max_button_clicked.link);
+	}
+	if (!wl_list_empty(&titlebar->close_button_clicked.link)) {
+		wl_list_remove(&titlebar->close_button_clicked.link);
+	}
+
 	wlr_scene_node_destroy(&titlebar->tree->node);
 	free(titlebar);
 }

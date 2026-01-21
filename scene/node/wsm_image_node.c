@@ -95,7 +95,7 @@ static void render_backing_buffer(struct image_buffer *buffer) {
 	}
 
 	struct cairo_buffer *cairo_buffer =  buffer->buffer;
-	if (!cairo_buffer->surface) {
+	if (!cairo_buffer || !cairo_buffer->surface) {
 		return;
 	}
 
@@ -242,11 +242,30 @@ cairo_surface_t *create_cairo_surface_frome_file(const char *file_path) {
 		RsvgHandle *handle = rsvg_handle_new_from_file(file_path, &error);
 		if (error) {
 			wsm_log(WSM_ERROR, "Unable to read XPM file: %s, error: %s", file_path, error->message);
+			g_error_free(error);
 			return NULL;
 		}
 
-		gdouble  out_width, out_height;
-		rsvg_handle_get_intrinsic_size_in_pixels(handle, &out_width, &out_height);
+		gdouble out_width = 0;
+		gdouble out_height = 0;
+		bool has_size = rsvg_handle_get_intrinsic_size_in_pixels(handle,
+			&out_width, &out_height);
+		if (!has_size || out_width <= 0 || out_height <= 0) {
+			gboolean has_viewbox = false;
+			RsvgRectangle viewbox = {0};
+			rsvg_handle_get_intrinsic_dimensions(handle, NULL, NULL,
+				NULL, NULL, &has_viewbox, &viewbox);
+			if (has_viewbox && viewbox.width > 0 && viewbox.height > 0) {
+				out_width = viewbox.width;
+				out_height = viewbox.height;
+			}
+		}
+
+		if (out_width <= 0 || out_height <= 0) {
+			wsm_log(WSM_ERROR, "Unable to determine SVG size: %s", file_path);
+			g_object_unref(handle);
+			return NULL;
+		}
 
 		surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, out_width, out_height);
 		cairo_t *cr = cairo_create(surface);
@@ -351,30 +370,28 @@ void wsm_image_node_load(struct wsm_image_node *node, const char *file_path) {
 	free(image_buffer->path);
 	image_buffer->path = new_path;
 
-	if (!image_buffer->buffer_node->buffer) {
-		image_buffer->buffer = calloc(1, sizeof(struct cairo_buffer));
-		if (!image_buffer->buffer) {
-			wsm_log(WSM_ERROR, "Could not create cairo_buffer: allocation failed!");
-			return;
-		}
-	} else {
-		cairo_surface_destroy(image_buffer->buffer->surface);
-	}
-
-	image_buffer->buffer->surface = create_cairo_surface_frome_file(new_path);
-	if (!image_buffer->buffer->surface) {
+	struct cairo_buffer *buffer = calloc(1, sizeof(struct cairo_buffer));
+	if (!buffer) {
+		wsm_log(WSM_ERROR, "Could not create cairo_buffer: allocation failed!");
 		return;
 	}
 
-	image_buffer->image_width = cairo_image_surface_get_width(image_buffer->buffer->surface);
-	image_buffer->image_height = cairo_image_surface_get_height(image_buffer->buffer->surface);
-	cairo_surface_flush(image_buffer->buffer->surface);
+	buffer->surface = create_cairo_surface_frome_file(new_path);
+	if (!buffer->surface) {
+		free(buffer);
+		return;
+	}
 
-	wlr_buffer_init(&image_buffer->buffer->base, &cairo_buffer_impl,
-		cairo_image_surface_get_width(image_buffer->buffer->surface),
-		cairo_image_surface_get_height(image_buffer->buffer->surface));
-	wlr_scene_buffer_set_buffer(image_buffer->buffer_node, &image_buffer->buffer->base);
-	wlr_buffer_drop(&image_buffer->buffer->base);
+	image_buffer->buffer = buffer;
+	image_buffer->image_width = cairo_image_surface_get_width(buffer->surface);
+	image_buffer->image_height = cairo_image_surface_get_height(buffer->surface);
+	cairo_surface_flush(buffer->surface);
+
+	wlr_buffer_init(&buffer->base, &cairo_buffer_impl,
+		cairo_image_surface_get_width(buffer->surface),
+		cairo_image_surface_get_height(buffer->surface));
+	wlr_scene_buffer_set_buffer(image_buffer->buffer_node, &buffer->base);
+	wlr_buffer_drop(&buffer->base);
 }
 
 void wsm_image_node_set_size(struct wsm_image_node *node, int width, int height) {

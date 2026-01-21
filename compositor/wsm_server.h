@@ -90,6 +90,8 @@ struct wsm_server {
 
 	struct wl_listener pointer_constraint; /**< Listener for pointer constraint events */
 	struct wl_listener drm_lease_request; /**< Listener for DRM lease requests */
+	struct wl_listener icon_theme_change; /**< Listener for icon theme changes */
+	struct wl_listener color_theme_change; /**< Listener for color theme changes */
 
 	struct {
 		struct wl_listener new_lock; /**< Listener for new session lock events */
@@ -146,6 +148,7 @@ struct wsm_server {
 	struct wsm_transaction *pending_transaction; /**< Pointer to the pending transaction */
 	struct wsm_list *dirty_nodes; /**< List of dirty nodes */
 	struct wl_event_source *delayed_modeset; /**< Pointer to the delayed modeset event source */
+	struct wl_event_source *theme_check_timer; /**< Timer for polling system theme changes */
 	bool xwayland_enabled; /**< Flag indicating if XWayland is enabled */
 };
 

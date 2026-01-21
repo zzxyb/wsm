@@ -66,6 +66,7 @@ static struct wsm_layer_surface *wsm_layer_surface_create(
 	surface->scene = scene;
 	surface->layer_surface_wlr = scene->layer_surface;
 	surface->popups = popups;
+	surface->panel = scene->layer_surface->pending.exclusive_zone > 0;
 	surface->layer_surface_wlr->data = surface;
 
 	return surface;

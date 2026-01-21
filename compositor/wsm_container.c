@@ -1,3 +1,4 @@
+#include "../config.h"
 #include "wsm_container.h"
 #include "wsm_view.h"
 #include "wsm_log.h"
@@ -11,17 +12,19 @@
 #include "wsm_config.h"
 #include "wsm_common.h"
 #include "wsm_arrange.h"
+#include "wsm_transaction.h"
 #include "wsm_titlebar.h"
 #include "wsm_desktop.h"
+#include "wsm_layer_shell.h"
 #include "node/wsm_text_node.h"
 #include "wsm_titlebar.h"
 #include "wsm_xdg_decoration.h"
 #include "node/wsm_node_descriptor.h"
 #include "node/wsm_image_node.h"
+#include "node/wsm_button_node.h"
 
 #include <stdlib.h>
 #include <float.h>
-#include <limits.h>
 
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
@@ -30,6 +33,8 @@
 static bool container_is_focused(struct wsm_container *con, void *data) {
 	return con->current.focused;
 }
+
+struct wsm_output *container_floating_find_output(struct wsm_container *con);
 
 static bool container_has_focused_child(struct wsm_container *con) {
 	return container_find_child(con, container_is_focused, NULL);
@@ -78,6 +83,36 @@ static struct border_colors *container_get_current_colors(
 	return colors;
 }
 
+static struct border_colors *container_get_titlebar_colors(
+		struct wsm_container *con) {
+	struct border_colors *colors = container_get_current_colors(con);
+	static struct border_colors themed_colors;
+	themed_colors = *colors;
+
+	if (global_server.desktop_interface &&
+			global_server.desktop_interface->color_scheme == Dark) {
+		themed_colors.background[0] = 0.16f;
+		themed_colors.background[1] = 0.17f;
+		themed_colors.background[2] = 0.18f;
+		themed_colors.background[3] = colors->background[3];
+		themed_colors.text[0] = 0.96f;
+		themed_colors.text[1] = 0.96f;
+		themed_colors.text[2] = 0.96f;
+		themed_colors.text[3] = colors->text[3];
+	} else {
+		themed_colors.background[0] = 0.94f;
+		themed_colors.background[1] = 0.94f;
+		themed_colors.background[2] = 0.95f;
+		themed_colors.background[3] = colors->background[3];
+		themed_colors.text[0] = 0.10f;
+		themed_colors.text[1] = 0.11f;
+		themed_colors.text[2] = 0.12f;
+		themed_colors.text[3] = colors->text[3];
+	}
+
+	return &themed_colors;
+}
+
 static struct wlr_scene_rect *alloc_rect_node(struct wlr_scene_tree *parent,
 		bool *failed) {
 	if (*failed) {
@@ -92,6 +127,172 @@ static struct wlr_scene_rect *alloc_rect_node(struct wlr_scene_tree *parent,
 	}
 
 	return rect;
+}
+
+static char *titlebar_icon_path(const char *names[]) {
+	struct wsm_desktop_interface *desktop = global_server.desktop_interface;
+	for (size_t i = 0; names[i] != NULL; ++i) {
+		char *path = find_icon_file_frome_theme(desktop, names[i]);
+		if (path && path[0] != '\0') {
+			return path;
+		}
+		free(path);
+	}
+	return NULL;
+}
+
+static bool titlebar_load_button_icon(struct wsm_button_node *button,
+		const char *names[]) {
+	char *path = titlebar_icon_path(names);
+	if (!path) {
+		wsm_log(WSM_ERROR, "Could not find titlebar button icon");
+		return false;
+	}
+
+	wsm_button_node_load_icon(button, path);
+	free(path);
+	return true;
+}
+
+static void titlebar_update_button_icons(struct wsm_container *con) {
+	if (!con->title_bar || !con->title_bar->max_button) {
+		return;
+	}
+	if (con->title_bar->button_icons_loaded &&
+			con->title_bar->button_icons_maximized == con->maximized) {
+		return;
+	}
+
+	static const char *minimize_icons[] = {
+		"window-minimize-symbolic",
+		"window-minimize",
+		"window-minimize-pip",
+		NULL,
+	};
+	static const char *maximize_icons[] = {
+		"window-maximize-symbolic",
+		"window-maximize",
+		"preferences-system-windows-effect-maximize",
+		NULL,
+	};
+	static const char *restore_icons[] = {
+		"window-restore-symbolic",
+		"window-restore",
+		"view-restore",
+		"window-restore-pip",
+		NULL,
+	};
+	static const char *close_icons[] = {
+		"window-close",
+		"window-close-symbolic",
+		"view-close",
+		NULL,
+	};
+
+	bool loaded = true;
+	if (!con->title_bar->button_icons_loaded) {
+		loaded &= titlebar_load_button_icon(con->title_bar->min_button, minimize_icons);
+		loaded &= titlebar_load_button_icon(con->title_bar->close_button, close_icons);
+	}
+	loaded &= titlebar_load_button_icon(con->title_bar->max_button,
+		con->maximized ? restore_icons : maximize_icons);
+
+	if (loaded) {
+		con->title_bar->button_icons_loaded = true;
+		con->title_bar->button_icons_maximized = con->maximized;
+	}
+}
+
+static void handle_min_button_clicked(struct wl_listener *listener, void *data) {
+	struct wsm_titlebar *titlebar =
+		wl_container_of(listener, titlebar, min_button_clicked);
+	if (titlebar->container && titlebar->container->view &&
+			view_can_minimize(titlebar->container->view)) {
+		container_minimize(titlebar->container);
+	}
+}
+
+static void handle_max_button_clicked(struct wl_listener *listener, void *data) {
+	struct wsm_titlebar *titlebar =
+		wl_container_of(listener, titlebar, max_button_clicked);
+	if (titlebar->container && titlebar->container->view &&
+			view_can_maximize(titlebar->container->view)) {
+		container_set_maximized(titlebar->container,
+			!titlebar->container->maximized);
+		transaction_commit_dirty();
+	}
+}
+
+static void handle_close_button_clicked(struct wl_listener *listener, void *data) {
+	struct wsm_titlebar *titlebar =
+		wl_container_of(listener, titlebar, close_button_clicked);
+	if (titlebar->container && titlebar->container->view) {
+		view_close(titlebar->container->view);
+	}
+}
+
+static void create_titlebar_buttons(struct wsm_container *con, bool *failed) {
+	if (*failed || !con->view) {
+		return;
+	}
+
+	float hover_color[3] = {0.f, 0.f, 0.f};
+	static const char *minimize_icons[] = {
+		"window-minimize-symbolic",
+		"window-minimize",
+		"window-minimize-pip",
+		NULL,
+	};
+	static const char *maximize_icons[] = {
+		"window-maximize-symbolic",
+		"window-maximize",
+		"preferences-system-windows-effect-maximize",
+		NULL,
+	};
+	static const char *close_icons[] = {
+		"window-close",
+		"window-close-symbolic",
+		"view-close",
+		NULL,
+	};
+	char *min_path = titlebar_icon_path(minimize_icons);
+	char *max_path = titlebar_icon_path(maximize_icons);
+	char *close_path = titlebar_icon_path(close_icons);
+	if (!min_path || !max_path || !close_path) {
+		wsm_log(WSM_ERROR, "Could not find titlebar button system icons");
+		*failed = true;
+		goto cleanup;
+	}
+
+	struct wsm_titlebar *titlebar = con->title_bar;
+	titlebar->min_button = wsm_button_node_create(titlebar->tree, 0, 0,
+		min_path, hover_color);
+	titlebar->max_button = wsm_button_node_create(titlebar->tree, 0, 0,
+		max_path, hover_color);
+	titlebar->close_button = wsm_button_node_create(titlebar->tree, 0, 0,
+		close_path, hover_color);
+
+	if (!titlebar->min_button || !titlebar->max_button || !titlebar->close_button) {
+		*failed = true;
+		goto cleanup;
+	}
+	titlebar->button_icons_loaded = !con->maximized;
+	titlebar->button_icons_maximized = false;
+
+	titlebar->min_button_clicked.notify = handle_min_button_clicked;
+	titlebar->max_button_clicked.notify = handle_max_button_clicked;
+	titlebar->close_button_clicked.notify = handle_close_button_clicked;
+	wl_signal_add(&titlebar->min_button->events.clicked,
+		&titlebar->min_button_clicked);
+	wl_signal_add(&titlebar->max_button->events.clicked,
+		&titlebar->max_button_clicked);
+	wl_signal_add(&titlebar->close_button->events.clicked,
+		&titlebar->close_button_clicked);
+
+cleanup:
+	free(min_path);
+	free(max_path);
+	free(close_path);
 }
 
 static void handle_output_enter(struct wl_listener *listener, void *data) {
@@ -129,12 +330,19 @@ struct wsm_container *container_create(struct wsm_view *view) {
 	}
 
 	node_init(&c->node, N_CONTAINER, c);
+	c->view = view;
 
 	bool failed = false;
 	c->scene_tree = alloc_scene_tree(global_server.scene->staging, &failed);
 	c->title_bar = wsm_titlebar_create();
-	c->title_bar->tree = alloc_scene_tree(c->scene_tree, &failed);
-	c->title_bar->background = alloc_rect_node(c->title_bar->tree, &failed);
+	if (!c->title_bar) {
+		failed = true;
+	} else {
+		c->title_bar->container = c;
+		c->title_bar->tree = alloc_scene_tree(c->scene_tree, &failed);
+		c->title_bar->background = alloc_rect_node(c->title_bar->tree, &failed);
+		create_titlebar_buttons(c, &failed);
+	}
 	c->sensing.tree = alloc_scene_tree(c->scene_tree, &failed);
 	c->content_tree = alloc_scene_tree(c->sensing.tree, &failed);
 
@@ -178,7 +386,6 @@ struct wsm_container *container_create(struct wsm_view *view) {
 	}
 
 	c->pending.layout = L_NONE;
-	c->view = view;
 	c->alpha = 1.0f;
 
 	wl_signal_emit_mutable(&global_server.scene->events.new_node, &c->node);
@@ -335,6 +542,172 @@ void container_raise_floating(struct wsm_container *con) {
 		wsm_list_move_to_end(floater->pending.workspace->floating, floater);
 		node_set_dirty(&floater->pending.workspace->node);
 	}
+}
+
+static void container_set_content_geometry_from_box(struct wsm_container *con) {
+	int border_width = 0;
+	int title_height = 0;
+
+	if (con->pending.border != B_CSD && !con->pending.fullscreen_mode) {
+		border_width = get_max_thickness(con->pending) *
+			(con->pending.border != B_NONE);
+		title_height = con->pending.border == B_NORMAL ?
+			(int)container_titlebar_height() : border_width;
+	}
+
+	int border_top = con->pending.border_top ? border_width : 0;
+	int border_bottom = con->pending.border_bottom ? border_width : 0;
+	int border_left = con->pending.border_left ? border_width : 0;
+	int border_right = con->pending.border_right ? border_width : 0;
+	int top = title_height + border_top;
+
+	con->pending.content_x = con->pending.x + border_left;
+	con->pending.content_y = con->pending.y + top;
+	con->pending.content_width = MAX(con->pending.width - border_left - border_right, 0);
+	con->pending.content_height = MAX(con->pending.height - top - border_bottom, 0);
+}
+
+static void shrink_area_for_panel(struct wlr_box *area, struct wlr_box panel,
+		uint32_t anchor) {
+	struct wlr_box intersection;
+	if (!wlr_box_intersection(&intersection, area, &panel)) {
+		return;
+	}
+
+	bool horizontal = intersection.width >= area->width;
+	bool vertical = intersection.height >= area->height;
+	if (horizontal && (anchor & ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP)) {
+		int delta = panel.y + panel.height - area->y;
+		if (delta > 0 && delta < area->height) {
+			area->y += delta;
+			area->height -= delta;
+		}
+	} else if (horizontal && (anchor & ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM)) {
+		int delta = area->y + area->height - panel.y;
+		if (delta > 0 && delta < area->height) {
+			area->height -= delta;
+		}
+	} else if (vertical && (anchor & ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT)) {
+		int delta = panel.x + panel.width - area->x;
+		if (delta > 0 && delta < area->width) {
+			area->x += delta;
+			area->width -= delta;
+		}
+	} else if (vertical && (anchor & ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT)) {
+		int delta = area->x + area->width - panel.x;
+		if (delta > 0 && delta < area->width) {
+			area->width -= delta;
+		}
+	}
+}
+
+static void shrink_area_for_panel_layer(struct wlr_scene_tree *tree,
+		struct wlr_box *area) {
+	struct wlr_scene_node *node;
+	wl_list_for_each(node, &tree->children, link) {
+		struct wsm_layer_surface *surface = wsm_scene_descriptor_try_get(node,
+			WSM_SCENE_DESC_LAYER_SHELL);
+		if (!surface || !surface->panel || !surface->mapped) {
+			continue;
+		}
+
+		struct wlr_layer_surface_v1 *layer_surface = surface->layer_surface_wlr;
+		if (!layer_surface->surface || !layer_surface->surface->mapped) {
+			continue;
+		}
+
+		int lx = 0, ly = 0;
+		if (!wlr_scene_node_coords(&surface->scene->tree->node, &lx, &ly)) {
+			continue;
+		}
+
+		struct wlr_box panel = {
+			.x = lx,
+			.y = ly,
+			.width = layer_surface->current.actual_width,
+			.height = layer_surface->current.actual_height,
+		};
+		shrink_area_for_panel(area, panel, layer_surface->current.anchor);
+	}
+}
+
+static struct wlr_box container_maximize_area(struct wsm_container *con) {
+	struct wsm_output *output = container_floating_find_output(con);
+	struct wlr_box area = {0};
+	if (!output) {
+		return area;
+	}
+
+	output_get_box(output, &area);
+	shrink_area_for_panel_layer(output->layers.shell_background, &area);
+	shrink_area_for_panel_layer(output->layers.shell_bottom, &area);
+	shrink_area_for_panel_layer(output->layers.shell_top, &area);
+	shrink_area_for_panel_layer(output->layers.shell_overlay, &area);
+	return area;
+}
+
+void container_set_maximized(struct wsm_container *con, bool maximized) {
+	con = container_toplevel_ancestor(con);
+	if (!con->view || !container_is_floating(con) || !view_can_maximize(con->view)) {
+		return;
+	}
+
+	if (con->maximized == maximized) {
+		return;
+	}
+
+	if (maximized) {
+		struct wlr_box area = container_maximize_area(con);
+		if (wlr_box_empty(&area)) {
+			return;
+		}
+
+		con->saved_maximized_x = con->pending.x;
+		con->saved_maximized_y = con->pending.y;
+		con->saved_maximized_width = con->pending.width;
+		con->saved_maximized_height = con->pending.height;
+		con->saved_maximized_content_x = con->pending.content_x;
+		con->saved_maximized_content_y = con->pending.content_y;
+		con->saved_maximized_content_width = con->pending.content_width;
+		con->saved_maximized_content_height = con->pending.content_height;
+
+		con->pending.x = area.x;
+		con->pending.y = area.y;
+		con->pending.width = area.width;
+		con->pending.height = area.height;
+		container_set_content_geometry_from_box(con);
+	} else {
+		con->pending.x = con->saved_maximized_x;
+		con->pending.y = con->saved_maximized_y;
+		con->pending.width = con->saved_maximized_width;
+		con->pending.height = con->saved_maximized_height;
+		con->pending.content_x = con->saved_maximized_content_x;
+		con->pending.content_y = con->saved_maximized_content_y;
+		con->pending.content_width = con->saved_maximized_content_width;
+		con->pending.content_height = con->saved_maximized_content_height;
+	}
+
+	con->maximized = maximized;
+	view_maximize(con->view, maximized);
+	container_raise_floating(con);
+	node_set_dirty(&con->node);
+	if (con->pending.workspace) {
+		node_set_dirty(&con->pending.workspace->node);
+	}
+	container_end_mouse_operation(con);
+}
+
+void container_minimize(struct wsm_container *con) {
+	con = container_toplevel_ancestor(con);
+	if (!con->view || !view_can_minimize(con->view)) {
+		return;
+	}
+
+	if (con->maximized) {
+		container_set_maximized(con, false);
+	}
+	view_minimize(con->view, true);
+	transaction_commit_dirty();
 }
 
 static void set_fullscreen(struct wsm_container *con, bool enable) {
@@ -711,7 +1084,7 @@ void container_update_title_bar(struct wsm_container *con) {
 		return;
 	}
 
-	struct border_colors *colors = container_get_current_colors(con);
+	struct border_colors *colors = container_get_titlebar_colors(con);
 
 	if (con->title_bar->title_text) {
 		wlr_scene_node_destroy(con->title_bar->title_text->node_wlr);
@@ -1031,7 +1404,7 @@ static void scene_rect_set_color(struct wlr_scene_rect *rect,
 }
 
 void container_update(struct wsm_container *con) {
-	struct border_colors *colors = container_get_current_colors(con);
+	struct border_colors *colors = container_get_titlebar_colors(con);
 	float alpha = con->alpha;
 	scene_rect_set_color(con->title_bar->background, colors->background, alpha);
 
@@ -1045,6 +1418,29 @@ void container_update(struct wsm_container *con) {
 	if (con->title_bar->title_text) {
 		wsm_text_node_set_color(con->title_bar->title_text, colors->text);
 		wsm_text_node_set_background(con->title_bar->title_text, global_config.text_background_color);
+	}
+
+	if (con->title_bar->close_button) {
+		bool can_minimize = con->view && view_can_minimize(con->view);
+		bool can_maximize = con->view && view_can_maximize(con->view);
+		float hover_color[3] = {
+			colors->indicator[0],
+			colors->indicator[1],
+			colors->indicator[2],
+		};
+		wlr_scene_node_set_enabled(&con->title_bar->min_button->tree->node,
+			can_minimize);
+		wlr_scene_node_set_enabled(&con->title_bar->max_button->tree->node,
+			can_maximize);
+		wsm_button_node_set_clickable(con->title_bar->min_button, can_minimize);
+		wsm_button_node_set_clickable(con->title_bar->max_button, can_maximize);
+		wsm_button_node_set_alpha(con->title_bar->min_button, alpha);
+		wsm_button_node_set_alpha(con->title_bar->max_button, alpha);
+		wsm_button_node_set_alpha(con->title_bar->close_button, alpha);
+		titlebar_update_button_icons(con);
+		wsm_button_node_set_color(con->title_bar->min_button, hover_color);
+		wsm_button_node_set_color(con->title_bar->max_button, hover_color);
+		wsm_button_node_set_color(con->title_bar->close_button, hover_color);
 	}
 }
 

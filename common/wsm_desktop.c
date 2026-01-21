@@ -6,14 +6,116 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <dirent.h>
+
+#include <gio/gio.h>
 
 #define MAX_PATH_LENGTH 2048
 
 #define SYSTEM_ICONS "/usr/share/icons/"
 #define SYSTEM_APPLICATIONS "/usr/share/applications/"
+#define DEFAULT_ICON_THEME "Adwaita"
+
+static char *read_gsettings_string(const char *schema_name, const char *key) {
+	GSettingsSchemaSource *source = g_settings_schema_source_get_default();
+	if (!source) {
+		return NULL;
+	}
+
+	GSettingsSchema *schema =
+		g_settings_schema_source_lookup(source, schema_name, true);
+	if (!schema) {
+		return NULL;
+	}
+
+	if (!g_settings_schema_has_key(schema, key)) {
+		g_settings_schema_unref(schema);
+		return NULL;
+	}
+
+	GSettings *settings = g_settings_new(schema_name);
+	g_settings_schema_unref(schema);
+	if (!settings) {
+		return NULL;
+	}
+
+	char *value = g_settings_get_string(settings, key);
+	g_object_unref(settings);
+	if (!value || value[0] == '\0') {
+		g_free(value);
+		return NULL;
+	}
+
+	char *result = strdup(value);
+	g_free(value);
+	return result;
+}
+
+static char *get_system_icon_theme(void) {
+	char *theme = read_gsettings_string("org.gnome.desktop.interface",
+		"icon-theme");
+	if (theme) {
+		return theme;
+	}
+
+	return strdup(DEFAULT_ICON_THEME);
+}
+
+static bool string_contains_case(const char *value, const char *needle) {
+	if (!value || !needle) {
+		return false;
+	}
+
+	size_t needle_len = strlen(needle);
+	if (needle_len == 0) {
+		return true;
+	}
+
+	for (const char *p = value; *p; ++p) {
+		if (strncasecmp(p, needle, needle_len) == 0) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static enum wsm_color_scheme get_system_color_scheme(void) {
+	char *value = read_gsettings_string("org.gnome.desktop.interface",
+		"color-scheme");
+	if (value) {
+		enum wsm_color_scheme scheme =
+			string_contains_case(value, "dark") ? Dark : Light;
+		free(value);
+		return scheme;
+	}
+
+	value = read_gsettings_string("org.gnome.desktop.interface",
+		"gtk-theme");
+	if (value) {
+		enum wsm_color_scheme scheme =
+			string_contains_case(value, "dark") ? Dark : Light;
+		free(value);
+		return scheme;
+	}
+
+	return Light;
+}
+
+void wsm_desktop_interface_refresh_system_settings(
+		struct wsm_desktop_interface *desktop) {
+	if (!desktop) {
+		return;
+	}
+
+	char *icon_theme = get_system_icon_theme();
+	set_icon_theme(desktop, icon_theme ? icon_theme : DEFAULT_ICON_THEME);
+	free(icon_theme);
+	set_color_scheme(desktop, get_system_color_scheme());
+}
 
 struct wsm_desktop_interface *wsm_desktop_interface_create() {
 	struct wsm_desktop_interface *desktop =
@@ -33,9 +135,8 @@ struct wsm_desktop_interface *wsm_desktop_interface_create() {
 
 	// TODO: use config
 	set_style_name(desktop, "Breeze");
-	set_icon_theme(desktop, "breeze");
+	wsm_desktop_interface_refresh_system_settings(desktop);
 	set_font_name(desktop, "Noto Sans 10");
-	set_color_scheme(desktop, Light);
 	set_cursor_theme(desktop, "breeze_cursors");
 	set_cursor_size(desktop, 24);
 
@@ -242,12 +343,25 @@ static const char *icon_sizes[] = {
 //"24",
 //"32",
 //"64",
-static const char *systemd_icon_sizes[] = {
+static const char *system_icon_sizes[] = {
+	"16",
+	"16x16",
+	"22",
+	"22x22",
+	"24",
+	"24x24",
+	"32",
+	"32x32",
 	"48",
+	"48x48",
+	"64",
+	"64x64",
+	"scalable",
+	"symbolic",
 	NULL
 };
 
-static const char *system_icon_extensions[] = {"svg", NULL};
+static const char *system_icon_extensions[] = {"svg", "png", "xpm", NULL};
 static const char *icon_extensions[] = {"png", "svg", "xpm", NULL};
 
 void find_app_icon(const char *icon_name, char *icon_path,
@@ -316,21 +430,55 @@ void find_system_icon(const char *icon_name, char *icon_path, char *icon_theme, 
 	};
 
 	const char *icon_subdirs[] = {
-		icon_theme,
+		icon_theme ? icon_theme : DEFAULT_ICON_THEME,
+		"hicolor",
+		"breeze-dark",
+		"breeze",
+		"Adwaita",
+		"AdwaitaLegacy",
+		NULL
+	};
+	const char *icon_contexts[] = {
+		"actions",
+		"applets",
+		"apps",
+		"status",
+		"places",
+		"ui",
 		NULL
 	};
 
 	for (size_t i = 0; icon_dirs[i] != NULL; ++i) {
 		char directory[512];
 		for (size_t j = 0; icon_subdirs[j] != NULL; ++j) {
-			for (size_t k = 0; systemd_icon_sizes[k] != NULL; ++k) {
-				snprintf(directory, sizeof(directory), "%s/%s/apps/%s",
-					icon_dirs[i], icon_subdirs[j], systemd_icon_sizes[k]);
+			for (size_t k = 0; system_icon_sizes[k] != NULL; ++k) {
+				for (size_t l = 0; icon_contexts[l] != NULL; ++l) {
+					snprintf(directory, sizeof(directory), "%s/%s/%s/%s",
+						icon_dirs[i], icon_subdirs[j], icon_contexts[l],
+						system_icon_sizes[k]);
 
-				find_icon_in_directory(directory, icon_name, system_icon_extensions, icon_path, size);
-				if (icon_path[0] != '\0') {
-					return;
+					find_icon_in_directory(directory, icon_name, system_icon_extensions, icon_path, size);
+					if (icon_path[0] != '\0') {
+						return;
+					}
+
+					snprintf(directory, sizeof(directory), "%s/%s/%s/%s",
+						icon_dirs[i], icon_subdirs[j], system_icon_sizes[k],
+						icon_contexts[l]);
+
+					find_icon_in_directory(directory, icon_name, system_icon_extensions, icon_path, size);
+					if (icon_path[0] != '\0') {
+						return;
+					}
 				}
+			}
+
+			snprintf(directory, sizeof(directory), "%s/%s",
+				icon_dirs[i], icon_subdirs[j]);
+			find_icon_in_directory(directory, icon_name,
+				system_icon_extensions, icon_path, size);
+			if (icon_path[0] != '\0') {
+				return;
 			}
 		}
 	}
