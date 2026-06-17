@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <wlr/util/edges.h>
+
 /**
  * @brief Transactions enable atomic layout updates in the WSM.
  *
@@ -36,6 +38,36 @@ void transaction_commit_dirty(void);
  * has already taken effect.
  */
 void transaction_commit_dirty_client(void);
+
+/**
+ * @brief Updates the currently queued resize instruction for a view.
+ *
+ * This is used when a client commits a size different from the configure
+ * request before the transaction is applied. The instruction is updated in
+ * place so newer pointer-motion pending state is not disturbed.
+ *
+ * @param view Pointer to the wsm_view instance to update.
+ * @return true if an existing instruction was updated, false otherwise.
+ */
+bool transaction_update_view_resize_state(struct wsm_view *view,
+	enum wlr_edges edges, double geo_right, double geo_bottom,
+	int geo_x, int geo_y, int geo_width, int geo_height);
+
+bool transaction_update_view_resize_state_by_serial(struct wsm_view *view,
+	uint32_t serial, enum wlr_edges edges, double geo_right,
+	double geo_bottom, int geo_x, int geo_y, int geo_width,
+	int geo_height);
+
+/**
+ * @brief Marks the current instruction for a view as ready.
+ *
+ * This should only be used after the caller has matched the commit to the
+ * pending configure by other means.
+ *
+ * @param view Pointer to the wsm_view instance that is ready.
+ * @return true if an existing instruction was marked ready, false otherwise.
+ */
+bool transaction_notify_view_ready(struct wsm_view *view);
 
 /**
  * @brief Notifies the transaction system that a view is ready for the new layout.

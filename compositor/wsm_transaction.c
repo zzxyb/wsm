@@ -411,6 +411,77 @@ static void set_instruction_ready(
 	transaction_progress();
 }
 
+static void state_set_geometry_from_content(struct wsm_container_state *state) {
+	size_t border_width = 0;
+	size_t top = 0;
+
+	if (state->border != B_CSD && !state->fullscreen_mode) {
+		border_width = get_max_thickness(*state) * (state->border != B_NONE);
+		top = state->border == B_NORMAL ?
+			container_titlebar_height() : border_width;
+	}
+
+	state->x = state->content_x - border_width;
+	state->y = state->content_y - top - border_width;
+	state->width = state->content_width + border_width * 2;
+	state->height = top + state->content_height + border_width * 2;
+}
+
+static bool transaction_update_resize_instruction(
+		struct wsm_transaction_instruction *instruction,
+		enum wlr_edges edges, double geo_right, double geo_bottom,
+		int geo_x, int geo_y, int geo_width, int geo_height) {
+	struct wsm_container_state *state = &instruction->container_state;
+	state->content_width = geo_width;
+	state->content_height = geo_height;
+	if (edges & WLR_EDGE_LEFT) {
+		state->content_x = geo_right - geo_width - geo_x;
+	}
+	if (edges & WLR_EDGE_TOP) {
+		state->content_y = geo_bottom - geo_height - geo_y;
+	}
+	state_set_geometry_from_content(state);
+	return true;
+}
+
+bool transaction_update_view_resize_state(struct wsm_view *view,
+		enum wlr_edges edges, double geo_right, double geo_bottom,
+		int geo_x, int geo_y, int geo_width, int geo_height) {
+	struct wsm_transaction_instruction *instruction =
+		view->container->node.instruction;
+	if (instruction == NULL) {
+		return false;
+	}
+
+	return transaction_update_resize_instruction(instruction, edges,
+		geo_right, geo_bottom, geo_x, geo_y, geo_width, geo_height);
+}
+
+bool transaction_update_view_resize_state_by_serial(struct wsm_view *view,
+		uint32_t serial, enum wlr_edges edges, double geo_right,
+		double geo_bottom, int geo_x, int geo_y, int geo_width,
+		int geo_height) {
+	struct wsm_transaction_instruction *instruction =
+		view->container->node.instruction;
+	if (instruction == NULL || instruction->serial != serial) {
+		return false;
+	}
+
+	return transaction_update_resize_instruction(instruction, edges,
+		geo_right, geo_bottom, geo_x, geo_y, geo_width, geo_height);
+}
+
+bool transaction_notify_view_ready(struct wsm_view *view) {
+	struct wsm_transaction_instruction *instruction =
+		view->container->node.instruction;
+	if (instruction == NULL) {
+		return false;
+	}
+
+	set_instruction_ready(instruction);
+	return true;
+}
+
 bool transaction_notify_view_ready_by_serial(struct wsm_view *view,
 		uint32_t serial) {
 	struct wsm_transaction_instruction *instruction =

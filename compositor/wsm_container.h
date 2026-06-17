@@ -383,6 +383,12 @@ void container_floating_translate(struct wsm_container *con,
 	double x_amount, double y_amount);
 
 /**
+ * @brief Resizes a floating container to match its natural size
+ * @param con Pointer to the wsm_container to resize
+ */
+void container_floating_resize_to_natural_size(struct wsm_container *con);
+
+/**
  * @brief Resizes and centers a floating container
  * @param con Pointer to the wsm_container to resize and center
  */

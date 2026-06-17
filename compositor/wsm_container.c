@@ -869,7 +869,7 @@ void container_floating_translate(struct wsm_container *con,
 	node_set_dirty(&con->node);
 }
 
-static void floating_natural_resize(struct wsm_container *con) {
+void container_floating_resize_to_natural_size(struct wsm_container *con) {
 	int min_width = 100, max_width = INT_MAX, min_height = 100, max_height = INT_MAX;
 
 	if (!con->view) {
@@ -888,7 +888,7 @@ static void floating_natural_resize(struct wsm_container *con) {
 void container_floating_resize_and_center(struct wsm_container *con) {
 	struct wsm_workspace *ws = con->pending.workspace;
 	if (!ws) {
-		floating_natural_resize(con);
+		container_floating_resize_to_natural_size(con);
 		return;
 	}
 
@@ -903,7 +903,7 @@ void container_floating_resize_and_center(struct wsm_container *con) {
 		return;
 	}
 
-	floating_natural_resize(con);
+	container_floating_resize_to_natural_size(con);
 	if (!con->view) {
 		if (con->pending.width > ws->width || con->pending.height > ws->height) {
 			con->pending.x = ob.x + (ob.width - con->pending.width) / 2;
