@@ -243,17 +243,42 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 		new_geo.height != view->geometry.height ||
 		new_geo.x != view->geometry.x ||
 		new_geo.y != view->geometry.y;
+	enum wlr_edges resize_edges = WLR_EDGE_NONE;
+	double resize_geo_right = 0.0, resize_geo_bottom = 0.0;
+	bool resizing = seatop_resize_floating_get_anchor(view->container,
+		&resize_edges, &resize_geo_right, &resize_geo_bottom);
+	bool deferred_resize = seatop_resize_floating_is_deferred(view->container);
+	bool resize_instruction_updated = resizing && !deferred_resize &&
+		transaction_update_view_resize_state_by_serial(view,
+			xdg_surface->current.configure_serial, resize_edges,
+			resize_geo_right, resize_geo_bottom,
+			new_geo.x, new_geo.y, new_geo.width, new_geo.height);
 
 	if (new_size) {
 		memcpy(&view->geometry, &new_geo, sizeof(struct wlr_box));
-		if (container_is_floating(view->container) &&
-				(xdg_surface->initial_commit && view->using_csd)) {
-			view_update_size(view);
-			if (view->container->current.width) {
-				wlr_xdg_toplevel_set_size(view->wlr_xdg_toplevel, view->geometry.width,
-					view->geometry.height);
+	}
+
+	if (deferred_resize &&
+			seatop_resize_floating_deferred_commit(view->container)) {
+		transaction_commit_dirty_client();
+		view_center_and_clip_surface(view);
+		return;
+	}
+
+	if (new_size) {
+		if (container_is_floating(view->container)) {
+			if (resize_instruction_updated) {
+				// The waiting transaction now matches the committed size.
+			} else if (resizing) {
+				// Stale resize commit for another configure; leave pending alone.
+			} else if (xdg_surface->initial_commit && view->using_csd) {
+				view_update_size(view);
+				if (view->container->current.width) {
+					wlr_xdg_toplevel_set_size(view->wlr_xdg_toplevel, view->geometry.width,
+						view->geometry.height);
+				}
+				transaction_commit_dirty_client();
 			}
-			transaction_commit_dirty_client();
 		}
 
 		view_center_and_clip_surface(view);

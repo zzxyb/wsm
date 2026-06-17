@@ -375,6 +375,16 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 
 	bool new_size = new_geo.width != view->geometry.width ||
 		new_geo.height != view->geometry.height;
+	bool resize_commit_ready = false;
+	enum wlr_edges resize_edges = WLR_EDGE_NONE;
+	double resize_geo_right = 0.0, resize_geo_bottom = 0.0;
+	if (seatop_resize_floating_get_anchor(view->container, &resize_edges,
+			&resize_geo_right, &resize_geo_bottom) &&
+			transaction_update_view_resize_state(view, resize_edges,
+				resize_geo_right, resize_geo_bottom,
+				new_geo.x, new_geo.y, new_geo.width, new_geo.height)) {
+		resize_commit_ready = true;
+	}
 
 	if (new_size) {
 		// The client changed its surface size in this commit. For floating
@@ -382,16 +392,21 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 		// we only recenter the surface.
 		memcpy(&view->geometry, &new_geo, sizeof(struct wlr_box));
 		if (container_is_floating(view->container)) {
-			view_update_size(view);
-			transaction_commit_dirty_client();
+			if (!resize_commit_ready) {
+				view_update_size(view);
+				seatop_resize_floating_update_position(view->container);
+				transaction_commit_dirty_client();
+			}
 		}
 
 		view_center_and_clip_surface(view);
 	}
 
 	if (view->container->node.instruction) {
-		bool successful = transaction_notify_view_ready_by_geometry(view,
-			xsurface->x, xsurface->y, state->width, state->height);
+		bool successful = resize_commit_ready ?
+			transaction_notify_view_ready(view) :
+			transaction_notify_view_ready_by_geometry(view,
+				xsurface->x, xsurface->y, state->width, state->height);
 
 		if (view->saved_surface_tree && !successful) {
 			view_send_frame_done(view);
