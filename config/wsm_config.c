@@ -22,7 +22,7 @@ void wsm_config_init() {
 	global_config.border = B_NORMAL;
 	global_config.floating_border = B_NORMAL;
 	global_config.floating_border_thickness = 2;
-	global_config.sensing_border_thickness = 8;
+	global_config.sensing_border_thickness = 5;
 
 	global_config.floating_maximum_width = 0;
 	global_config.floating_maximum_height = 0;

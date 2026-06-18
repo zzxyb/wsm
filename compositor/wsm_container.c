@@ -385,7 +385,6 @@ struct wsm_container *container_create(struct wsm_view *view) {
 		c->current.children = wsm_list_create();
 	}
 
-	c->pending.layout = L_NONE;
 	c->alpha = 1.0f;
 
 	wl_signal_emit_mutable(&global_server.scene->events.new_node, &c->node);
@@ -1006,16 +1005,14 @@ struct wsm_list *container_get_siblings(struct wsm_container *container) {
 
 void container_update_representation(struct wsm_container *con) {
 	if (!con->view) {
-		size_t len = container_build_representation(con->pending.layout,
-			con->pending.children, NULL);
+		size_t len = container_build_representation(con->pending.children, NULL);
 		free(con->formatted_title);
 		con->formatted_title = calloc(len + 1, sizeof(char));
 		if (!con->formatted_title) {
 			wsm_log(WSM_ERROR, "Unable to allocate title string: allocation failed!");
 			return;
 		}
-		container_build_representation(con->pending.layout, con->pending.children,
-			con->formatted_title);
+		container_build_representation(con->pending.children, con->formatted_title);
 
 		if (con->title_bar->title_text) {
 			wsm_text_node_set_text(con->title_bar->title_text, con->formatted_title);
@@ -1031,26 +1028,9 @@ void container_update_representation(struct wsm_container *con) {
 	}
 }
 
-size_t container_build_representation(enum wsm_container_layout layout,
-		struct wsm_list *children, char *buffer) {
+size_t container_build_representation(struct wsm_list *children, char *buffer) {
 	size_t len = 2;
-	switch (layout) {
-	case L_HORIZ:
-		lenient_strcat(buffer, "V[");
-		break;
-	case L_HORIZ_1_V_2:
-		lenient_strcat(buffer, "H[");
-		break;
-	case L_HORIZ_2_V_1:
-		lenient_strcat(buffer, "T[");
-		break;
-	case L_GRID:
-		lenient_strcat(buffer, "S[");
-		break;
-	case L_NONE:
-		lenient_strcat(buffer, "D[");
-		break;
-	}
+	lenient_strcat(buffer, "D[");
 	for (int i = 0; i < children->length; ++i) {
 		if (i != 0) {
 			++len;
@@ -1123,16 +1103,6 @@ void floating_fix_coordinates(struct wsm_container *con,
 
 		wsm_log(WSM_DEBUG, "Transformed container %p to coords (%f, %f)", con, con->pending.x, con->pending.y);
 	}
-}
-
-enum wsm_container_layout container_parent_layout(struct wsm_container *con) {
-	if (con->pending.parent) {
-		return con->pending.parent->pending.layout;
-	}
-	if (con->pending.workspace) {
-		return con->pending.workspace->layout;
-	}
-	return L_NONE;
 }
 
 static void container_fullscreen_workspace(struct wsm_container *con) {

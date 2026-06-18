@@ -510,8 +510,6 @@ void output_enable(struct wsm_output *output) {
 		free(ws_name);
 	}
 
-	ws->layout = L_NONE;
-
 	input_manager_configure_xcursor();
 
 	wl_signal_emit_mutable(&global_server.scene->events.new_node, &output->node);

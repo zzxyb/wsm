@@ -8,6 +8,7 @@
 #include "wsm_container.h"
 #include "wsm_input_manager.h"
 #include "wsm_transaction.h"
+#include "wsm_window_snap.h"
 #include "wsm_log.h"
 
 #include <wlr/types/wlr_seat.h>
@@ -27,6 +28,8 @@ struct seatop_resize_floating_event {
 	enum wlr_edges edge;
 	bool preserve_ratio;
 	bool deferred;
+	bool lock_width;
+	bool lock_height;
 };
 
 static const struct wsm_seatop_impl seatop_impl;
@@ -226,6 +229,13 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 		height = fmax(height, 1);
     }
 
+	if (e->lock_width) {
+		width = e->ref_width;
+	}
+	if (e->lock_height) {
+		height = e->ref_height;
+	}
+
 	grow_width = width - e->ref_width;
 	grow_height = height - e->ref_height;
 
@@ -286,6 +296,12 @@ static const struct wsm_seatop_impl seatop_impl = {
 
 void seatop_begin_resize_floating(struct wsm_seat *seat,
 		struct wsm_container *con, enum wlr_edges edge) {
+	seatop_begin_resize_floating_locked(seat, con, edge, false, false);
+}
+
+void seatop_begin_resize_floating_locked(struct wsm_seat *seat,
+		struct wsm_container *con, enum wlr_edges edge,
+		bool lock_width, bool lock_height) {
 	seatop_end(seat);
 
 	struct seatop_resize_floating_event *e =
@@ -295,6 +311,9 @@ void seatop_begin_resize_floating(struct wsm_seat *seat,
 		return;
 	}
 	e->container = con;
+	e->lock_width = lock_width;
+	e->lock_height = lock_height;
+	wsm_window_snap_forget_container(con);
 
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->seat);
 	e->preserve_ratio = keyboard &&

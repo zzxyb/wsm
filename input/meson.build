@@ -13,6 +13,7 @@ wsm_input = static_library(
 		'wsm_keyboard.c',
 		'wsm_tablet.c',
 		'wsm_switch.c',
+		'wsm_window_snap.c',
 		'wsm_input.c',
 		'wsm_text_input.c',
 		'wsm_seatop_default.c',

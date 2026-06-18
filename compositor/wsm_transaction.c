@@ -110,7 +110,6 @@ static void copy_workspace_state(struct wsm_workspace *ws,
 	state->y = ws->y;
 	state->width = ws->width;
 	state->height = ws->height;
-	state->layout = ws->layout;
 
 	state->output = ws->output;
 	if (state->floating) {

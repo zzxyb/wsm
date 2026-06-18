@@ -43,7 +43,6 @@ struct wsm_workspace_state {
 
 	double x, y; /**< Position of the workspace */
 	int width, height; /**< Dimensions of the workspace */
-	enum wsm_container_layout layout; /**< Current layout of the workspace */
 	bool focused; /**< Flag indicating if the workspace is focused */
 };
 
@@ -87,9 +86,6 @@ struct wsm_workspace {
 	double x, y; /**< Position of the workspace */
 	int width, height; /**< Dimensions of the workspace */
 	int gaps_inner; /**< Inner gaps of the workspace */
-	enum wsm_container_layout layout; /**< Current layout of the workspace */
-	enum wsm_container_layout prev_split_layout; /**< Previous split layout of the workspace */
-
 	bool urgent; /**< Flag indicating if the workspace is urgent */
 };
 

@@ -17,6 +17,7 @@
 #include "wsm_input_manager.h"
 #include "wsm_seatop_move_floating.h"
 #include "wsm_seatop_resize_floating.h"
+#include "wsm_window_snap.h"
 #include "node/wsm_node.h"
 #include "node/wsm_button_node.h"
 #include "node/wsm_node_descriptor.h"
@@ -89,22 +90,18 @@ static struct wsm_button_node *update_button_hover(struct wsm_seat *seat) {
 }
 
 static bool edge_is_external(struct wsm_container *cont, enum wlr_edges edge) {
-	enum wsm_container_layout layout = L_NONE;
-
 	while (cont) {
-		if (container_parent_layout(cont) == layout) {
-			struct wsm_list *siblings = container_get_siblings(cont);
-			if (!siblings) {
-				return false;
-			}
-			int index = wsm_list_find(siblings, cont);
-			if (index > 0 && (edge == WLR_EDGE_LEFT || edge == WLR_EDGE_TOP)) {
-				return false;
-			}
-			if (index < siblings->length - 1 &&
-				(edge == WLR_EDGE_RIGHT || edge == WLR_EDGE_BOTTOM)) {
-				return false;
-			}
+		struct wsm_list *siblings = container_get_siblings(cont);
+		if (!siblings) {
+			return false;
+		}
+		int index = wsm_list_find(siblings, cont);
+		if (index > 0 && (edge == WLR_EDGE_LEFT || edge == WLR_EDGE_TOP)) {
+			return false;
+		}
+		if (index < siblings->length - 1 &&
+			(edge == WLR_EDGE_RIGHT || edge == WLR_EDGE_BOTTOM)) {
+			return false;
 		}
 		cont = cont->pending.parent;
 	}
@@ -293,6 +290,14 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->seat);
 	uint32_t modifiers = keyboard ? wlr_keyboard_get_modifiers(keyboard) : 0;
 
+	struct wsm_window_snap_divider *divider =
+		wsm_window_snap_divider_at(cursor->cursor_wlr->x, cursor->cursor_wlr->y);
+	if (divider && state == WL_POINTER_BUTTON_STATE_PRESSED &&
+			button == BTN_LEFT) {
+		wsm_window_snap_begin_resize_divider(seat, divider);
+		return;
+	}
+
 	if (titlebar_button) {
 		if (cont && state == WL_POINTER_BUTTON_STATE_PRESSED) {
 			seat_set_focus(seat, &cont->node);
@@ -356,8 +361,22 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 	if (cont && is_floating_or_child && !is_fullscreen_or_child &&
 		state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		if (button == BTN_LEFT && resize_edge != WLR_EDGE_NONE) {
+			struct wsm_window_snap_divider *edge_divider =
+				wsm_window_snap_divider_for_container_edge(
+					container_toplevel_ancestor(cont), resize_edge,
+					cursor->cursor_wlr->x, cursor->cursor_wlr->y);
+			if (edge_divider) {
+				wsm_window_snap_begin_resize_divider(seat, edge_divider);
+				return;
+			}
+			bool lock_width = false;
+			bool lock_height = false;
+			wsm_window_snap_constrain_inner_edge(
+				container_toplevel_ancestor(cont), &resize_edge,
+				&lock_width, &lock_height);
 			seat_set_focus_container(seat, cont);
-			seatop_begin_resize_floating(seat, cont, resize_edge);
+			seatop_begin_resize_floating_locked(seat, cont, resize_edge,
+				lock_width, lock_height);
 			return;
 		}
 
@@ -465,6 +484,7 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 	double sx, sy;
 	struct wsm_node *node = node_at_coords(seat,
 		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
+	wsm_window_snap_divider_at(cursor->cursor_wlr->x, cursor->cursor_wlr->y);
 	update_button_hover(seat);
 
 	check_focus_follows_mouse(seat, e, node);
@@ -493,6 +513,7 @@ static void handle_tablet_tool_motion(struct wsm_seat *seat,
 	double sx, sy;
 	struct wsm_node *node = node_at_coords(seat,
 		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
+	wsm_window_snap_divider_at(cursor->cursor_wlr->x, cursor->cursor_wlr->y);
 	update_button_hover(seat);
 
 	check_focus_follows_mouse(seat, e, node);
@@ -699,6 +720,7 @@ static void handle_rebase(struct wsm_seat *seat, uint32_t time_msec) {
 	double sx = 0.0, sy = 0.0;
 	e->previous_node = node_at_coords(seat,
 		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
+	wsm_window_snap_divider_at(cursor->cursor_wlr->x, cursor->cursor_wlr->y);
 
 	if (surface) {
 		if (seat_is_input_allowed(seat, surface)) {

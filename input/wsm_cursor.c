@@ -13,6 +13,7 @@
 #include "wsm_output_manager.h"
 #include "wsm_input_manager.h"
 #include "wsm_seatop_default.h"
+#include "wsm_window_snap.h"
 #include "node/wsm_node_descriptor.h"
 
 #include <stdlib.h>
@@ -817,6 +818,13 @@ void dispatch_cursor_axis(struct wsm_cursor *cursor,
 
 void
 cursor_update_image(struct wsm_cursor *cursor, struct wsm_node *node) {
+	struct wsm_window_snap_divider *divider =
+		wsm_window_snap_divider_at(cursor->cursor_wlr->x, cursor->cursor_wlr->y);
+	if (divider) {
+		cursor_set_image(cursor, wsm_window_snap_divider_cursor(divider), NULL);
+		return;
+	}
+
 	if (node && node->type == N_CONTAINER) {
 		enum wlr_edges edge = find_resize_edge(node->container, NULL, cursor);
 		if (edge == WLR_EDGE_NONE) {

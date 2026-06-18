@@ -95,15 +95,12 @@ void wsm_arrange_container_with_title_bar(struct wsm_container *con,
 /**
  * @brief Arranges the children of a container
  * @param children Pointer to the list of children to be arranged
- * @param layout Layout type for arranging the children
  * @param parent Pointer to the parent box for the arrangement
  */
-void wsm_arrange_children(struct wsm_list *children,
-	enum wsm_container_layout layout, struct wlr_box *parent);
+void wsm_arrange_children(struct wsm_list *children, struct wlr_box *parent);
 
 /**
  * @brief Arranges children with a title bar
- * @param layout Layout type for arranging the children
  * @param children Pointer to the list of children to be arranged
  * @param active Pointer to the active container
  * @param content Pointer to the scene tree containing the content
@@ -111,7 +108,7 @@ void wsm_arrange_children(struct wsm_list *children,
  * @param height Desired height for the arrangement
  * @param gaps Gaps to be applied around the arrangement
  */
-void arrange_children_with_titlebar(enum wsm_container_layout layout, struct wsm_list *children,
+void arrange_children_with_titlebar(struct wsm_list *children,
 	struct wsm_container *active, struct wlr_scene_tree *content,
 	int width, int height, int gaps);
 

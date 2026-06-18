@@ -101,13 +101,6 @@ void node_get_box(struct wsm_node *node, struct wlr_box *box);
 struct wsm_output *node_get_output(struct wsm_node *node);
 
 /**
- * @brief Retrieves the layout of the container associated with the specified node
- * @param node Pointer to the wsm_node whose layout is to be retrieved
- * @return The layout of the associated container
- */
-enum wsm_container_layout node_get_layout(struct wsm_node *node);
-
-/**
  * @brief Retrieves the parent node of the specified node
  * @param node Pointer to the wsm_node whose parent is to be retrieved
  * @return Pointer to the parent wsm_node

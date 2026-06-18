@@ -213,7 +213,7 @@ void wsm_arrange_workspace_auto(struct wsm_workspace *workspace) {
 	} else {
 		struct wlr_box box;
 		workspace_get_box(workspace, &box);
-		wsm_arrange_children(workspace->tiling, workspace->layout, &box);
+		wsm_arrange_children(workspace->tiling, &box);
 		wsm_arrange_floating(workspace->floating);
 	}
 }
@@ -278,7 +278,7 @@ void wsm_arrange_container_auto(struct wsm_container *container) {
 
 	struct wlr_box box;
 	container_get_box(container, &box);
-	wsm_arrange_children(container->pending.children, container->pending.layout, &box);
+	wsm_arrange_children(container->pending.children, &box);
 	node_set_dirty(&container->node);
 }
 
@@ -298,8 +298,7 @@ static void apply_stacked_layout(struct wsm_list *children, struct wlr_box *pare
 	}
 }
 
-void wsm_arrange_children(struct wsm_list *children,
-	enum wsm_container_layout layout, struct wlr_box *parent) {
+void wsm_arrange_children(struct wsm_list *children, struct wlr_box *parent) {
 	apply_stacked_layout(children, parent);
 
 	for (int i = 0; i < children->length; ++i) {
@@ -520,13 +519,13 @@ void wsm_arrange_container_with_title_bar(struct wsm_container *con,
 			wlr_scene_node_set_enabled(&con->title_bar->tree->node, false);
 		}
 
-		arrange_children_with_titlebar(con->current.layout, con->current.children,
+		arrange_children_with_titlebar(con->current.children,
 			con->current.focused_inactive_child, con->content_tree,
 			width, height, gaps);
 	}
 }
 
-void arrange_children_with_titlebar(enum wsm_container_layout layout, struct wsm_list *children,
+void arrange_children_with_titlebar(struct wsm_list *children,
 		struct wsm_container *active, struct wlr_scene_tree *content, int width, int height, int gaps) {
 	int title_bar_height = container_titlebar_height();
 
@@ -562,7 +561,7 @@ void arrange_children_with_titlebar(enum wsm_container_layout layout, struct wsm
 
 void arrange_workspace_tiling(struct wsm_workspace *ws,
 		int width, int height) {
-	arrange_children_with_titlebar(ws->current.layout, ws->current.tiling,
+	arrange_children_with_titlebar(ws->current.tiling,
 		ws->current.focused_inactive_child, ws->layers.non_fullscreen,
 		width, height, ws->gaps_inner);
 }

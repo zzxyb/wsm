@@ -59,8 +59,6 @@ struct wsm_workspace *workspace_create(struct wsm_output *output,
 	}
 
 	ws->name = strdup(name);
-	ws->prev_split_layout = L_NONE;
-	ws->layout = L_NONE;
 	ws->floating = wsm_list_create();
 	ws->tiling = wsm_list_create();
 	ws->output_priority = wsm_list_create();
@@ -176,14 +174,14 @@ void root_for_each_workspace(void (*f)(struct wsm_workspace *ws, void *data), vo
 }
 
 void workspace_update_representation(struct wsm_workspace *ws) {
-	size_t len = container_build_representation(ws->layout, ws->tiling, NULL);
+	size_t len = container_build_representation(ws->tiling, NULL);
 	free(ws->representation);
 	ws->representation = calloc(len + 1, sizeof(char));
 	if (!ws->representation) {
 		wsm_log(WSM_ERROR, "Could not create title string: allocation failed!");
 		return;
 	}
-	container_build_representation(ws->layout, ws->tiling, ws->representation);
+	container_build_representation(ws->tiling, ws->representation);
 }
 
 static void set_workspace(struct wsm_container *container, void *data) {

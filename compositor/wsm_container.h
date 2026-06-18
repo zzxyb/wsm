@@ -17,21 +17,6 @@ struct wsm_titlebar;
 struct wsm_view_item;
 
 /**
- * @brief Enumeration of layout statuses for wsm_view_items in a wsm_container
- *
- * @details If the current wsm_container has only one wsm_view_item,
- * then the wsm_container is equivalent to one wsm_view_item. Note that
- * there are still layer levels between wsm_view_items at this time.
- */
-enum wsm_container_layout {
-	L_NONE, /**< No layout; the wsm_container is equivalent to a single wsm_view_item. */
-	L_HORIZ, /**< Two wsm_view_items in a horizontal layout. */
-	L_HORIZ_1_V_2, /**< Three wsm_view_items in a horizontal layout; left : right = 1 : 2. */
-	L_HORIZ_2_V_1, /**< Three wsm_view_items in a horizontal layout; left : right = 2 : 1. */
-	L_GRID, /**< Four wsm_view_items in a grid layout. */
-};
-
-/**
  * @brief Enumeration of border styles for a wsm_container
  */
 enum wsm_container_border {
@@ -84,7 +69,6 @@ struct wsm_container_state {
 	double content_x, content_y; /**< Position of the content within the container */
 	double content_width, content_height; /**< Dimensions of the content within the container */
 
-	enum wsm_container_layout layout; /**< Current layout of the container */
 	enum wsm_fullscreen_mode fullscreen_mode; /**< Current fullscreen mode of the container */
 	enum wsm_container_border border; /**< Current border style of the container */
 	int border_thickness; /**< Thickness of the border */
@@ -95,90 +79,6 @@ struct wsm_container_state {
 	bool border_right; /**< Flag indicating if the right border is present */
 	bool focused; /**< Flag indicating if the container is focused */
 };
-
- /* L_NONE looks like this:
- * ------------------------
- * |                      |
- * | wsm_container L_NONE |
- * |                      |
- * | ******************   |
- * | *                *   |
- * | *  wsm_view_item *   |
- * | *                *   |
- * | ******************   |
- * ------------------------
- *
- * L_HORIZ looks like this:
- * --------------------------------------------
- * |           wsm_container L_HORIZ          |
- * |                                          |
- * |                   split                  |
- * | ****************** |  ****************** |
- * | *                * |  *                * |
- * | *  view_item1    * |  *   view_item2   * |
- * | *                * |  *                * |
- * | ****************** |  ****************** |
- * --------------------------------------------
- *
- * L_HORIZ_1_V_2 looks like this:
- * --------------------------------------------
- * |       wsm_container L_HORIZ_1_V_2        |
- * |                                          |
- * |                   split                  |
- * | ****************** |  ****************** |
- * | *                * |  *                * |
- * | *                * |  *   view_item2   * |
- * | *                * |  *                * |
- * | *                * |  ****************** |
- * | *                * |                     |
- * | *   view_item1   * |  ---------split-----|
- * | *                * |                     |
- * | *                * |  ****************** |
- * | *                * |  *                * |
- * | *                * |  *   view_item3   * |
- * | *                * |  *                * |
- * | ****************** |  ****************** |
- * --------------------------------------------
- *
- * L_HORIZ_2_V_1 looks like this:
- * --------------------------------------------
- * |       wsm_container L_HORIZ_2_V_1        |
- * |                                          |
- * |                   split                  |
- * | ****************** |  ****************** |
- * | *                * |  *                * |
- * | *  view_item2    * |  *                * |
- * | *                * |  *                * |
- * | ****************** |  *                * |
- * |                    |  *                * |
- * | ------split--------|  *   view_item1   * |
- * |                    |  *                * |
- * | ****************** |  *                * |
- * | *                * |  *                * |
- * | *  view_item3    * |  *                * |
- * | *                * |  *                * |
- * | ****************** |  ****************** |
- * --------------------------------------------
- *
- * L_GRID looks like this:
- * --------------------------------------------
- * |           wsm_container L_GRID           |
- * |                                          |
- * |                   split                  |
- * | ****************** |  ****************** |
- * | *                * |  *                * |
- * | *  view_item1    * |  *   view_item3   * |
- * | *                * |  *                * |
- * | ****************** |  ****************** |
- * |                                          |
- * | ------split--------   --------split----- |
- * |                   split                  |
- * | ****************** |  ****************** |
- * | *                * |  *                * |
- * | *  view_item2    * |  *   view_item4   * |
- * | *                * |  *                * |
- * | ****************** |  ****************** |
- * --------------------------------------------*/
 
 /**
  * @brief Structure representing a container for wsm_view_items
@@ -231,7 +131,6 @@ struct wsm_container {
 
 	float alpha; /**< Alpha transparency of the container */
 	int title_width; /**< Width of the title bar */
-	enum wsm_container_layout prev_split_layout; /**< Previous split layout of the container */
 	enum wsm_container_border saved_border; /**< Saved border style of the container */
 
 	bool scratchpad; /**< Flag indicating if the container is a scratchpad */
@@ -435,8 +334,7 @@ void container_update_representation(struct wsm_container *container);
  * @param buffer Buffer to store the representation
  * @return Size of the built representation
  */
-size_t container_build_representation(enum wsm_container_layout layout,
-	struct wsm_list *children, char *buffer);
+size_t container_build_representation(struct wsm_list *children, char *buffer);
 
 /**
  * @brief Updates the title bar of the specified container
@@ -458,13 +356,6 @@ void container_handle_fullscreen_reparent(struct wsm_container *con);
  */
 void floating_fix_coordinates(struct wsm_container *con,
 	struct wlr_box *old, struct wlr_box *new);
-
-/**
- * @brief Gets the parent layout of the specified container
- * @param con Pointer to the wsm_container to get the parent layout for
- * @return Parent layout of the container
- */
-enum wsm_container_layout container_parent_layout(struct wsm_container *con);
 
 /**
  * @brief Sets the fullscreen mode for the specified container

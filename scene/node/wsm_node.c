@@ -89,19 +89,6 @@ struct wsm_output *node_get_output(struct wsm_node *node) {
 	return NULL;
 }
 
-enum wsm_container_layout node_get_layout(struct wsm_node *node) {
-	switch (node->type) {
-	case N_CONTAINER:
-		return node->container->pending.layout;
-	case N_WORKSPACE:
-		return node->workspace->layout;
-	case N_OUTPUT:
-	case N_ROOT:
-		return L_NONE;
-	}
-	return L_NONE;
-}
-
 struct wsm_node *node_get_parent(struct wsm_node *node) {
 	switch (node->type) {
 	case N_CONTAINER: {
