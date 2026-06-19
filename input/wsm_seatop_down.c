@@ -4,7 +4,7 @@
 #include "wsm_view.h"
 #include "wsm_cursor.h"
 #include "wsm_tablet.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_transaction.h"
 #include "wsm_seatop_default.h"
 
@@ -21,18 +21,18 @@
 struct seatop_touch_point_event {
 	struct wl_list link;
 	double ref_lx, ref_ly;         // touch's x/y at start of op
-	double ref_con_lx, ref_con_ly; // container's x/y at start of op
+	double ref_window_lx, ref_window_ly; // window's x/y at start of op
 	int32_t touch_id;
 };
 
 struct seatop_down_event {
 	struct wl_listener surface_destroy;
 	struct wl_list point_events;   // seatop_touch_point_event::link
-	struct wsm_container *container;
+	struct wsm_window *window;
 	struct wsm_seat *seat_wsm;
 	struct wlr_surface *surface;
 	double ref_lx, ref_ly;         // cursor's x/y at start of op
-	double ref_con_lx, ref_con_ly; // container's x/y at start of op
+	double ref_window_lx, ref_window_ly; // window's x/y at start of op
 };
 
 static void handle_touch_motion(struct wsm_seat *seat,
@@ -53,8 +53,8 @@ static void handle_touch_motion(struct wsm_seat *seat,
 
 	double moved_x = lx - point_event->ref_lx;
 	double moved_y = ly - point_event->ref_ly;
-	double sx = point_event->ref_con_lx + moved_x;
-	double sy = point_event->ref_con_ly + moved_y;
+	double sx = point_event->ref_window_lx + moved_x;
+	double sy = point_event->ref_window_ly + moved_y;
 
 	wlr_seat_touch_notify_motion(seat->seat, event->time_msec,
 		event->touch_id, sx, sy);
@@ -101,8 +101,8 @@ static void handle_touch_down(struct wsm_seat *seat,
 	point_event->touch_id = event->touch_id;
 	point_event->ref_lx = lx;
 	point_event->ref_ly = ly;
-	point_event->ref_con_lx = sx;
-	point_event->ref_con_ly = sy;
+	point_event->ref_window_lx = sx;
+	point_event->ref_window_ly = sy;
 
 	wl_list_insert(&e->point_events, &point_event->link);
 
@@ -165,8 +165,8 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 	if (seat_is_input_allowed(seat, e->surface)) {
 		double moved_x = seat->cursor->cursor_wlr->x - e->ref_lx;
 		double moved_y = seat->cursor->cursor_wlr->y - e->ref_ly;
-		double sx = e->ref_con_lx + moved_x;
-		double sy = e->ref_con_ly + moved_y;
+		double sx = e->ref_window_lx + moved_x;
+		double sy = e->ref_window_ly + moved_y;
 		wlr_seat_pointer_notify_motion(seat->seat, time_msec, sx, sy);
 	}
 }
@@ -186,8 +186,8 @@ static void handle_tablet_tool_motion(struct wsm_seat *seat,
 	if (seat_is_input_allowed(seat, e->surface)) {
 		double moved_x = seat->cursor->cursor_wlr->x - e->ref_lx;
 		double moved_y = seat->cursor->cursor_wlr->y - e->ref_ly;
-		double sx = e->ref_con_lx + moved_x;
-		double sy = e->ref_con_ly + moved_y;
+		double sx = e->ref_window_lx + moved_x;
+		double sy = e->ref_window_ly + moved_y;
 		wlr_tablet_v2_tablet_tool_notify_motion(tool->tablet_v2_tool, sx, sy);
 	}
 }
@@ -200,9 +200,9 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 	}
 }
 
-static void handle_unref(struct wsm_seat *seat, struct wsm_container *con) {
+static void handle_unref(struct wsm_seat *seat, struct wsm_window *window) {
 	struct seatop_down_event *e = seat->seatop_data;
-	if (e->container == con) {
+	if (e->window == window) {
 		seatop_begin_default(seat);
 	}
 }
@@ -227,13 +227,13 @@ static const struct wsm_seatop_impl seatop_impl = {
 	.allow_set_cursor = true,
 };
 
-void seatop_begin_down(struct wsm_seat *seat, struct wsm_container *con,
+void seatop_begin_down(struct wsm_seat *seat, struct wsm_window *window,
 		double sx, double sy) {
-	seatop_begin_down_on_surface(seat, con->view->surface, sx, sy);
+	seatop_begin_down_on_surface(seat, window->view->surface, sx, sy);
 	struct seatop_down_event *e = seat->seatop_data;
-	e->container = con;
+	e->window = window;
 
-	container_raise_floating(con);
+	window_raise(window);
 	transaction_commit_dirty();
 }
 
@@ -254,15 +254,15 @@ void seatop_begin_down_on_surface(struct wsm_seat *seat,
 		wsm_log(WSM_ERROR, "Could not create seatop_down_event: allocation failed!");
 		return;
 	}
-	e->container = NULL;
+	e->window = NULL;
 	e->seat_wsm = seat;
 	e->surface = surface;
 	wl_signal_add(&e->surface->events.destroy, &e->surface_destroy);
 	e->surface_destroy.notify = handle_destroy;
 	e->ref_lx = seat->cursor->cursor_wlr->x;
 	e->ref_ly = seat->cursor->cursor_wlr->y;
-	e->ref_con_lx = sx;
-	e->ref_con_ly = sy;
+	e->ref_window_lx = sx;
+	e->ref_window_ly = sy;
 	wl_list_init(&e->point_events);
 
 	seat->seatop_impl = &seatop_impl;

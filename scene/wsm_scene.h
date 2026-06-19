@@ -45,7 +45,7 @@ struct wsm_scene {
 		struct wlr_scene_tree *shell_background; /**< Scene tree for the background layer */
 		struct wlr_scene_tree *shell_bottom; /**< Scene tree for the bottom layer */
 		struct wlr_scene_tree *tiling; /**< Scene tree for tiled windows */
-		struct wlr_scene_tree *floating; /**< Scene tree for floating windows */
+		struct wlr_scene_tree *windows; /**< Scene tree for windows */
 		struct wlr_scene_tree *shell_top; /**< Scene tree for the top layer */
 		struct wlr_scene_tree *fullscreen; /**< Scene tree for fullscreen windows */
 		struct wlr_scene_tree *fullscreen_global; /**< Scene tree for globally fullscreen windows */
@@ -78,7 +78,7 @@ struct wsm_scene {
 	struct wsm_list *scratchpad; /**< List for scratchpad windows */
 
 	struct wsm_output *fallback_output; /**< Pointer to the fallback output */
-	struct wsm_container *fullscreen_global; /**< Pointer to the global fullscreen container */
+	struct wsm_window *fullscreen_global; /**< Pointer to the global fullscreen window */
 
 	double x, y; /**< Position coordinates of the scene */
 	double width, height; /**< Dimensions of the scene */
@@ -118,9 +118,9 @@ bool wsm_scene_output_build_state(struct wlr_scene_output *scene_output,
 void root_get_box(struct wsm_scene *root, struct wlr_box *box);
 
 /**
- * @brief Shows the scratchpad for the specified container
- * @param con Pointer to the wsm_container whose scratchpad will be shown
+ * @brief Shows the scratchpad for the specified window
+ * @param window Pointer to the wsm_window whose scratchpad will be shown
  */
-void root_scratchpad_show(struct wsm_container *con);
+void root_scratchpad_show(struct wsm_window *window);
 
 #endif

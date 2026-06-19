@@ -4,7 +4,7 @@
 #include "wsm_seat.h"
 #include "wsm_view.h"
 #include "wsm_cursor.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_output.h"
 #include "wsm_workspace.h"
 #include "node/wsm_node.h"
@@ -35,7 +35,7 @@ struct wsm_transaction_instruction {
 	union {
 		struct wsm_output_state output_state;
 		struct wsm_workspace_state workspace_state;
-		struct wsm_container_state container_state;
+		struct wsm_window_state window_state;
 	};
 	uint32_t serial;
 	bool server_request;
@@ -73,8 +73,8 @@ static void transaction_destroy(struct wsm_transaction *transaction) {
 			case N_WORKSPACE:
 				workspace_destroy(node->workspace);
 				break;
-			case N_CONTAINER:
-				container_destroy(node->container);
+			case N_WINDOW:
+				window_destroy(node->window);
 				break;
 			}
 		}
@@ -112,56 +112,27 @@ static void copy_workspace_state(struct wsm_workspace *ws,
 	state->height = ws->height;
 
 	state->output = ws->output;
-	if (state->floating) {
-		state->floating->length = 0;
+	if (state->windows) {
+		state->windows->length = 0;
 	} else {
-		state->floating = wsm_list_create();
+		state->windows = wsm_list_create();
 	}
-	if (state->tiling) {
-		state->tiling->length = 0;
-	} else {
-		state->tiling = wsm_list_create();
-	}
-	wsm_list_cat(state->floating, ws->floating);
-	wsm_list_cat(state->tiling, ws->tiling);
+	wsm_list_cat(state->windows, ws->windows);
 
 	struct wsm_seat *seat = input_manager_current_seat();
 	state->focused = seat_get_focus(seat) == &ws->node;
 
-	struct wsm_container *focus = seat_get_focus_inactive_tiling(seat, ws);
-	if (focus) {
-		while (focus->pending.parent) {
-			focus = focus->pending.parent;
-		}
-	}
-	state->focused_inactive_child = focus;
+	state->focused_inactive_window = seat_get_focus_inactive_window(seat, ws);
 }
 
-static void copy_container_state(struct wsm_container *container,
+static void copy_window_state(struct wsm_window *window,
 		struct wsm_transaction_instruction *instruction) {
-	struct wsm_container_state *state = &instruction->container_state;
+	struct wsm_window_state *state = &instruction->window_state;
 
-	if (state->children) {
-		wsm_list_destroy(state->children);
-	}
-
-	memcpy(state, &container->pending, sizeof(struct wsm_container_state));
-
-	if (!container->view) {
-		state->children = wsm_list_create();
-		wsm_list_cat(state->children, container->pending.children);
-	} else {
-		state->children = NULL;
-	}
+	memcpy(state, &window->pending, sizeof(struct wsm_window_state));
 
 	struct wsm_seat *seat = input_manager_current_seat();
-	state->focused = seat_get_focus(seat) == &container->node;
-
-	if (!container->view) {
-		struct wsm_node *focus =
-			seat_get_active_tiling_child(seat, &container->node);
-		state->focused_inactive_child = focus ? focus->container : NULL;
-	}
+	state->focused = seat_get_focus(seat) == &window->node;
 }
 
 static void transaction_add_node(struct wsm_transaction *transaction,
@@ -204,8 +175,8 @@ static void transaction_add_node(struct wsm_transaction *transaction,
 	case N_WORKSPACE:
 		copy_workspace_state(node->workspace, instruction);
 		break;
-	case N_CONTAINER:
-		copy_container_state(node->container, instruction);
+	case N_WINDOW:
+		copy_window_state(node->window, instruction);
 		break;
 	}
 }
@@ -218,21 +189,19 @@ static void apply_output_state(struct wsm_output *output,
 
 static void apply_workspace_state(struct wsm_workspace *ws,
 		struct wsm_workspace_state *state) {
-	wsm_list_destroy(ws->current.floating);
-	wsm_list_destroy(ws->current.tiling);
+	wsm_list_destroy(ws->current.windows);
 	memcpy(&ws->current, state, sizeof(struct wsm_workspace_state));
 }
 
-static void apply_container_state(struct wsm_container *container,
-		struct wsm_container_state *state) {
-	struct wsm_view *view = container->view;
-	wsm_list_destroy(container->current.children);
+static void apply_window_state(struct wsm_window *window,
+		struct wsm_window_state *state) {
+	struct wsm_view *view = window->view;
 
-	memcpy(&container->current, state, sizeof(struct wsm_container_state));
+	memcpy(&window->current, state, sizeof(struct wsm_window_state));
 
 	if (view) {
 		if (view->saved_surface_tree) {
-			if (!container->node.destroying || container->node.ntxnrefs == 1) {
+			if (!window->node.destroying || window->node.ntxnrefs == 1) {
 				view_remove_saved_buffer(view);
 			}
 		}
@@ -264,9 +233,9 @@ static void transaction_apply(struct wsm_transaction *transaction) {
 			apply_workspace_state(node->workspace,
 								  &instruction->workspace_state);
 			break;
-		case N_CONTAINER:
-			apply_container_state(node->container,
-								  &instruction->container_state);
+		case N_WINDOW:
+			apply_window_state(node->window,
+								  &instruction->window_state);
 			break;
 		}
 
@@ -317,12 +286,12 @@ static bool should_configure(struct wsm_node *node,
 	if (!instruction->server_request) {
 		return false;
 	}
-	struct wsm_container_state *cstate = &node->container->current;
-	struct wsm_container_state *istate = &instruction->container_state;
+	struct wsm_window_state *cstate = &node->window->current;
+	struct wsm_window_state *istate = &instruction->window_state;
 #if HAVE_XWAYLAND
 	// Xwayland views are position-aware and need to be reconfigured
 	// when their position changes.
-	if (node->container->view->type == WSM_VIEW_XWAYLAND) {
+	if (node->window->view->type == WSM_VIEW_XWAYLAND) {
 		// wsm logical coordinates are doubles, but they get truncated to
 		// integers when sent to Xwayland through `xcb_configure_window`.
 		// X11 apps will not respond to duplicate configure requests (from their
@@ -349,23 +318,23 @@ static void transaction_commit(struct wsm_transaction *transaction) {
 				transaction->instructions->items[i];
 		struct wsm_node *node = instruction->node;
 		bool hidden = node_is_view(node) && !node->destroying &&
-					  !view_is_visible(node->container->view);
+					  !view_is_visible(node->window->view);
 		if (should_configure(node, instruction)) {
-			instruction->serial = view_configure(node->container->view,
-				instruction->container_state.content_x,
-				instruction->container_state.content_y,
-				instruction->container_state.content_width,
-				instruction->container_state.content_height);
+			instruction->serial = view_configure(node->window->view,
+				instruction->window_state.content_x,
+				instruction->window_state.content_y,
+				instruction->window_state.content_width,
+				instruction->window_state.content_height);
 			if (!hidden) {
 				instruction->waiting = true;
 				++transaction->num_waiting;
 			}
 
-			view_send_frame_done(node->container->view);
+			view_send_frame_done(node->window->view);
 		}
 		if (!hidden && node_is_view(node) &&
-			!node->container->view->saved_surface_tree) {
-			view_save_buffer(node->container->view);
+			!node->window->view->saved_surface_tree) {
+			view_save_buffer(node->window->view);
 		}
 		node->instruction = instruction;
 	}
@@ -410,14 +379,14 @@ static void set_instruction_ready(
 	transaction_progress();
 }
 
-static void state_set_geometry_from_content(struct wsm_container_state *state) {
+static void state_set_geometry_from_content(struct wsm_window_state *state) {
 	size_t border_width = 0;
 	size_t top = 0;
 
 	if (state->border != B_CSD && !state->fullscreen_mode) {
 		border_width = get_max_thickness(*state) * (state->border != B_NONE);
 		top = state->border == B_NORMAL ?
-			container_titlebar_height() : border_width;
+			window_titlebar_height() : border_width;
 	}
 
 	state->x = state->content_x - border_width;
@@ -430,7 +399,7 @@ static bool transaction_update_resize_instruction(
 		struct wsm_transaction_instruction *instruction,
 		enum wlr_edges edges, double geo_right, double geo_bottom,
 		int geo_x, int geo_y, int geo_width, int geo_height) {
-	struct wsm_container_state *state = &instruction->container_state;
+	struct wsm_window_state *state = &instruction->window_state;
 	state->content_width = geo_width;
 	state->content_height = geo_height;
 	if (edges & WLR_EDGE_LEFT) {
@@ -447,7 +416,7 @@ bool transaction_update_view_resize_state(struct wsm_view *view,
 		enum wlr_edges edges, double geo_right, double geo_bottom,
 		int geo_x, int geo_y, int geo_width, int geo_height) {
 	struct wsm_transaction_instruction *instruction =
-		view->container->node.instruction;
+		view->window->node.instruction;
 	if (instruction == NULL) {
 		return false;
 	}
@@ -461,7 +430,7 @@ bool transaction_update_view_resize_state_by_serial(struct wsm_view *view,
 		double geo_bottom, int geo_x, int geo_y, int geo_width,
 		int geo_height) {
 	struct wsm_transaction_instruction *instruction =
-		view->container->node.instruction;
+		view->window->node.instruction;
 	if (instruction == NULL || instruction->serial != serial) {
 		return false;
 	}
@@ -472,7 +441,7 @@ bool transaction_update_view_resize_state_by_serial(struct wsm_view *view,
 
 bool transaction_notify_view_ready(struct wsm_view *view) {
 	struct wsm_transaction_instruction *instruction =
-		view->container->node.instruction;
+		view->window->node.instruction;
 	if (instruction == NULL) {
 		return false;
 	}
@@ -484,7 +453,7 @@ bool transaction_notify_view_ready(struct wsm_view *view) {
 bool transaction_notify_view_ready_by_serial(struct wsm_view *view,
 		uint32_t serial) {
 	struct wsm_transaction_instruction *instruction =
-		view->container->node.instruction;
+		view->window->node.instruction;
 	if (instruction != NULL && instruction->serial == serial) {
 		set_instruction_ready(instruction);
 		return true;
@@ -495,12 +464,12 @@ bool transaction_notify_view_ready_by_serial(struct wsm_view *view,
 bool transaction_notify_view_ready_by_geometry(struct wsm_view *view,
 		double x, double y, int width, int height) {
 	struct wsm_transaction_instruction *instruction =
-		view->container->node.instruction;
+		view->window->node.instruction;
 	if (instruction != NULL &&
-		(int)instruction->container_state.content_x == (int)x &&
-		(int)instruction->container_state.content_y == (int)y &&
-		instruction->container_state.content_width == width &&
-		instruction->container_state.content_height == height) {
+		(int)instruction->window_state.content_x == (int)x &&
+		(int)instruction->window_state.content_y == (int)y &&
+		instruction->window_state.content_width == width &&
+		instruction->window_state.content_height == height) {
 		set_instruction_ready(instruction);
 		return true;
 	}

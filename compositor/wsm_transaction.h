@@ -9,7 +9,7 @@
 /**
  * @brief Transactions enable atomic layout updates in the WSM.
  *
- * A transaction contains a list of containers and their new state.
+ * A transaction contains a list of windows and their new state.
  * A state might include a new size, new border settings, or new parent/child
  * relationships.
  *
@@ -17,9 +17,9 @@
  * The system waits for all views to respond with their new surface sizes. Once
  * all are ready, or when a timeout occurs, the updates are applied simultaneously.
  *
- * To adjust the layout, we modify the pending state in containers, mark them as
+ * To adjust the layout, we modify the pending state in windows, mark them as
  * dirty, and call transaction_commit_dirty(). This creates and commits a
- * transaction from the dirty containers.
+ * transaction from the dirty windows.
  */
 
 struct wlr_scene_tree;
@@ -28,7 +28,7 @@ struct wsm_transaction_instruction;
 struct wsm_view;
 
 /**
- * @brief Finds all dirty containers, creates and commits a transaction containing them,
+ * @brief Finds all dirty windows, creates and commits a transaction containing them,
  * and unmarks them as dirty.
  */
 void transaction_commit_dirty(void);

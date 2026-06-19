@@ -3,7 +3,7 @@
 #include "wsm_seat.h"
 #include "wsm_view.h"
 #include "wsm_server.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_input_manager.h"
 
 #include <stdlib.h>
@@ -111,19 +111,19 @@ bool wsm_idle_inhibit_v1_is_active(struct wsm_idle_inhibitor_v1 *inhibitor) {
 	switch (inhibitor->mode) {
 	case INHIBIT_IDLE_APPLICATION:;
 		struct wsm_view *view = view_from_wlr_surface(inhibitor->idle_inhibitor_wlr->surface);
-		return !view || !view->container || view_is_visible(view);
+		return !view || !view->window || view_is_visible(view);
 	case INHIBIT_IDLE_FOCUS:;
 		struct wsm_seat *seat = NULL;
 		wl_list_for_each(seat, &global_server.input_manager->seats, link) {
-			struct wsm_container *con = seat_get_focused_container(seat);
-			if (con && con->view && con->view == inhibitor->view) {
+			struct wsm_window *window = seat_get_focused_window(seat);
+			if (window && window->view && window->view == inhibitor->view) {
 				return true;
 			}
 		}
 		return false;
 	case INHIBIT_IDLE_FULLSCREEN:
-		return inhibitor->view->container &&
-			   container_is_fullscreen_or_child(inhibitor->view->container) &&
+		return inhibitor->view->window &&
+			   window_is_fullscreen(inhibitor->view->window) &&
 			   view_is_visible(inhibitor->view);
 	case INHIBIT_IDLE_OPEN:
 		return true;

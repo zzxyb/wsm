@@ -4,7 +4,7 @@
 #include "wsm_log.h"
 #include "wsm_view.h"
 #include "wsm_arrange.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_transaction.h"
 
 #include <stdlib.h>
@@ -36,7 +36,7 @@ static void server_decoration_handle_mode(struct wl_listener *listener,
 		WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT;
 	view_update_csd_from_client(view, csd);
 
-	wsm_arrange_container_auto(view->container);
+	wsm_arrange_window_auto(view->window);
 	transaction_commit_dirty();
 }
 

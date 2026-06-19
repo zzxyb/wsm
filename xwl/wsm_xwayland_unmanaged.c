@@ -12,8 +12,8 @@
 #include "wsm_output_manager.h"
 #include "wsm_input_manager.h"
 #include "node/wsm_node_descriptor.h"
-#include "wsm_seatop_move_floating.h"
-#include "wsm_seatop_resize_floating.h"
+#include "wsm_seatop_move_window.h"
+#include "wsm_seatop_resize_window.h"
 #include "wsm_xwayland_unmanaged.h"
 
 #include <stdlib.h>
@@ -101,7 +101,7 @@ static void unmanaged_handle_request_activate(struct wl_listener *listener, void
 		return;
 	}
 	struct wsm_seat *seat = input_manager_current_seat();
-	struct wsm_container *focus = seat_get_focused_container(seat);
+	struct wsm_window *focus = seat_get_focused_window(seat);
 	if (focus && focus->view && focus->view->pid != xsurface->pid) {
 		return;
 	}

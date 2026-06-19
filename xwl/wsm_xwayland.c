@@ -15,8 +15,8 @@
 #include "wsm_output_manager.h"
 #include "wsm_input_manager.h"
 #include "node/wsm_node_descriptor.h"
-#include "wsm_seatop_move_floating.h"
-#include "wsm_seatop_resize_floating.h"
+#include "wsm_seatop_move_window.h"
+#include "wsm_seatop_resize_window.h"
 #include "wsm_xwayland_unmanaged.h"
 
 #include <stdlib.h>
@@ -230,7 +230,7 @@ static void set_fullscreen(struct wsm_view *view, bool fullscreen) {
 	wlr_xwayland_surface_set_fullscreen(surface, fullscreen);
 }
 
-static bool wants_floating(struct wsm_view *view) {
+static bool wants_window(struct wsm_view *view) {
 	if (xwayland_view_from_view(view) == NULL) {
 		return false;
 	}
@@ -271,8 +271,8 @@ static void handle_set_decorations(struct wl_listener *listener, void *data) {
 
 	bool csd = xsurface->decorations != WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
 	view_update_csd_from_client(view, csd);
-	if (view->container) {
-		wsm_arrange_container_auto(view->container);
+	if (view->window) {
+		wsm_arrange_window_auto(view->window);
 		transaction_commit_dirty();
 	}
 }
@@ -354,7 +354,7 @@ static const struct wsm_view_impl view_impl = {
 	.set_activated = set_activated,
 	.set_tiled = set_tiled,
 	.set_fullscreen = set_fullscreen,
-	.wants_floating = wants_floating,
+	.wants_window = wants_window,
 	.is_transient_for = is_transient_for,
 	.maximize = _maximize,
 	.minimize = _minimize,
@@ -378,7 +378,7 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 	bool resize_commit_ready = false;
 	enum wlr_edges resize_edges = WLR_EDGE_NONE;
 	double resize_geo_right = 0.0, resize_geo_bottom = 0.0;
-	if (seatop_resize_floating_get_anchor(view->container, &resize_edges,
+	if (seatop_resize_window_get_anchor(view->window, &resize_edges,
 			&resize_geo_right, &resize_geo_bottom) &&
 			transaction_update_view_resize_state(view, resize_edges,
 				resize_geo_right, resize_geo_bottom,
@@ -387,14 +387,14 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 	}
 
 	if (new_size) {
-		// The client changed its surface size in this commit. For floating
-		// containers, we resize the container to match. For tiling containers,
+		// The client changed its surface size in this commit. For windows
+		// windows, we resize the window to match. For tiling windows,
 		// we only recenter the surface.
 		memcpy(&view->geometry, &new_geo, sizeof(struct wlr_box));
-		if (container_is_floating(view->container)) {
+		if (window_is_managed(view->window)) {
 			if (!resize_commit_ready) {
 				view_update_size(view);
-				seatop_resize_floating_update_position(view->container);
+				seatop_resize_window_update_position(view->window);
 				transaction_commit_dirty_client();
 			}
 		}
@@ -402,7 +402,7 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 		view_center_and_clip_surface(view);
 	}
 
-	if (view->container->node.instruction) {
+	if (view->window->node.instruction) {
 		bool successful = resize_commit_ready ?
 			transaction_notify_view_ready(view) :
 			transaction_notify_view_ready_by_geometry(view,
@@ -549,22 +549,22 @@ static void handle_request_configure(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	if (container_is_floating(view->container)) {
+	if (window_is_managed(view->window)) {
 		// Respect minimum and maximum sizes
 		view->natural_width = ev->width;
 		view->natural_height = ev->height;
-		container_floating_resize_and_center(view->container);
+		window_resize_and_center(view->window);
 
-		configure(view, view->container->pending.content_x,
-			 view->container->pending.content_y,
-			view->container->pending.content_width,
-			view->container->pending.content_height);
-		node_set_dirty(&view->container->node);
+		configure(view, view->window->pending.content_x,
+			 view->window->pending.content_y,
+			view->window->pending.content_width,
+			view->window->pending.content_height);
+		node_set_dirty(&view->window->node);
 	} else {
-		configure(view, view->container->current.content_x,
-			view->container->current.content_y,
-			view->container->current.content_width,
-			view->container->current.content_height);
+		configure(view, view->window->current.content_x,
+			view->window->current.content_y,
+			view->window->current.content_width,
+			view->window->current.content_height);
 	}
 }
 
@@ -577,7 +577,7 @@ static void handle_request_fullscreen(struct wl_listener *listener, void *data) 
 		return;
 	}
 
-	container_set_fullscreen(view->container,
+	window_set_fullscreen(view->window,
 		xsurface->fullscreen ? FULLSCREEN_WORKSPACE : FULLSCREEN_NONE);
 	arrange_root_auto();
 	transaction_commit_dirty();
@@ -594,7 +594,7 @@ static void handle_request_minimize(struct wl_listener *listener, void *data) {
 
 	struct wlr_xwayland_minimize_event *e = data;
 	if (e->minimize) {
-		container_minimize(view->container);
+		window_minimize(view->window);
 	} else {
 		view_minimize(view, false);
 		transaction_commit_dirty();
@@ -610,7 +610,7 @@ static void handle_request_maximize(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	container_set_maximized(view->container,
+	window_set_maximized(view->window,
 		xsurface->maximized_horz && xsurface->maximized_vert);
 	transaction_commit_dirty();
 }
@@ -624,13 +624,13 @@ static void handle_request_move(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	if (!container_is_floating(view->container) ||
-		view->container->pending.fullscreen_mode) {
+	if (!window_is_managed(view->window) ||
+		view->window->pending.fullscreen_mode) {
 		return;
 	}
 
 	struct wsm_seat *seat = input_manager_current_seat();
-	seatop_begin_move_floating(seat, view->container);
+	seatop_begin_move_window(seat, view->window);
 }
 
 static void handle_request_resize(struct wl_listener *listener, void *data) {
@@ -642,13 +642,13 @@ static void handle_request_resize(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	if (!container_is_floating(view->container)) {
+	if (!window_is_managed(view->window)) {
 		return;
 	}
 
 	struct wlr_xwayland_resize_event *e = data;
 	struct wsm_seat *seat = input_manager_current_seat();
-	seatop_begin_resize_floating(seat, view->container, e->edges);
+	seatop_begin_resize_window(seat, view->window, e->edges);
 }
 
 static void handle_request_activate(struct wl_listener *listener, void *data) {

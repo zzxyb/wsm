@@ -59,8 +59,7 @@ struct wsm_workspace *workspace_create(struct wsm_output *output,
 	}
 
 	ws->name = strdup(name);
-	ws->floating = wsm_list_create();
-	ws->tiling = wsm_list_create();
+	ws->windows = wsm_list_create();
 	ws->output_priority = wsm_list_create();
 
 	wsm_output_add_workspace(output, ws);
@@ -87,10 +86,8 @@ void workspace_destroy(struct wsm_workspace *workspace) {
 	free(workspace->name);
 	free(workspace->representation);
 	wsm_list_free_items_and_destroy(workspace->output_priority);
-	wsm_list_destroy(workspace->floating);
-	wsm_list_destroy(workspace->tiling);
-	wsm_list_destroy(workspace->current.floating);
-	wsm_list_destroy(workspace->current.tiling);
+	wsm_list_destroy(workspace->windows);
+	wsm_list_destroy(workspace->current.windows);
 	free(workspace);
 }
 
@@ -113,12 +110,11 @@ void workspace_get_box(struct wsm_workspace *workspace, struct wlr_box *box) {
 	box->height = workspace->height;
 }
 
-void workspace_for_each_container(struct wsm_workspace *ws,
-		void (*f)(struct wsm_container *con, void *data), void *data) {
-	for (int i = 0; i < ws->floating->length; ++i) {
-		struct wsm_container *container = ws->floating->items[i];
-		f(container, data);
-		container_for_each_child(container, f, data);
+void workspace_for_each_window(struct wsm_workspace *ws,
+		void (*f)(struct wsm_window *window, void *data), void *data) {
+	for (int i = 0; i < ws->windows->length; ++i) {
+		struct wsm_window *window = ws->windows->items[i];
+		f(window, data);
 	}
 }
 
@@ -130,30 +126,26 @@ bool workspace_is_visible(struct wsm_workspace *ws) {
 }
 
 bool workspace_is_empty(struct wsm_workspace *ws) {
-	if (ws->tiling->length) {
-		return false;
-	}
-	for (int i = 0; i < ws->floating->length; ++i) {
-		struct wsm_container *floater = ws->floating->items[i];
-		if (!container_is_sticky(floater)) {
+	for (int i = 0; i < ws->windows->length; ++i) {
+		struct wsm_window *window = ws->windows->items[i];
+		if (!window_is_sticky(window)) {
 			return false;
 		}
 	}
 	return true;
 }
 
-void root_for_each_container(void (*f)(struct wsm_container *con, void *data),
+void root_for_each_window(void (*f)(struct wsm_window *window, void *data),
 	void *data) {
 	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
 		struct wsm_output *output = global_server.scene->outputs->items[i];
-		output_for_each_container(output, f, data);
+		output_for_each_window(output, f, data);
 	}
 
 	for (int i = 0; i < global_server.scene->scratchpad->length; ++i) {
-		struct wsm_container *container = global_server.scene->scratchpad->items[i];
-		if (container_is_scratchpad_hidden(container)) {
-			f(container, data);
-			container_for_each_child(container, f, data);
+		struct wsm_window *window = global_server.scene->scratchpad->items[i];
+		if (window_is_scratchpad_hidden(window)) {
+			f(window, data);
 		}
 	}
 
@@ -161,7 +153,7 @@ void root_for_each_container(void (*f)(struct wsm_container *con, void *data),
 			workspaces->length; ++i) {
 		struct wsm_workspace *ws = global_server.scene->fallback_output->
 			workspaces->items[i];
-		workspace_for_each_container(ws, f, data);
+		workspace_for_each_window(ws, f, data);
 	}
 }
 
@@ -174,30 +166,26 @@ void root_for_each_workspace(void (*f)(struct wsm_workspace *ws, void *data), vo
 }
 
 void workspace_update_representation(struct wsm_workspace *ws) {
-	size_t len = container_build_representation(ws->tiling, NULL);
+	size_t len = window_build_representation(ws->windows, NULL);
 	free(ws->representation);
 	ws->representation = calloc(len + 1, sizeof(char));
 	if (!ws->representation) {
 		wsm_log(WSM_ERROR, "Could not create title string: allocation failed!");
 		return;
 	}
-	container_build_representation(ws->tiling, ws->representation);
+	window_build_representation(ws->windows, ws->representation);
 }
 
-static void set_workspace(struct wsm_container *container, void *data) {
-	container->pending.workspace = container->pending.parent->pending.workspace;
-}
-
-void workspace_add_floating(struct wsm_workspace *workspace, struct wsm_container *con) {
-	if (con->pending.workspace) {
-		container_detach(con);
+void workspace_add_window(struct wsm_workspace *workspace, struct wsm_window *window) {
+	if (window->pending.workspace) {
+		window_detach(window);
 	}
-	wsm_list_add(workspace->floating, con);
-	con->pending.workspace = workspace;
-	container_for_each_child(con, set_workspace, NULL);
-	container_handle_fullscreen_reparent(con);
+	wsm_list_add(workspace->windows, window);
+	window->pending.workspace = workspace;
+	window_handle_fullscreen_reparent(window);
+	workspace_update_representation(workspace);
 	node_set_dirty(&workspace->node);
-	node_set_dirty(&con->node);
+	node_set_dirty(&window->node);
 }
 
 void workspace_add_gaps(struct wsm_workspace *ws) {
@@ -235,7 +223,7 @@ void workspace_add_gaps(struct wsm_workspace *ws) {
 }
 
 void workspace_consider_destroy(struct wsm_workspace *ws) {
-	if (ws->tiling->length || ws->floating->length) {
+	if (ws->windows->length) {
 		return;
 	}
 
@@ -265,32 +253,12 @@ void workspace_begin_destroy(struct wsm_workspace *workspace) {
 	node_set_dirty(&workspace->node);
 }
 
-struct wsm_container *workspace_add_tiling(struct wsm_workspace *workspace,
-		struct wsm_container *con) {
-	if (con->pending.workspace) {
-		struct wsm_container *old_parent = con->pending.parent;
-		container_detach(con);
-		if (old_parent) {
-			container_reap_empty(old_parent);
-		}
-	}
-
-	wsm_list_add(workspace->tiling, con);
-	con->pending.workspace = workspace;
-	container_for_each_child(con, set_workspace, NULL);
-	container_handle_fullscreen_reparent(con);
-	workspace_update_representation(workspace);
-	node_set_dirty(&workspace->node);
-	node_set_dirty(&con->node);
-	return con;
-}
-
-static bool find_urgent_iterator(struct wsm_container *con, void *data) {
-	return con->view && view_is_urgent(con->view);
+static bool find_urgent_iterator(struct wsm_window *window, void *data) {
+	return window->view && view_is_urgent(window->view);
 }
 
 void workspace_detect_urgent(struct wsm_workspace *workspace) {
-	bool new_urgent = (bool)workspace_find_container(workspace,
+	bool new_urgent = (bool)workspace_find_window(workspace,
 		find_urgent_iterator, NULL);
 
 	if (workspace->urgent != new_urgent) {
@@ -298,27 +266,12 @@ void workspace_detect_urgent(struct wsm_workspace *workspace) {
 	}
 }
 
-struct wsm_container *workspace_find_container(struct wsm_workspace *ws,
-		bool (*test)(struct wsm_container *con, void *data), void *data) {
-	struct wsm_container *result = NULL;
-	// Tiling
-	for (int i = 0; i < ws->tiling->length; ++i) {
-		struct wsm_container *child = ws->tiling->items[i];
+struct wsm_window *workspace_find_window(struct wsm_workspace *ws,
+		bool (*test)(struct wsm_window *window, void *data), void *data) {
+	for (int i = 0; i < ws->windows->length; ++i) {
+		struct wsm_window *child = ws->windows->items[i];
 		if (test(child, data)) {
 			return child;
-		}
-		if ((result = container_find_child(child, test, data))) {
-			return result;
-		}
-	}
-	// Floating
-	for (int i = 0; i < ws->floating->length; ++i) {
-		struct wsm_container *child = ws->floating->items[i];
-		if (test(child, data)) {
-			return child;
-		}
-		if ((result = container_find_child(child, test, data))) {
-			return result;
 		}
 	}
 	return NULL;
@@ -352,8 +305,8 @@ struct wsm_output *workspace_output_get_highest_available(
 	return NULL;
 }
 
-static void count_sticky_containers(struct wsm_container *con, void *data) {
-	if (container_is_sticky(con)) {
+static void count_sticky_containers(struct wsm_window *window, void *data) {
+	if (window_is_sticky(window)) {
 		size_t *count = data;
 		*count += 1;
 	}
@@ -361,7 +314,7 @@ static void count_sticky_containers(struct wsm_container *con, void *data) {
 
 size_t workspace_num_sticky_containers(struct wsm_workspace *ws) {
 	size_t count = 0;
-	workspace_for_each_container(ws, count_sticky_containers, &count);
+	workspace_for_each_window(ws, count_sticky_containers, &count);
 	return count;
 }
 
@@ -406,17 +359,10 @@ void output_sort_workspaces(struct wsm_output *output) {
 }
 
 void disable_workspace(struct wsm_workspace *ws) {
-	for (int i = 0; i < ws->current.tiling->length; i++) {
-		struct wsm_container *child = ws->current.tiling->items[i];
-
-		wlr_scene_node_reparent(&child->scene_tree->node, ws->layers.non_fullscreen);
-		disable_container(child);
-	}
-
-	for (int i = 0; i < ws->current.floating->length; i++) {
-		struct wsm_container *floater = ws->current.floating->items[i];
-		wlr_scene_node_reparent(&floater->scene_tree->node, global_server.scene->layers.floating);
-		disable_container(floater);
-		wlr_scene_node_set_enabled(&floater->scene_tree->node, false);
+	for (int i = 0; i < ws->current.windows->length; i++) {
+		struct wsm_window *window = ws->current.windows->items[i];
+		wlr_scene_node_reparent(&window->scene_tree->node, global_server.scene->layers.windows);
+		disable_window(window);
+		wlr_scene_node_set_enabled(&window->scene_tree->node, false);
 	}
 }

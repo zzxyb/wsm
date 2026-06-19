@@ -3,7 +3,7 @@
 #include "wsm_server.h"
 #include "wsm_seat.h"
 #include "wsm_output.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_common.h"
 #include "wsm_input_manager.h"
 #include "node/wsm_node_descriptor.h"
@@ -80,7 +80,7 @@ struct wsm_scene *wsm_scene_create(const struct wsm_server* server) {
 	scene->layers.shell_background = alloc_scene_tree(scene->layer_tree, &failed);
 	scene->layers.shell_bottom = alloc_scene_tree(scene->layer_tree, &failed);
 	scene->layers.tiling = alloc_scene_tree(scene->layer_tree, &failed);
-	scene->layers.floating = alloc_scene_tree(scene->layer_tree, &failed);
+	scene->layers.windows = alloc_scene_tree(scene->layer_tree, &failed);
 	scene->layers.shell_top = alloc_scene_tree(scene->layer_tree, &failed);
 	scene->layers.fullscreen = alloc_scene_tree(scene->layer_tree, &failed);
 	scene->layers.fullscreen_global = alloc_scene_tree(scene->layer_tree, &failed);
@@ -921,52 +921,48 @@ void root_get_box(struct wsm_scene *root, struct wlr_box *box) {
 }
 
 static void set_container_transform(struct wsm_workspace *ws,
-		struct wsm_container *con) {
+		struct wsm_window *window) {
 	struct wsm_output *output = ws->output;
 	struct wlr_box box = {0};
 	if (output) {
 		output_get_box(output, &box);
 	}
-	con->transform = box;
+	window->transform = box;
 }
 
-void root_scratchpad_show(struct wsm_container *con) {
+void root_scratchpad_show(struct wsm_window *window) {
 	struct wsm_seat *seat = input_manager_current_seat();
 	struct wsm_workspace *new_ws = seat_get_focused_workspace(seat);
 	if (!new_ws) {
 		wsm_log(WSM_DEBUG, "No focused workspace to show scratchpad on");
 		return;
 	}
-	struct wsm_workspace *old_ws = con->pending.workspace;
+	struct wsm_workspace *old_ws = window->pending.workspace;
 	if (new_ws->fullscreen) {
-		container_fullscreen_disable(new_ws->fullscreen);
+		window_fullscreen_disable(new_ws->fullscreen);
 	}
 
 	if (global_server.scene->fullscreen_global) {
-		container_fullscreen_disable(global_server.scene->fullscreen_global);
+		window_fullscreen_disable(global_server.scene->fullscreen_global);
 	}
 
 	if (old_ws) {
-		container_detach(con);
+		window_detach(window);
 		struct wsm_node *node = seat_get_focus_inactive(seat, &old_ws->node);
 		seat_set_raw_focus(seat, node);
-	} else {
-		while (con->pending.parent) {
-			con = con->pending.parent;
-		}
 	}
 
-	workspace_add_floating(new_ws, con);
+	workspace_add_window(new_ws, window);
 
 	if (new_ws->output) {
 		struct wlr_box output_box;
 		output_get_box(new_ws->output, &output_box);
-		floating_fix_coordinates(con, &con->transform, &output_box);
+		window_fix_coordinates(window, &window->transform, &output_box);
 	}
-	set_container_transform(new_ws, con);
+	set_container_transform(new_ws, window);
 
 	wsm_arrange_workspace_auto(new_ws);
-	seat_set_focus(seat, seat_get_focus_inactive(seat, &con->node));
+	seat_set_focus(seat, seat_get_focus_inactive(seat, &window->node));
 	if (old_ws) {
 		workspace_consider_destroy(old_ws);
 	}

@@ -84,8 +84,8 @@
 #define WINDOW_TITLE "Wsm Compositor"
 #define THEME_CHECK_INTERVAL_MS 1000
 
-static void mark_container_dirty(struct wsm_container *con, void *data) {
-	node_set_dirty(&con->node);
+static void mark_window_dirty(struct wsm_window *window, void *data) {
+	node_set_dirty(&window->node);
 }
 
 static void handle_desktop_theme_change(struct wl_listener *listener, void *data) {
@@ -93,7 +93,7 @@ static void handle_desktop_theme_change(struct wl_listener *listener, void *data
 		return;
 	}
 
-	root_for_each_container(mark_container_dirty, NULL);
+	root_for_each_window(mark_window_dirty, NULL);
 	transaction_commit_dirty();
 }
 

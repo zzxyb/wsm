@@ -36,7 +36,7 @@ struct wlr_scene_tree;
 struct wsm_text_node;
 struct wsm_image_node;
 struct wsm_button_node;
-struct wsm_container;
+struct wsm_window;
 
 /**
  * @brief Enumeration of titlebar states in the WSM
@@ -99,7 +99,7 @@ struct wsm_titlebar {
 	struct wl_listener min_button_clicked; /**< Listener for minimize button clicks */
 	struct wl_listener max_button_clicked; /**< Listener for maximize button clicks */
 	struct wl_listener close_button_clicked; /**< Listener for close button clicks */
-	struct wsm_container *container; /**< Container owning this titlebar */
+	struct wsm_window *window; /**< Window owning this titlebar */
 	bool button_icons_loaded; /**< Whether titlebar button icons match current state */
 	bool button_icons_maximized; /**< Maximized state represented by the max button icon */
 	bool active; /**< Flag indicating if the titlebar is active */

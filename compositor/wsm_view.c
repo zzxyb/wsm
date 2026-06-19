@@ -10,7 +10,7 @@
 #include "wsm_pango.h"
 #include "wsm_common.h"
 #include "wsm_titlebar.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_workspace.h"
 #include "wsm_xdg_shell.h"
 #include "wsm_transaction.h"
@@ -73,8 +73,8 @@ void view_destroy(struct wsm_view *view) {
 			"Tried to free view which wasn't marked as destroying")) {
 		return;
 	}
-	if (!wsm_assert(view->container == NULL,
-			"Tried to free view which still has a container "
+	if (!wsm_assert(view->window == NULL,
+			"Tried to free view which still has a window "
 			"(might have a pending transaction?)")) {
 		return;
 	}
@@ -98,7 +98,7 @@ void view_begin_destroy(struct wsm_view *view) {
 	}
 	view->destroying = true;
 
-	if (!view->container) {
+	if (!view->window) {
 		view_destroy(view);
 	}
 }
@@ -216,67 +216,67 @@ bool view_inhibit_idle(struct wsm_view *view) {
 }
 
 void view_autoconfigure(struct wsm_view *view) {
-	struct wsm_container *con = view->container;
-	struct wsm_workspace *ws = con->pending.workspace;
+	struct wsm_window *window = view->window;
+	struct wsm_workspace *ws = window->pending.workspace;
 
-	if (container_is_scratchpad_hidden(con) &&
-		con->pending.fullscreen_mode != FULLSCREEN_GLOBAL) {
+	if (window_is_scratchpad_hidden(window) &&
+		window->pending.fullscreen_mode != FULLSCREEN_GLOBAL) {
 		return;
 	}
 	struct wsm_output *output = ws ? ws->output : NULL;
 
-	if (con->pending.fullscreen_mode == FULLSCREEN_WORKSPACE) {
-		con->pending.content_x = output->lx;
-		con->pending.content_y = output->ly;
-		con->pending.content_width = output->width;
-		con->pending.content_height = output->height;
+	if (window->pending.fullscreen_mode == FULLSCREEN_WORKSPACE) {
+		window->pending.content_x = output->lx;
+		window->pending.content_y = output->ly;
+		window->pending.content_width = output->width;
+		window->pending.content_height = output->height;
 		return;
-	} else if (con->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
-		con->pending.content_x = global_server.scene->x;
-		con->pending.content_y = global_server.scene->y;
-		con->pending.content_width = global_server.scene->width;
-		con->pending.content_height = global_server.scene->height;
+	} else if (window->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
+		window->pending.content_x = global_server.scene->x;
+		window->pending.content_y = global_server.scene->y;
+		window->pending.content_width = global_server.scene->width;
+		window->pending.content_height = global_server.scene->height;
 		return;
 	}
 
-	con->pending.border_top = con->pending.border_bottom = true;
-	con->pending.border_left = con->pending.border_right = true;
+	window->pending.border_top = window->pending.border_bottom = true;
+	window->pending.border_left = window->pending.border_right = true;
 
 	bool show_border = true;
-	con->pending.border_left &= show_border;
-	con->pending.border_right &= show_border;
-	con->pending.border_top &= show_border;
-	con->pending.border_bottom &= show_border;
+	window->pending.border_left &= show_border;
+	window->pending.border_right &= show_border;
+	window->pending.border_top &= show_border;
+	window->pending.border_bottom &= show_border;
 
 	double x, y, width, height;
 	int max_thickness;
-	switch (con->pending.border) {
+	switch (window->pending.border) {
 	default:
 	case B_CSD:
 	case B_NONE:
-		x = con->pending.x;
-		y = con->pending.y;
-		width = con->pending.width;
-		height = con->pending.height;
+		x = window->pending.x;
+		y = window->pending.y;
+		width = window->pending.width;
+		height = window->pending.height;
 		break;
 	case B_NORMAL:
-		max_thickness = get_max_thickness(con->pending);
-		x = con->pending.x + max_thickness * con->pending.border_left;
-		y = con->pending.y + container_titlebar_height()
-			+ max_thickness * con->pending.border_top;
-		width = con->pending.width
-			- max_thickness * con->pending.border_left
-			- max_thickness * con->pending.border_right;
-		height = con->pending.height - container_titlebar_height()
-			- max_thickness * con->pending.border_bottom
-			- max_thickness * con->pending.border_top;
+		max_thickness = get_max_thickness(window->pending);
+		x = window->pending.x + max_thickness * window->pending.border_left;
+		y = window->pending.y + window_titlebar_height()
+			+ max_thickness * window->pending.border_top;
+		width = window->pending.width
+			- max_thickness * window->pending.border_left
+			- max_thickness * window->pending.border_right;
+		height = window->pending.height - window_titlebar_height()
+			- max_thickness * window->pending.border_bottom
+			- max_thickness * window->pending.border_top;
 		break;
 	}
 
-	con->pending.content_x = x;
-	con->pending.content_y = y;
-	con->pending.content_width = width;
-	con->pending.content_height = height;
+	window->pending.content_x = x;
+	window->pending.content_y = y;
+	window->pending.content_width = width;
+	window->pending.content_height = height;
 }
 
 void view_set_activated(struct wsm_view *view, bool activated) {
@@ -290,14 +290,14 @@ void view_set_activated(struct wsm_view *view, bool activated) {
 }
 
 void view_request_activate(struct wsm_view *view, struct wsm_seat *seat) {
-	struct wsm_workspace *ws = view->container->pending.workspace;
+	struct wsm_workspace *ws = view->window->pending.workspace;
 	if (!seat) {
 		seat = input_manager_current_seat();
 	}
 
 	if (ws && workspace_is_visible(ws)) {
-		seat_set_focus_container(seat, view->container);
-		container_raise_floating(view->container);
+		seat_set_focus_window(seat, view->window);
+		window_raise(view->window);
 	} else {
 		view_set_urgent(view, true);
 	}
@@ -318,14 +318,14 @@ void view_set_csd_from_server(struct wsm_view *view, bool enabled) {
 
 void view_update_csd_from_client(struct wsm_view *view, bool enabled) {
 	wsm_log(WSM_DEBUG, "View %p updated CSD to %i", view, enabled);
-	struct wsm_container *con = view->container;
-	if (enabled && con && con->pending.border != B_CSD) {
-		con->saved_border = con->pending.border;
-		if (container_is_floating(con)) {
-			con->pending.border = B_CSD;
+	struct wsm_window *window = view->window;
+	if (enabled && window && window->pending.border != B_CSD) {
+		window->saved_border = window->pending.border;
+		if (window_is_managed(window)) {
+			window->pending.border = B_CSD;
 		}
-	} else if (!enabled && con && con->pending.border == B_CSD) {
-		con->pending.border = con->saved_border;
+	} else if (!enabled && window && window->pending.border == B_CSD) {
+		window->pending.border = window->saved_border;
 	}
 	view->using_csd = enabled;
 }
@@ -387,20 +387,20 @@ void view_set_enable(struct wsm_view *view, bool enable) {
 	if (view->scene_tree) {
 		wlr_scene_node_set_enabled(&view->scene_tree->node, enable);
 
-		if (view->container) {
-			if (view->container->scene_tree) {
-				wlr_scene_node_set_enabled(&view->container->scene_tree->node, enable);
+		if (view->window) {
+			if (view->window->scene_tree) {
+				wlr_scene_node_set_enabled(&view->window->scene_tree->node, enable);
 			}
 
-			if (view->container->title_bar) {
-				wlr_scene_node_set_enabled(&view->container->title_bar->tree->node, enable);
+			if (view->window->title_bar) {
+				wlr_scene_node_set_enabled(&view->window->title_bar->tree->node, enable);
 			}
 
-			if (view->container->sensing.tree) {
-				wlr_scene_node_set_enabled(&view->container->sensing.tree->node, enable);
+			if (view->window->sensing.tree) {
+				wlr_scene_node_set_enabled(&view->window->sensing.tree->node, enable);
 			}
 		} else {
-			wsm_log(WSM_ERROR, "wsm_view's container is NULL");
+			wsm_log(WSM_ERROR, "wsm_view's window is NULL");
 		}
 	} else {
 		wsm_log(WSM_ERROR, "wsm_view's scene_tree is NULL");
@@ -433,8 +433,8 @@ static struct wsm_workspace *select_workspace(struct wsm_view *view) {
 	struct wsm_node *node = seat_get_focus_inactive(seat, &global_server.scene->node);
 	if (node && node->type == N_WORKSPACE) {
 		return node->workspace;
-	} else if (node && node->type == N_CONTAINER) {
-		return node->container->pending.workspace;
+	} else if (node && node->type == N_WINDOW) {
+		return node->window->pending.workspace;
 	}
 
 	wsm_assert(false, "Expected to find a workspace");
@@ -443,11 +443,11 @@ static struct wsm_workspace *select_workspace(struct wsm_view *view) {
 
 static bool should_focus(struct wsm_view *view) {
 	struct wsm_seat *seat = input_manager_current_seat();
-	struct wsm_container *prev_con = seat_get_focused_container(seat);
+	struct wsm_window *prev_con = seat_get_focused_window(seat);
 	struct wsm_workspace *prev_ws = seat_get_focused_workspace(seat);
-	struct wsm_workspace *map_ws = view->container->pending.workspace;
+	struct wsm_workspace *map_ws = view->window->pending.workspace;
 
-	if (view->container->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
+	if (view->window->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
 		return true;
 	}
 
@@ -459,12 +459,9 @@ static bool should_focus(struct wsm_view *view) {
 		return false;
 	}
 
-	if (!view->container->pending.parent && !prev_con) {
-		size_t num_children = view->container->pending.workspace->tiling->length +
-			view->container->pending.workspace->floating->length;
-		if (num_children == 1) {
-			return true;
-		}
+	if (!prev_con && view->window->pending.workspace &&
+			view->window->pending.workspace->windows->length == 1) {
+		return true;
 	}
 
 	return true;
@@ -481,12 +478,12 @@ static void handle_foreign_activate_request(
 			if (!view->enabled) {
 				view_minimize(view, false);
 			}
-			if (container_is_scratchpad_hidden_or_child(view->container)) {
-				root_scratchpad_show(view->container);
+			if (window_is_scratchpad_hidden(view->window)) {
+				root_scratchpad_show(view->window);
 			}
-			seat_set_focus_container(seat, view->container);
+			seat_set_focus_window(seat, view->window);
 			seat_consider_warp_to_focus(seat);
-			container_raise_floating(view->container);
+			window_raise(view->window);
 			break;
 		}
 	}
@@ -498,35 +495,22 @@ static void handle_foreign_fullscreen_request(
 	struct wsm_view *view = wl_container_of(
 		listener, view, foreign_fullscreen_request);
 	struct wlr_foreign_toplevel_handle_v1_fullscreen_event *event = data;
-	struct wsm_container *container = view->container;
-	if (!container->pending.workspace) {
-		while (container->pending.parent) {
-			container = container->pending.parent;
-		}
-	}
+	struct wsm_window *window = view->window;
 
 	if (event->fullscreen && event->output && event->output->data) {
 		struct wsm_output *output = event->output->data;
 		struct wsm_workspace *ws = output_get_active_workspace(output);
-		if (ws && !container_is_scratchpad_hidden(view->container)) {
-			if (container_is_floating(view->container)) {
-				workspace_add_floating(ws, view->container);
-			} else {
-				workspace_add_tiling(ws, view->container);
-			}
+		if (ws && !window_is_scratchpad_hidden(view->window)) {
+			workspace_add_window(ws, view->window);
 		}
 	}
 
-	container_set_fullscreen(container,
+	window_set_fullscreen(window,
 		event->fullscreen ? FULLSCREEN_WORKSPACE : FULLSCREEN_NONE);
 	if (event->fullscreen) {
 		arrange_root_auto();
-	} else {
-		if (container->pending.parent) {
-			wsm_arrange_container_auto(container->pending.parent);
-		} else if (container->pending.workspace) {
-			wsm_arrange_workspace_auto(container->pending.workspace);
-		}
+	} else if (window->pending.workspace) {
+		wsm_arrange_workspace_auto(window->pending.workspace);
 	}
 	transaction_commit_dirty();
 }
@@ -556,7 +540,7 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
 	}
 	view->surface = wlr_surface;
 	view_populate_pid(view);
-	view->container = container_create(view);
+	view->window = window_create(view);
 
 	struct wsm_workspace *ws = NULL;
 	if (fullscreen_output && fullscreen_output->data) {
@@ -565,29 +549,6 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
 	}
 	if (!ws) {
 		ws = select_workspace(view);
-	}
-
-	struct wsm_seat *seat = input_manager_current_seat();
-	struct wsm_node *node =
-		seat_get_focus_inactive(seat, ws ? &ws->node : &global_server.scene->node);
-	struct wsm_container *target_sibling = NULL;
-	if (node && node->type == N_CONTAINER) {
-		if (container_is_floating(node->container)) {
-			if (ws) {
-				target_sibling = seat_get_focus_inactive_tiling(seat, ws);
-				if (target_sibling) {
-					struct wsm_container *con =
-						seat_get_focus_inactive_view(seat, &target_sibling->node);
-					if (con)  {
-						target_sibling = con;
-					}
-				}
-			} else {
-				ws = seat_get_last_known_workspace(seat);
-			}
-		} else {
-			target_sibling = node->container;
-		}
 	}
 
 	struct wlr_ext_foreign_toplevel_handle_v1_state foreign_toplevel_state = {
@@ -612,65 +573,43 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
 	wl_signal_add(&view->foreign_toplevel->events.destroy,
 		&view->foreign_destroy);
 
-	struct wsm_container *container = view->container;
-	if (target_sibling) {
-		container_add_sibling(target_sibling, container, 1);
-	} else if (ws) {
-		container = workspace_add_tiling(ws, container);
+	struct wsm_window *window = view->window;
+	if (ws) {
+		workspace_add_window(ws, window);
 	}
 
 	if (decoration) {
 		view_update_csd_from_client(view, decoration);
 	}
 
-	view->container->pending.border = global_config.floating_border;
-	view->container->pending.border_thickness = global_config.floating_border_thickness;
-	view->container->pending.sensing_thickness = global_config.sensing_border_thickness;
-	container_set_floating(view->container, true);
+	view->window->pending.border = global_config.window_border;
+	view->window->pending.border_thickness = global_config.window_border_thickness;
+	view->window->pending.sensing_thickness = global_config.sensing_border_thickness;
+	view_set_tiled(view, false);
+	window_set_default_size(view->window);
+	window_resize_and_center(view->window);
 
 	if (global_config.popup_during_fullscreen == POPUP_LEAVE &&
-		container->pending.workspace &&
-		container->pending.workspace->fullscreen &&
-		container->pending.workspace->fullscreen->view) {
-		struct wsm_container *fs = container->pending.workspace->fullscreen;
+		window->pending.workspace &&
+		window->pending.workspace->fullscreen &&
+		window->pending.workspace->fullscreen->view) {
+		struct wsm_window *fs = window->pending.workspace->fullscreen;
 		if (view_is_transient_for(view, fs->view)) {
-			container_set_fullscreen(fs, FULLSCREEN_NONE);
+			window_set_fullscreen(fs, FULLSCREEN_NONE);
 		}
 	}
 
 	view_update_title(view, false);
-	container_update_representation(container);
+	if (window->pending.workspace) {
+		workspace_update_representation(window->pending.workspace);
+	}
 
 	if (fullscreen) {
-		container_set_fullscreen(view->container, FULLSCREEN_WORKSPACE);
-		wsm_arrange_workspace_auto(view->container->pending.workspace);
+		window_set_fullscreen(view->window, FULLSCREEN_WORKSPACE);
+		wsm_arrange_workspace_auto(view->window->pending.workspace);
 	} else {
-		if (container->pending.parent) {
-			wsm_arrange_container_auto(container->pending.parent);
-		} else if (container->pending.workspace) {
-			wsm_arrange_workspace_auto(container->pending.workspace);
-		}
-	}
-
-	bool floating = true;
-	if (!container && ws->tiling->length == 0) {
-		floating = false;
-	}
-
-	if (floating && container_is_scratchpad_hidden(container)) {
-		floating = false;
-	}
-
-	if (container_is_floating_or_child(container)) {
-		while (container->pending.parent) {
-			container = container->pending.parent;
-		}
-	}
-
-	if (floating) {
-		container_set_floating(container, true);
-		if (container->pending.workspace) {
-			wsm_arrange_workspace_auto(container->pending.workspace);
+		if (window->pending.workspace) {
+			wsm_arrange_workspace_auto(window->pending.workspace);
 		}
 	}
 
@@ -685,7 +624,7 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
 #endif
 
 	if (set_focus) {
-		input_manager_set_focus(&view->container->node);
+		input_manager_set_focus(&view->window->node);
 	}
 
 	const char *app_id;
@@ -710,12 +649,9 @@ void view_unmap(struct wsm_view *view) {
 		view->foreign_toplevel = NULL;
 	}
 
-	struct wsm_container *parent = view->container->pending.parent;
-	struct wsm_workspace *ws = view->container->pending.workspace;
-	container_begin_destroy(view->container);
-	if (parent) {
-		container_reap_empty(parent);
-	} else if (ws) {
+	struct wsm_workspace *ws = view->window->pending.workspace;
+	window_begin_destroy(view->window);
+	if (ws) {
 		workspace_consider_destroy(ws);
 	}
 
@@ -744,32 +680,32 @@ void view_unmap(struct wsm_view *view) {
 }
 
 void view_update_size(struct wsm_view *view) {
-	struct wsm_container *con = view->container;
-	con->pending.content_width = view->geometry.width;
-	con->pending.content_height = view->geometry.height;
-	container_set_geometry_from_content(con);
+	struct wsm_window *window = view->window;
+	window->pending.content_width = view->geometry.width;
+	window->pending.content_height = view->geometry.height;
+	window_set_geometry_from_content(window);
 }
 
 void view_center_and_clip_surface(struct wsm_view *view) {
-	struct wsm_container *con = view->container;
+	struct wsm_window *window = view->window;
 	bool clip_to_geometry = true;
-	if (container_is_floating(con)) {
+	if (window_is_managed(window)) {
 		clip_to_geometry = !view->using_csd;
 	} else {
 		wlr_scene_node_set_position(&view->content_tree->node, 0, 0);
 	}
 
-	if (!wl_list_empty(&con->view->content_tree->children)) {
+	if (!wl_list_empty(&window->view->content_tree->children)) {
 		struct wlr_box clip = {0};
 		if (clip_to_geometry) {
 			clip = (struct wlr_box){
-				.x = con->view->geometry.x,
-				.y = con->view->geometry.y,
-				.width = con->current.content_width,
-				.height = con->current.content_height,
+				.x = window->view->geometry.x,
+				.y = window->view->geometry.y,
+				.width = window->current.content_width,
+				.height = window->current.content_height,
 			};
 		}
-		wlr_scene_subsurface_tree_set_clip(&con->view->content_tree->node, &clip);
+		wlr_scene_subsurface_tree_set_clip(&window->view->content_tree->node, &clip);
 	}
 }
 
@@ -877,17 +813,17 @@ void view_update_title(struct wsm_view *view, bool force) {
 	const char *title = view_get_title(view);
 
 	if (!force) {
-		if (title && view->container->title &&
-			strcmp(title, view->container->title) == 0) {
+		if (title && view->window->title &&
+			strcmp(title, view->window->title) == 0) {
 			return;
 		}
-		if (!title && !view->container->title) {
+		if (!title && !view->window->title) {
 			return;
 		}
 	}
 
-	free(view->container->title);
-	free(view->container->formatted_title);
+	free(view->window->title);
+	free(view->window->formatted_title);
 
 	size_t len = parse_title_format(view, NULL);
 
@@ -898,19 +834,19 @@ void view_update_title(struct wsm_view *view, bool force) {
 		}
 		
 		parse_title_format(view, buffer);
-		view->container->formatted_title = buffer;
+		view->window->formatted_title = buffer;
 	} else {
-		view->container->formatted_title = NULL;
+		view->window->formatted_title = NULL;
 	}
 
-	view->container->title = title ? strdup(title) : NULL;
+	view->window->title = title ? strdup(title) : NULL;
 
-	if (view->container->title_bar->title_text && len) {
-		wsm_text_node_set_text(view->container->title_bar->title_text,
-			view->container->formatted_title);
-		container_arrange_title_bar_node(view->container);
+	if (view->window->title_bar->title_text && len) {
+		wsm_text_node_set_text(view->window->title_bar->title_text,
+			view->window->formatted_title);
+		window_arrange_title_bar_node(view->window);
 	} else {
-		container_update_title_bar(view->container);
+		window_update_title_bar(view->window);
 	}
 
 	if (view->foreign_toplevel && title) {
@@ -919,45 +855,23 @@ void view_update_title(struct wsm_view *view, bool force) {
 }
 
 bool view_is_visible(struct wsm_view *view) {
-	if (view->container->node.destroying) {
+	if (view->window->node.destroying) {
 		return false;
 	}
-	struct wsm_workspace *workspace = view->container->pending.workspace;
-	if (!workspace && view->container->pending.fullscreen_mode != FULLSCREEN_GLOBAL) {
-		bool fs_global_descendant = false;
-		struct wsm_container *parent = view->container->pending.parent;
-		while (parent) {
-			if (parent->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
-				fs_global_descendant = true;
-			}
-			parent = parent->pending.parent;
-		}
-		if (!fs_global_descendant) {
-			return false;
-		}
+	struct wsm_workspace *workspace = view->window->pending.workspace;
+	if (!workspace && view->window->pending.fullscreen_mode != FULLSCREEN_GLOBAL) {
+		return false;
 	}
 
-	if (!container_is_sticky_or_child(view->container) && workspace &&
+	if (!window_is_sticky(view->window) && workspace &&
 		!workspace_is_visible(workspace)) {
 		return false;
 	}
 
-	struct wsm_seat *seat = input_manager_current_seat();
-	struct wsm_container *con = view->container;
-	while (con) {
-		if (!container_is_floating(con)) {
-			struct wsm_node *parent = con->pending.parent ?
-				&con->pending.parent->node : &con->pending.workspace->node;
-			if (seat_get_active_tiling_child(seat, parent) != &con->node) {
-				return false;
-			}
-		}
-		con = con->pending.parent;
-	}
-	struct wsm_container *fs = global_server.scene->fullscreen_global ?
+	struct wsm_window *fs = global_server.scene->fullscreen_global ?
 		global_server.scene->fullscreen_global : workspace->fullscreen;
-	if (fs && !container_is_fullscreen_or_child(view->container) &&
-		!container_is_transient_for(view->container, fs)) {
+	if (fs && !window_is_fullscreen(view->window) &&
+		!window_is_transient_for(view->window, fs)) {
 		return false;
 	}
 	return true;
@@ -969,11 +883,11 @@ void view_set_urgent(struct wsm_view *view, bool enable) {
 	}
 	if (enable) {
 		struct wsm_seat *seat = input_manager_current_seat();
-		if (seat_get_focused_container(seat) == view->container) {
+		if (seat_get_focused_window(seat) == view->window) {
 			return;
 		}
 		clock_gettime(CLOCK_MONOTONIC, &view->urgent);
-		container_update_itself_and_parents(view->container);
+		window_update_itself_and_parents(view->window);
 	} else {
 		view->urgent = (struct timespec){ 0 };
 		if (view->urgent_timer) {
@@ -982,8 +896,8 @@ void view_set_urgent(struct wsm_view *view, bool enable) {
 		}
 	}
 
-	if (!container_is_scratchpad_hidden(view->container)) {
-		workspace_detect_urgent(view->container->pending.workspace);
+	if (!window_is_scratchpad_hidden(view->window)) {
+		workspace_detect_urgent(view->window->pending.workspace);
 	}
 }
 

@@ -27,12 +27,12 @@ void arrange_root_auto(void) {
 	global_server.scene->height = layout_box.height;
 
 	if (global_server.scene->fullscreen_global) {
-		struct wsm_container *fs = global_server.scene->fullscreen_global;
+		struct wsm_window *fs = global_server.scene->fullscreen_global;
 		fs->pending.x = global_server.scene->x;
 		fs->pending.y = global_server.scene->y;
 		fs->pending.width = global_server.scene->width;
 		fs->pending.height = global_server.scene->height;
-		wsm_arrange_container_auto(fs);
+		wsm_arrange_window_auto(fs);
 	} else {
 		for (int i = 0; i < global_server.scene->outputs->length; ++i) {
 			struct wsm_output *output = global_server.scene->outputs->items[i];
@@ -42,18 +42,18 @@ void arrange_root_auto(void) {
 }
 
 void arrange_root_scene(struct wsm_scene *root) {
-	struct wsm_container *fs = root->fullscreen_global;
+	struct wsm_window *fs = root->fullscreen_global;
 
 	wlr_scene_node_set_enabled(&root->layers.shell_background->node, !fs);
 	wlr_scene_node_set_enabled(&root->layers.shell_bottom->node, !fs);
 	wlr_scene_node_set_enabled(&root->layers.tiling->node, !fs);
-	wlr_scene_node_set_enabled(&root->layers.floating->node, !fs);
+	wlr_scene_node_set_enabled(&root->layers.windows->node, !fs);
 	wlr_scene_node_set_enabled(&root->layers.shell_top->node, !fs);
 	wlr_scene_node_set_enabled(&root->layers.fullscreen->node, !fs);
 
 	for (int i = 0; i < root->scratchpad->length; i++) {
-		struct wsm_container *con = root->scratchpad->items[i];
-		wlr_scene_node_set_enabled(&con->scene_tree->node, false);
+		struct wsm_window *window = root->scratchpad->items[i];
+		wlr_scene_node_set_enabled(&window->scene_tree->node, false);
 	}
 
 	if (fs) {
@@ -61,7 +61,7 @@ void arrange_root_scene(struct wsm_scene *root) {
 			struct wsm_output *output = root->outputs->items[i];
 			struct wsm_workspace *ws = output->current.active_workspace;
 			if (ws) {
-				arrange_workspace_floating(ws);
+				arrange_workspace_windows(ws);
 			}
 		}
 
@@ -113,26 +113,26 @@ void wsm_arrange_output_auto(struct wsm_output *output) {
 
 void arrange_output_width_size(struct wsm_output *output, int width, int height) {
 	for (int i = 0; i < output->current.workspaces->length; i++) {
-		struct wsm_workspace *child = output->current.workspaces->items[i];
+		struct wsm_workspace *workspace = output->current.workspaces->items[i];
 
-		bool activated = output->current.active_workspace == child;
+		bool activated = output->current.active_workspace == workspace;
 
-		wlr_scene_node_reparent(&child->layers.non_fullscreen->node, output->layers.tiling);
-		wlr_scene_node_reparent(&child->layers.fullscreen->node, output->layers.fullscreen);
+		wlr_scene_node_reparent(&workspace->layers.non_fullscreen->node, output->layers.tiling);
+		wlr_scene_node_reparent(&workspace->layers.fullscreen->node, output->layers.fullscreen);
 
-		for (int i = 0; i < child->current.floating->length; i++) {
-			struct wsm_container *floater = child->current.floating->items[i];
-			wlr_scene_node_reparent(&floater->scene_tree->node, global_server.scene->layers.floating);
-			wlr_scene_node_set_enabled(&floater->scene_tree->node,
-				activated && (!floater->view || floater->view->enabled));
+		for (int i = 0; i < workspace->current.windows->length; i++) {
+			struct wsm_window *window = workspace->current.windows->items[i];
+			wlr_scene_node_reparent(&window->scene_tree->node, global_server.scene->layers.windows);
+			wlr_scene_node_set_enabled(&window->scene_tree->node,
+				activated && (!window->view || window->view->enabled));
 		}
 
 		if (activated) {
-			struct wsm_container *fs = child->current.fullscreen;
-			wlr_scene_node_set_enabled(&child->layers.non_fullscreen->node, !fs);
-			wlr_scene_node_set_enabled(&child->layers.fullscreen->node, fs);
+			struct wsm_window *fs = workspace->current.fullscreen;
+			wlr_scene_node_set_enabled(&workspace->layers.non_fullscreen->node, !fs);
+			wlr_scene_node_set_enabled(&workspace->layers.fullscreen->node, fs);
 
-			arrange_workspace_floating(child);
+			arrange_workspace_windows(workspace);
 
 			wlr_scene_node_set_enabled(&output->layers.shell_background->node, !fs);
 			wlr_scene_node_set_enabled(&output->layers.shell_bottom->node, !fs);
@@ -140,24 +140,16 @@ void arrange_output_width_size(struct wsm_output *output, int width, int height)
 
 			if (fs) {
 				wlr_scene_rect_set_size(output->fullscreen_background, width, height);
-				wsm_arrange_fullscreen(child->layers.fullscreen, fs, child,
+				wsm_arrange_fullscreen(workspace->layers.fullscreen, fs, workspace,
 					width, height);
 			} else {
-				struct wlr_box *area = &output->usable_area;
-				struct side_gaps *gaps = &child->current_gaps;
-
-				wlr_scene_node_set_position(&child->layers.non_fullscreen->node,
-					gaps->left + area->x, gaps->top + area->y);
-
-				arrange_workspace_tiling(child,
-					area->width - gaps->left - gaps->right,
-					area->height - gaps->top - gaps->bottom);
+				wlr_scene_node_set_enabled(&workspace->layers.non_fullscreen->node, true);
 			}
 		} else {
-			wlr_scene_node_set_enabled(&child->layers.non_fullscreen->node, false);
-			wlr_scene_node_set_enabled(&child->layers.fullscreen->node, false);
+			wlr_scene_node_set_enabled(&workspace->layers.non_fullscreen->node, false);
+			wlr_scene_node_set_enabled(&workspace->layers.fullscreen->node, false);
 
-			disable_workspace(child);
+			disable_workspace(workspace);
 		}
 	}
 }
@@ -186,15 +178,15 @@ void wsm_arrange_workspace_auto(struct wsm_workspace *workspace) {
 	double diff_x = workspace->x - prev_x;
 	double diff_y = workspace->y - prev_y;
 	if (!first_arrange && (diff_x != 0 || diff_y != 0)) {
-		for (int i = 0; i < workspace->floating->length; ++i) {
-			struct wsm_container *floater = workspace->floating->items[i];
+		for (int i = 0; i < workspace->windows->length; ++i) {
+			struct wsm_window *window = workspace->windows->items[i];
 			struct wlr_box workspace_box;
 			workspace_get_box(workspace, &workspace_box);
-			floating_fix_coordinates(floater, &prev_box, &workspace_box);
-			if (floater->scratchpad) {
+			window_fix_coordinates(window, &prev_box, &workspace_box);
+			if (window->scratchpad) {
 				struct wlr_box output_box;
 				output_get_box(output, &output_box);
-				floater->transform = output_box;
+				window->transform = output_box;
 			}
 		}
 	}
@@ -204,17 +196,14 @@ void wsm_arrange_workspace_auto(struct wsm_workspace *workspace) {
 	wsm_log(WSM_DEBUG, "Arranging workspace '%s' at %f, %f", workspace->name,
 		workspace->x, workspace->y);
 	if (workspace->fullscreen) {
-		struct wsm_container *fs = workspace->fullscreen;
+		struct wsm_window *fs = workspace->fullscreen;
 		fs->pending.x = output->lx;
 		fs->pending.y = output->ly;
 		fs->pending.width = output->width;
 		fs->pending.height = output->height;
-		wsm_arrange_container_auto(fs);
+		wsm_arrange_window_auto(fs);
 	} else {
-		struct wlr_box box;
-		workspace_get_box(workspace, &box);
-		wsm_arrange_children(workspace->tiling, &box);
-		wsm_arrange_floating(workspace->floating);
+		wsm_arrange_windows(workspace->windows);
 	}
 }
 
@@ -269,63 +258,55 @@ void wsm_arrange_layers(struct wsm_output *output) {
 	}
 }
 
-void wsm_arrange_container_auto(struct wsm_container *container) {
-	if (container->view) {
-		view_autoconfigure(container->view);
-		node_set_dirty(&container->node);
+void wsm_arrange_window_auto(struct wsm_window *window) {
+	view_autoconfigure(window->view);
+	node_set_dirty(&window->node);
+}
+
+static void apply_window_list_layout(struct wsm_list *windows, struct wlr_box *parent) {
+	if (!windows->length) {
 		return;
 	}
 
-	struct wlr_box box;
-	container_get_box(container, &box);
-	wsm_arrange_children(container->pending.children, &box);
-	node_set_dirty(&container->node);
-}
-
-static void apply_stacked_layout(struct wsm_list *children, struct wlr_box *parent) {
-	if (!children->length) {
-		return;
-	}
-
-	for (int i = 0; i < children->length; ++i) {
-		struct wsm_container *child = children->items[i];
-		int parent_offset = child->view ?  0 :
-			container_titlebar_height() * children->length;
-		child->pending.x = parent->x;
-		child->pending.y = parent->y + parent_offset;
-		child->pending.width = parent->width;
-		child->pending.height = parent->height - parent_offset;
+	for (int i = 0; i < windows->length; ++i) {
+		struct wsm_window *window = windows->items[i];
+		int parent_offset = window->view ?  0 :
+			window_titlebar_height() * windows->length;
+		window->pending.x = parent->x;
+		window->pending.y = parent->y + parent_offset;
+		window->pending.width = parent->width;
+		window->pending.height = parent->height - parent_offset;
 	}
 }
 
-void wsm_arrange_children(struct wsm_list *children, struct wlr_box *parent) {
-	apply_stacked_layout(children, parent);
+void wsm_arrange_window_list(struct wsm_list *windows, struct wlr_box *parent) {
+	apply_window_list_layout(windows, parent);
 
-	for (int i = 0; i < children->length; ++i) {
-		struct wsm_container *child = children->items[i];
-		wsm_arrange_container_auto(child);
+	for (int i = 0; i < windows->length; ++i) {
+		struct wsm_window *window = windows->items[i];
+		wsm_arrange_window_auto(window);
 	}
 }
 
-void wsm_arrange_floating(struct wsm_list *floating) {
-	for (int i = 0; i < floating->length; ++i) {
-		struct wsm_container *floater = floating->items[i];
-		wsm_arrange_container_auto(floater);
+void wsm_arrange_windows(struct wsm_list *windows) {
+	for (int i = 0; i < windows->length; ++i) {
+		struct wsm_window *window = windows->items[i];
+		wsm_arrange_window_auto(window);
 	}
 }
 
-void container_arrange_title_bar_node(struct wsm_container *con) {
+void window_arrange_title_bar_node(struct wsm_window *window) {
 	enum alignment title_align = ALIGN_CENTER;
 	int marks_buffer_width = 0;
-	int width = con->title_width;
-	int height = container_titlebar_height();
+	int width = window->title_width;
+	int height = window_titlebar_height();
 	int button_gap = 2;
 	int button_size = MAX(height - global_config.titlebar_v_padding, 0);
-	bool show_min_button = con->title_bar->min_button &&
-		con->view && view_can_minimize(con->view);
-	bool show_max_button = con->title_bar->max_button &&
-		con->view && view_can_maximize(con->view);
-	bool show_close_button = con->title_bar->close_button;
+	bool show_min_button = window->title_bar->min_button &&
+		window->view && view_can_minimize(window->view);
+	bool show_max_button = window->title_bar->max_button &&
+		window->view && view_can_maximize(window->view);
+	bool show_close_button = window->title_bar->close_button;
 	int button_count = (show_min_button ? 1 : 0) + (show_max_button ? 1 : 0) +
 		(show_close_button ? 1 : 0);
 	int button_area_width = button_count > 0 ?
@@ -335,8 +316,8 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 	pixman_region32_t text_area;
 	pixman_region32_init(&text_area);
 
-	if (con->title_bar->title_text) {
-		struct wsm_text_node *node = con->title_bar->title_text;
+	if (window->title_bar->title_text) {
+		struct wsm_text_node *node = window->title_bar->title_text;
 
 		int h_padding;
 		if (title_align == ALIGN_RIGHT) {
@@ -354,8 +335,8 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 
 		wsm_text_node_set_max_width(node, alloc_width);
 		wlr_scene_node_set_position(node->node_wlr,
-			h_padding, ((height - node->height) >> 1) + get_max_thickness(con->pending)
-			* con->pending.border_top);
+			h_padding, ((height - node->height) >> 1) + get_max_thickness(window->pending)
+			* window->pending.border_top);
 		pixman_region32_union_rect(&text_area, &text_area,
 			node->node_wlr->x, node->node_wlr->y, alloc_width, node->height);
 	}
@@ -365,84 +346,84 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 		return;
 	}
 
-	wlr_scene_node_set_position(&con->title_bar->background->node, 0, get_max_thickness(con->pending)
-		* con->pending.border_top);
-	wlr_scene_rect_set_size(con->title_bar->background, width, height);
-	if (!con->title_bar->icon && con->view && con->current.border == B_NORMAL) {
-		char *icon_path = con->view->app_icon_path;
+	wlr_scene_node_set_position(&window->title_bar->background->node, 0, get_max_thickness(window->pending)
+		* window->pending.border_top);
+	wlr_scene_rect_set_size(window->title_bar->background, width, height);
+	if (!window->title_bar->icon && window->view && window->current.border == B_NORMAL) {
+		char *icon_path = window->view->app_icon_path;
 		if (icon_path) {
 			int size = height - global_config.titlebar_v_padding;
-			con->title_bar->icon = wsm_image_node_create(con->title_bar->tree,
-				size, size, icon_path, con->alpha);
+			window->title_bar->icon = wsm_image_node_create(window->title_bar->tree,
+				size, size, icon_path, window->alpha);
 		}
 	}
 
-	if (con->title_bar->icon) {
+	if (window->title_bar->icon) {
 		int size = height - global_config.titlebar_v_padding;
-		wsm_image_node_set_size(con->title_bar->icon, size, size);
-		wlr_scene_node_set_position(con->title_bar->icon->node_wlr, ((height - size) >> 1),
-			((height - size) >> 1) + get_max_thickness(con->pending)
-			* con->pending.border_top);
+		wsm_image_node_set_size(window->title_bar->icon, size, size);
+		wlr_scene_node_set_position(window->title_bar->icon->node_wlr, ((height - size) >> 1),
+			((height - size) >> 1) + get_max_thickness(window->pending)
+			* window->pending.border_top);
 	}
 
-	if (con->title_bar->close_button) {
-		int top = ((height - button_size) >> 1) + get_max_thickness(con->pending)
-			* con->pending.border_top;
+	if (window->title_bar->close_button) {
+		int top = ((height - button_size) >> 1) + get_max_thickness(window->pending)
+			* window->pending.border_top;
 		int x = width - global_config.titlebar_h_padding - button_size;
 
-		wlr_scene_node_set_enabled(&con->title_bar->min_button->tree->node,
+		wlr_scene_node_set_enabled(&window->title_bar->min_button->tree->node,
 			show_min_button);
-		wlr_scene_node_set_enabled(&con->title_bar->max_button->tree->node,
+		wlr_scene_node_set_enabled(&window->title_bar->max_button->tree->node,
 			show_max_button);
-		wlr_scene_node_set_enabled(&con->title_bar->close_button->tree->node,
+		wlr_scene_node_set_enabled(&window->title_bar->close_button->tree->node,
 			show_close_button);
-		wsm_button_node_set_clickable(con->title_bar->min_button, show_min_button);
-		wsm_button_node_set_clickable(con->title_bar->max_button, show_max_button);
-		wsm_button_node_set_clickable(con->title_bar->close_button, show_close_button);
+		wsm_button_node_set_clickable(window->title_bar->min_button, show_min_button);
+		wsm_button_node_set_clickable(window->title_bar->max_button, show_max_button);
+		wsm_button_node_set_clickable(window->title_bar->close_button, show_close_button);
 
 		if (show_close_button) {
-			wsm_button_node_set_size(con->title_bar->close_button, button_size, button_size);
-			wlr_scene_node_set_position(&con->title_bar->close_button->tree->node, x, top);
+			wsm_button_node_set_size(window->title_bar->close_button, button_size, button_size);
+			wlr_scene_node_set_position(&window->title_bar->close_button->tree->node, x, top);
 			x -= button_size + button_gap;
 		}
 
 		if (show_max_button) {
-			wsm_button_node_set_size(con->title_bar->max_button, button_size, button_size);
-			wlr_scene_node_set_position(&con->title_bar->max_button->tree->node, x, top);
+			wsm_button_node_set_size(window->title_bar->max_button, button_size, button_size);
+			wlr_scene_node_set_position(&window->title_bar->max_button->tree->node, x, top);
 			x -= button_size + button_gap;
 		}
 
 		if (show_min_button) {
-			wsm_button_node_set_size(con->title_bar->min_button, button_size, button_size);
-			wlr_scene_node_set_position(&con->title_bar->min_button->tree->node, x, top);
+			wsm_button_node_set_size(window->title_bar->min_button, button_size, button_size);
+			wlr_scene_node_set_position(&window->title_bar->min_button->tree->node, x, top);
 		}
 
-		wlr_scene_node_raise_to_top(&con->title_bar->min_button->tree->node);
-		wlr_scene_node_raise_to_top(&con->title_bar->max_button->tree->node);
-		wlr_scene_node_raise_to_top(&con->title_bar->close_button->tree->node);
+		wlr_scene_node_raise_to_top(&window->title_bar->min_button->tree->node);
+		wlr_scene_node_raise_to_top(&window->title_bar->max_button->tree->node);
+		wlr_scene_node_raise_to_top(&window->title_bar->close_button->tree->node);
 	}
 
-	container_update(con);
+	window_update(window);
 }
 
-void wsm_arrange_title_bar(struct wsm_container *con,
+void wsm_arrange_title_bar(struct wsm_window *window,
 		int x, int y, int width, int height) {
-	container_update(con);
+	window_update(window);
 
 	bool has_title_bar = height > 0;
-	wlr_scene_node_set_enabled(&con->title_bar->tree->node, has_title_bar && con->view->enabled);
+	wlr_scene_node_set_enabled(&window->title_bar->tree->node, has_title_bar && window->view->enabled);
 	if (!has_title_bar) {
 		return;
 	}
 
-	wlr_scene_node_set_position(&con->title_bar->tree->node, x, y);
+	wlr_scene_node_set_position(&window->title_bar->tree->node, x, y);
 
-	con->title_width = width;
-	container_arrange_title_bar_node(con);
+	window->title_width = width;
+	window_arrange_title_bar_node(window);
 }
 
 void wsm_arrange_fullscreen(struct wlr_scene_tree *tree,
-		struct wsm_container *fs, struct wsm_workspace *ws,
+		struct wsm_window *fs, struct wsm_workspace *ws,
 		int width, int height) {
 	struct wlr_scene_node *fs_node;
 	if (fs->view) {
@@ -450,7 +431,7 @@ void wsm_arrange_fullscreen(struct wlr_scene_tree *tree,
 		wlr_scene_node_set_enabled(&fs->scene_tree->node, false);
 	} else {
 		fs_node = &fs->scene_tree->node;
-		wsm_arrange_container_with_title_bar(fs, width, height, true, 0);
+		wsm_arrange_window_with_title_bar(fs, width, height, true, 0);
 	}
 
 	wlr_scene_node_reparent(fs_node, tree);
@@ -458,101 +439,93 @@ void wsm_arrange_fullscreen(struct wlr_scene_tree *tree,
 	wlr_scene_node_set_position(fs_node, 0, 0);
 }
 
-void wsm_arrange_container_with_title_bar(struct wsm_container *con,
+void wsm_arrange_window_with_title_bar(struct wsm_window *window,
 		int width, int height, bool title_bar, int gaps) {
-	wlr_scene_node_set_enabled(&con->scene_tree->node, true);
+	wlr_scene_node_set_enabled(&window->scene_tree->node, true);
 
-	if (con->output_handler) {
-		wlr_scene_buffer_set_dest_size(con->output_handler, width, height);
+	if (window->output_handler) {
+		wlr_scene_buffer_set_dest_size(window->output_handler, width, height);
 	}
 
-	if (con->view) {
-		int max_thickness = get_max_thickness(con->current);
-		int border_top = container_titlebar_height() + max_thickness * con->current.border_top;
+	if (window->view) {
+		int max_thickness = get_max_thickness(window->current);
+		int border_top = window_titlebar_height() + max_thickness * window->current.border_top;
 		int border_width = max_thickness;
 		int sensing_width = max_thickness;
 
-		if (con->current.border == B_NORMAL) {
+		if (window->current.border == B_NORMAL) {
 			if (title_bar) {
-				wsm_arrange_title_bar(con, max_thickness, 0, width - max_thickness * 2, border_top);
+				wsm_arrange_title_bar(window, max_thickness, 0, width - max_thickness * 2, border_top);
 			} else {
 				border_top = 0;
 			}
-		} else if (con->current.border == B_NONE) {
-			container_update(con);
+		} else if (window->current.border == B_NONE) {
+			window_update(window);
 			border_top = 0;
 			border_width = 0;
 			sensing_width = 0;
-		} else if (con->current.border == B_CSD) {
+		} else if (window->current.border == B_CSD) {
 			border_top = 0;
 			border_width = 0;
 		} else {
 			wsm_assert(false, "unreachable");
 		}
 
-		int border_left = con->current.border_left ? border_width : 0;
-		int sensing_bottom = con->current.border_bottom ? sensing_width : 0;
-		int sensing_left = con->current.border_left ? sensing_width : 0;
-		int sensing_right = con->current.border_right ? sensing_width : 0;
-		int sensing_top = con->current.border_top ? sensing_width : 0;
+		int border_left = window->current.border_left ? border_width : 0;
+		int sensing_bottom = window->current.border_bottom ? sensing_width : 0;
+		int sensing_left = window->current.border_left ? sensing_width : 0;
+		int sensing_right = window->current.border_right ? sensing_width : 0;
+		int sensing_top = window->current.border_top ? sensing_width : 0;
 
-		wlr_scene_rect_set_size(con->sensing.top, width, sensing_top);
-		wlr_scene_rect_set_size(con->sensing.bottom, width, sensing_bottom);
-		wlr_scene_rect_set_size(con->sensing.left,
+		wlr_scene_rect_set_size(window->sensing.top, width, sensing_top);
+		wlr_scene_rect_set_size(window->sensing.bottom, width, sensing_bottom);
+		wlr_scene_rect_set_size(window->sensing.left,
 			sensing_left, height - sensing_bottom - sensing_top);
-		wlr_scene_rect_set_size(con->sensing.right,
+		wlr_scene_rect_set_size(window->sensing.right,
 			sensing_right, height - sensing_bottom - sensing_top);
 
-		wlr_scene_node_set_position(&con->sensing.top->node, 0, 0);
-		wlr_scene_node_set_position(&con->sensing.bottom->node,
+		wlr_scene_node_set_position(&window->sensing.top->node, 0, 0);
+		wlr_scene_node_set_position(&window->sensing.bottom->node,
 			0, height - sensing_bottom);
-		wlr_scene_node_set_position(&con->sensing.left->node,
+		wlr_scene_node_set_position(&window->sensing.left->node,
 			0, sensing_top);
-		wlr_scene_node_set_position(&con->sensing.right->node,
+		wlr_scene_node_set_position(&window->sensing.right->node,
 			width - sensing_right, sensing_top);
 
-		wlr_scene_node_reparent(&con->view->scene_tree->node, con->content_tree);
-		wlr_scene_node_set_position(&con->view->scene_tree->node,
+		wlr_scene_node_reparent(&window->view->scene_tree->node, window->content_tree);
+		wlr_scene_node_set_position(&window->view->scene_tree->node,
 			border_left, border_top);
-	} else {
-		if (title_bar) {
-			wlr_scene_node_set_enabled(&con->title_bar->tree->node, false);
-		}
-
-		arrange_children_with_titlebar(con->current.children,
-			con->current.focused_inactive_child, con->content_tree,
-			width, height, gaps);
 	}
 }
 
-void arrange_children_with_titlebar(struct wsm_list *children,
-		struct wsm_container *active, struct wlr_scene_tree *content, int width, int height, int gaps) {
-	int title_bar_height = container_titlebar_height();
+void arrange_windows_with_titlebar(struct wsm_list *windows,
+		struct wsm_window *active, struct wlr_scene_tree *content, int width, int height, int gaps) {
+	int title_bar_height = window_titlebar_height();
 
-	struct wsm_container *first = children->length == 1 ?
-		((struct wsm_container *)children->items[0]) : NULL;
+	struct wsm_window *first = windows->length == 1 ?
+		((struct wsm_window *)windows->items[0]) : NULL;
 	if (first && first->view &&
 		first->current.border != B_NORMAL) {
 		title_bar_height = 0;
 	}
 
-	int title_height = title_bar_height * children->length;
+	int title_height = title_bar_height * windows->length;
 
 	int y = 0;
-	for (int i = 0; i < children->length; i++) {
-		struct wsm_container *child = children->items[i];
-		bool activated = child == active;
+	for (int i = 0; i < windows->length; i++) {
+		struct wsm_window *window = windows->items[i];
+		bool activated = window == active;
 
-		wsm_arrange_title_bar(child, 0, y + title_height, width, title_bar_height);
-		wlr_scene_node_set_enabled(&child->sensing.tree->node, activated);
-		wlr_scene_node_set_position(&child->scene_tree->node, 0, title_height);
-		wlr_scene_node_reparent(&child->scene_tree->node, content);
+		wsm_arrange_title_bar(window, 0, y + title_height, width, title_bar_height);
+		wlr_scene_node_set_enabled(&window->sensing.tree->node, activated);
+		wlr_scene_node_set_position(&window->scene_tree->node, 0, title_height);
+		wlr_scene_node_reparent(&window->scene_tree->node, content);
 
 		if (activated) {
-			wsm_arrange_container_with_title_bar(child, width, height - title_height,
+			wsm_arrange_window_with_title_bar(window, width, height - title_height,
 				false, 0);
 		} else {
-			disable_container(child);
+			disable_window(window);
 		}
 
 		y += title_bar_height;
@@ -561,22 +534,19 @@ void arrange_children_with_titlebar(struct wsm_list *children,
 
 void arrange_workspace_tiling(struct wsm_workspace *ws,
 		int width, int height) {
-	arrange_children_with_titlebar(ws->current.tiling,
-		ws->current.focused_inactive_child, ws->layers.non_fullscreen,
-		width, height, ws->gaps_inner);
 }
 
-void arrange_workspace_floating(struct wsm_workspace *ws) {
-	for (int i = 0; i < ws->current.floating->length; i++) {
-		struct wsm_container *floater = ws->current.floating->items[i];
-		struct wlr_scene_tree *layer = global_server.scene->layers.floating;
+void arrange_workspace_windows(struct wsm_workspace *ws) {
+	for (int i = 0; i < ws->current.windows->length; i++) {
+		struct wsm_window *window = ws->current.windows->items[i];
+		struct wlr_scene_tree *layer = global_server.scene->layers.windows;
 
-		if (floater->current.fullscreen_mode != FULLSCREEN_NONE) {
+		if (window->current.fullscreen_mode != FULLSCREEN_NONE) {
 			continue;
 		}
 
 		if (global_server.scene->fullscreen_global) {
-			if (container_is_transient_for(floater, global_server.scene->fullscreen_global)) {
+			if (window_is_transient_for(window, global_server.scene->fullscreen_global)) {
 				layer = global_server.scene->layers.fullscreen_global;
 			}
 		} else {
@@ -585,18 +555,18 @@ void arrange_workspace_floating(struct wsm_workspace *ws) {
 				struct wsm_workspace *active = output->current.active_workspace;
 
 				if (active && active->fullscreen &&
-					container_is_transient_for(floater, active->fullscreen)) {
+					window_is_transient_for(window, active->fullscreen)) {
 					layer = global_server.scene->layers.fullscreen;
 				}
 			}
 		}
 
-		wlr_scene_node_reparent(&floater->scene_tree->node, layer);
-		wlr_scene_node_set_position(&floater->scene_tree->node,
-			floater->current.x, floater->current.y);
-		wlr_scene_node_set_enabled(&floater->scene_tree->node,
-			!floater->view || floater->view->enabled);
-		wsm_arrange_container_with_title_bar(floater, floater->current.width, floater->current.height,
+		wlr_scene_node_reparent(&window->scene_tree->node, layer);
+		wlr_scene_node_set_position(&window->scene_tree->node,
+			window->current.x, window->current.y);
+		wlr_scene_node_set_enabled(&window->scene_tree->node,
+			!window->view || window->view->enabled);
+		wsm_arrange_window_with_title_bar(window, window->current.width, window->current.height,
 			true, ws->gaps_inner);
 	}
 }

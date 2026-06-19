@@ -14,8 +14,8 @@
 #include "wsm_server_decoration.h"
 #include "wsm_input_manager.h"
 #include "node/wsm_node_descriptor.h"
-#include "wsm_seatop_move_floating.h"
-#include "wsm_seatop_resize_floating.h"
+#include "wsm_seatop_move_window.h"
+#include "wsm_seatop_resize_window.h"
 
 #include <float.h>
 #include <stdlib.h>
@@ -140,7 +140,7 @@ static void set_resizing(struct wsm_view *view, bool resizing) {
 	wlr_xdg_toplevel_set_resizing(view->wlr_xdg_toplevel, resizing);
 }
 
-static bool wants_floating(struct wsm_view *view) {
+static bool wants_window(struct wsm_view *view) {
 	struct wlr_xdg_toplevel *toplevel = view->wlr_xdg_toplevel;
 	struct wlr_xdg_toplevel_state *state = &toplevel->current;
 	return (state->min_width != 0 && state->min_height != 0 &&
@@ -206,7 +206,7 @@ static const struct wsm_view_impl view_impl = {
 	.set_tiled = set_tiled,
 	.set_fullscreen = set_fullscreen,
 	.set_resizing = set_resizing,
-	.wants_floating = wants_floating,
+	.wants_window = wants_window,
 	.is_transient_for = is_transient_for,
 	.maximize = _maximize,
 	.minimize = _minimize,
@@ -245,9 +245,9 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 		new_geo.y != view->geometry.y;
 	enum wlr_edges resize_edges = WLR_EDGE_NONE;
 	double resize_geo_right = 0.0, resize_geo_bottom = 0.0;
-	bool resizing = seatop_resize_floating_get_anchor(view->container,
+	bool resizing = seatop_resize_window_get_anchor(view->window,
 		&resize_edges, &resize_geo_right, &resize_geo_bottom);
-	bool deferred_resize = seatop_resize_floating_is_deferred(view->container);
+	bool deferred_resize = seatop_resize_window_is_deferred(view->window);
 	bool resize_instruction_updated = resizing && !deferred_resize &&
 		transaction_update_view_resize_state_by_serial(view,
 			xdg_surface->current.configure_serial, resize_edges,
@@ -259,21 +259,21 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 	}
 
 	if (deferred_resize &&
-			seatop_resize_floating_deferred_commit(view->container)) {
+			seatop_resize_window_deferred_commit(view->window)) {
 		transaction_commit_dirty_client();
 		view_center_and_clip_surface(view);
 		return;
 	}
 
 	if (new_size) {
-		if (container_is_floating(view->container)) {
+		if (window_is_managed(view->window)) {
 			if (resize_instruction_updated) {
 				// The waiting transaction now matches the committed size.
 			} else if (resizing) {
 				// Stale resize commit for another configure; leave pending alone.
 			} else if (xdg_surface->initial_commit && view->using_csd) {
 				view_update_size(view);
-				if (view->container->current.width) {
+				if (view->window->current.width) {
 					wlr_xdg_toplevel_set_size(view->wlr_xdg_toplevel, view->geometry.width,
 						view->geometry.height);
 				}
@@ -284,7 +284,7 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 		view_center_and_clip_surface(view);
 	}
 
-	if (view->container->node.instruction) {
+	if (view->window->node.instruction) {
 		bool successful = transaction_notify_view_ready_by_serial(view,
 			xdg_surface->current.configure_serial);
 
@@ -335,7 +335,7 @@ static void handle_request_maximize(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	container_set_maximized(view->container, toplevel->requested.maximized);
+	window_set_maximized(view->window, toplevel->requested.maximized);
 	transaction_commit_dirty();
 }
 
@@ -351,7 +351,7 @@ static void handle_request_minimize(struct wl_listener *listener, void *data) {
 	}
 
 	if (toplevel->requested.minimized) {
-		container_minimize(view->container);
+		window_minimize(view->window);
 	} else {
 		view_minimize(view, false);
 		transaction_commit_dirty();
@@ -369,22 +369,18 @@ static void handle_request_fullscreen(struct wl_listener *listener, void *data) 
 		return;
 	}
 
-	struct wsm_container *container = view->container;
+	struct wsm_window *window = view->window;
 	struct wlr_xdg_toplevel_requested *req = &toplevel->requested;
 	if (req->fullscreen && req->fullscreen_output && req->fullscreen_output->data) {
 		struct wsm_output *output = req->fullscreen_output->data;
 		struct wsm_workspace *ws = output_get_active_workspace(output);
-		if (ws && !container_is_scratchpad_hidden(container) &&
-				container->pending.workspace != ws) {
-			if (container_is_floating(container)) {
-				workspace_add_floating(ws, container);
-			} else {
-				container = workspace_add_tiling(ws, container);
-			}
+		if (ws && !window_is_scratchpad_hidden(window) &&
+				window->pending.workspace != ws) {
+			workspace_add_window(ws, window);
 		}
 	}
 
-	container_set_fullscreen(container,
+	window_set_fullscreen(window,
 		req->fullscreen ? FULLSCREEN_WORKSPACE : FULLSCREEN_NONE);
 
 	arrange_root_auto();
@@ -395,14 +391,14 @@ static void handle_request_move(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_shell_view *xdg_shell_view =
 		wl_container_of(listener, xdg_shell_view, request_move);
 	struct wsm_view *view = &xdg_shell_view->view;
-	if (!container_is_floating(view->container) ||
-		view->container->pending.fullscreen_mode) {
+	if (!window_is_managed(view->window) ||
+		view->window->pending.fullscreen_mode) {
 		return;
 	}
 	struct wlr_xdg_toplevel_move_event *e = data;
 	struct wsm_seat *seat = e->seat->seat->data;
 	if (e->serial == seat->last_button_serial) {
-		seatop_begin_move_floating(seat, view->container);
+		seatop_begin_move_window(seat, view->window);
 	}
 }
 
@@ -410,13 +406,13 @@ static void handle_request_resize(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_shell_view *xdg_shell_view =
 		wl_container_of(listener, xdg_shell_view, request_resize);
 	struct wsm_view *view = &xdg_shell_view->view;
-	if (!container_is_floating(view->container)) {
+	if (!window_is_managed(view->window)) {
 		return;
 	}
 	struct wlr_xdg_toplevel_resize_event *e = data;
 	struct wsm_seat *seat = e->seat->seat->data;
 	if (e->serial == seat->last_button_serial) {
-		seatop_begin_resize_floating(seat, view->container, e->edges);
+		seatop_begin_resize_window(seat, view->window, e->edges);
 	}
 }
 
@@ -470,10 +466,10 @@ static void handle_map(struct wl_listener *listener, void *data) {
 		csd);
 
 	if (toplevel->requested.maximized) {
-		container_set_maximized(view->container, true);
+		window_set_maximized(view->window, true);
 	}
 	if (toplevel->requested.minimized) {
-		container_minimize(view->container);
+		window_minimize(view->window);
 	}
 
 	transaction_commit_dirty();

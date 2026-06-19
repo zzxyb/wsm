@@ -2,7 +2,7 @@
 #include "wsm_seat.h"
 #include "wsm_server.h"
 #include "wsm_scene.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_text_input.h"
 #include "wsm_layer_shell.h"
 #include "node/wsm_node_descriptor.h"
@@ -339,8 +339,8 @@ static void input_popup_update(struct wsm_input_popup *popup) {
 		int lx, ly;
 		wlr_scene_node_coords(&view->scene_tree->node, &lx, &ly);
 		struct wlr_output *output = wlr_output_layout_output_at(root->output_layout,
-			view->container->pending.content_x + view->geometry.x,
-			view->container->pending.content_y + view->geometry.y);
+			view->window->pending.content_x + view->geometry.x,
+			view->window->pending.content_y + view->geometry.y);
 		wlr_output_layout_get_box(root->output_layout, output, &output_box);
 		parent.x = lx;
 		parent.y = ly;

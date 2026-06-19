@@ -16,7 +16,7 @@
 #include "wsm_workspace.h"
 #include "wsm_arrange.h"
 #include "wsm_workspace.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_keyboard.h"
 #include "wsm_pointer.h"
 #include "node/wsm_node_descriptor.h"
@@ -118,11 +118,11 @@ static void handle_seat_destroy(struct wl_listener *listener, void *data) {
 
 static void seat_send_activate(struct wsm_node *node, struct wsm_seat *seat) {
 	if (node_is_view(node)) {
-		view_set_activated(node->container->view, true);
-	} else {
+		view_set_activated(node->window->view, true);
+	} else if (node->type == N_WORKSPACE) {
 		struct wsm_list *children = node_get_children(node);
 		for (int i = 0; i < children->length; ++i) {
-			struct wsm_container *child = children->items[i];
+			struct wsm_window *child = children->items[i];
 			seat_send_activate(&child->node, seat);
 		}
 	}
@@ -155,8 +155,8 @@ static void seat_tablet_pads_set_focus(struct wsm_seat *seat,
 static void seat_send_focus(struct wsm_node *node, struct wsm_seat *seat) {
 	seat_send_activate(node, seat);
 
-	struct wsm_view *view = node->type == N_CONTAINER ?
-		node->container->view : NULL;
+	struct wsm_view *view = node->type == N_WINDOW ?
+		node->window->view : NULL;
 
 	if (view) {
 #if HAVE_XWAYLAND
@@ -210,9 +210,9 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 
 	struct wsm_node *next_focus = NULL;
 	while (next_focus == NULL && parent != NULL) {
-		struct wsm_container *con =
+		struct wsm_window *window =
 				seat_get_focus_inactive_view(seat, parent);
-		next_focus = con ? &con->node : NULL;
+		next_focus = window ? &window->node : NULL;
 		
 		if (next_focus == NULL && parent->type == N_WORKSPACE) {
 			next_focus = parent;
@@ -227,9 +227,9 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 		if (!ws) {
 			return;
 		}
-		struct wsm_container *con =
+		struct wsm_window *window =
 				seat_get_focus_inactive_view(seat, &ws->node);
-		next_focus = con ? &(con->node) : &(ws->node);
+		next_focus = window ? &(window->node) : &(ws->node);
 	}
 
 	if (next_focus->type == N_WORKSPACE &&
@@ -239,7 +239,7 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 	}
 
 	if (needs_new_focus) {
-		if (node->type == N_CONTAINER) {
+		if (node->type == N_WINDOW) {
 			seat_set_focus(seat, NULL);
 		}
 		if (seat_get_focus(seat) == next_focus) {
@@ -250,8 +250,8 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 	} else {
 		focus = seat_get_focus_inactive(seat, &global_server.scene->node);
 		seat_set_raw_focus(seat, next_focus);
-		if (focus->type == N_CONTAINER && focus->container->pending.workspace) {
-			seat_set_raw_focus(seat, &focus->container->pending.workspace->node);
+		if (focus->type == N_WINDOW && focus->window->pending.workspace) {
+			seat_set_raw_focus(seat, &focus->window->pending.workspace->node);
 		}
 		seat_set_raw_focus(seat, focus);
 	}
@@ -354,8 +354,8 @@ static void collect_focus_workspace_iter(struct wsm_workspace *workspace, void *
 	collect_focus_iter(&workspace->node, data);
 }
 
-static void collect_focus_container_iter(struct wsm_container *container, void *data) {
-	collect_focus_iter(&container->node, data);
+static void collect_focus_window_iter(struct wsm_window *window, void *data) {
+	collect_focus_iter(&window->node, data);
 }
 
 struct wsm_seat *seat_create(const char *seat_name) {
@@ -405,7 +405,7 @@ struct wsm_seat *seat_create(const char *seat_name) {
 	wl_list_init(&seat->devices);
 
 	root_for_each_workspace(collect_focus_workspace_iter, seat);
-	root_for_each_container(collect_focus_container_iter, seat);
+	root_for_each_window(collect_focus_window_iter, seat);
 
 	seat->deferred_bindings = wsm_list_create();
 
@@ -783,9 +783,9 @@ void seat_configure_device(struct wsm_seat *seat, struct wsm_input_device *devic
 	}
 }
 
-static void send_unfocus(struct wsm_container *con, void *data) {
-	if (con->view) {
-		view_set_activated(con->view, false);
+static void send_unfocus(struct wsm_window *window, void *data) {
+	if (window->view) {
+		view_set_activated(window->view, false);
 	}
 }
 
@@ -793,10 +793,9 @@ static void seat_send_unfocus(struct wsm_node *node, struct wsm_seat *seat) {
 	wsm_cursor_constrain(seat->cursor, NULL);
 	wlr_seat_keyboard_notify_clear_focus(seat->seat);
 	if (node->type == N_WORKSPACE) {
-		workspace_for_each_container(node->workspace, send_unfocus, seat);
+		workspace_for_each_window(node->workspace, send_unfocus, seat);
 	} else {
-		send_unfocus(node->container, seat);
-		container_for_each_child(node->container, send_unfocus, seat);
+		send_unfocus(node->window, seat);
 	}
 }
 
@@ -874,7 +873,7 @@ static void seat_set_workspace_focus(struct wsm_seat *seat, struct wsm_node *nod
 
 	if (node == NULL) {
 		if (node_is_view(last_focus)) {
-			view_close_popups(last_focus->container->view);
+			view_close_popups(last_focus->window->view);
 		}
 		seat_send_unfocus(last_focus, seat);
 		wsm_input_method_relay_set_focus(&seat->im_relay, NULL);
@@ -883,15 +882,15 @@ static void seat_set_workspace_focus(struct wsm_seat *seat, struct wsm_node *nod
 	}
 
 	struct wsm_workspace *new_workspace = node->type == N_WORKSPACE ?
-		node->workspace : node->container->pending.workspace;
-	struct wsm_container *container = node->type == N_CONTAINER ?
-		node->container : NULL;
+		node->workspace : node->window->pending.workspace;
+	struct wsm_window *window = node->type == N_WINDOW ?
+		node->window : NULL;
 
-	if (container && container_obstructing_fullscreen_container(container)) {
+	if (window && window_obstructing_fullscreen_window(window)) {
 		return;
 	}
 
-	if (global_server.scene->fullscreen_global && !container && new_workspace) {
+	if (global_server.scene->fullscreen_global && !window && new_workspace) {
 		return;
 	}
 
@@ -914,42 +913,35 @@ static void seat_set_workspace_focus(struct wsm_seat *seat, struct wsm_node *nod
 		}
 	}
 
-	if (container) {
-		struct wsm_container *parent = container->pending.parent;
-		while (parent) {
-			seat_set_raw_focus(seat, &parent->node);
-			parent = parent->pending.parent;
-		}
-	}
 	if (new_workspace) {
 		seat_set_raw_focus(seat, &new_workspace->node);
 	}
-	if (container) {
-		seat_set_raw_focus(seat, &container->node);
-		seat_send_focus(&container->node, seat);
+	if (window) {
+		seat_set_raw_focus(seat, &window->node);
+		seat_send_focus(&window->node, seat);
 	}
 
 	set_workspace(seat, new_workspace);
 	if (new_workspace && new_output_last_ws
 		&& new_workspace != new_output_last_ws) {
-		for (int i = 0; i < new_output_last_ws->floating->length; ++i) {
-			struct wsm_container *floater =
-					new_output_last_ws->floating->items[i];
-			if (container_is_sticky(floater)) {
-				container_detach(floater);
-				workspace_add_floating(new_workspace, floater);
+		for (int i = 0; i < new_output_last_ws->windows->length; ++i) {
+			struct wsm_window *window =
+					new_output_last_ws->windows->items[i];
+			if (window_is_sticky(window)) {
+				window_detach(window);
+				workspace_add_window(new_workspace, window);
 				--i;
 			}
 		}
 	}
 
 	if (last_focus && node_is_view(last_focus)) {
-		view_close_popups(last_focus->container->view);
+		view_close_popups(last_focus->window->view);
 	}
 
-	if (container && container->view && view_is_urgent(container->view) &&
-		!container->view->urgent_timer) {
-		struct wsm_view *view = container->view;
+	if (window && window->view && view_is_urgent(window->view) &&
+		!window->view->urgent_timer) {
+		struct wsm_view *view = window->view;
 		if (last_workspace && last_workspace != new_workspace) {
 			//
 		} else {
@@ -1001,8 +993,8 @@ struct wsm_workspace *seat_get_focused_workspace(struct wsm_seat *seat) {
 	if (!focus) {
 		return NULL;
 	}
-	if (focus->type == N_CONTAINER) {
-		return focus->container->pending.workspace;
+	if (focus->type == N_WINDOW) {
+		return focus->window->pending.workspace;
 	}
 	if (focus->type == N_WORKSPACE) {
 		return focus->workspace;
@@ -1026,16 +1018,16 @@ struct wsm_node *seat_get_focus_inactive(struct wsm_seat *seat, struct wsm_node 
 	return NULL;
 }
 
-struct wsm_container *seat_get_focus_inactive_view(struct wsm_seat *seat,
+struct wsm_window *seat_get_focus_inactive_view(struct wsm_seat *seat,
 	struct wsm_node *ancestor) {
 	if (node_is_view(ancestor)) {
-		return ancestor->container;
+		return ancestor->window;
 	}
 	struct wsm_seat_node *current;
 	wl_list_for_each(current, &seat->focus_stack, link) {
 		struct wsm_node *node = current->node;
 		if (node_is_view(node) && node_has_ancestor(node, ancestor)) {
-			return node->container;
+			return node->window;
 		}
 	}
 	return NULL;
@@ -1045,9 +1037,9 @@ struct wsm_workspace *seat_get_last_known_workspace(struct wsm_seat *seat) {
 	struct wsm_seat_node *current;
 	wl_list_for_each(current, &seat->focus_stack, link) {
 		struct wsm_node *node = current->node;
-		if (node->type == N_CONTAINER &&
-			node->container->pending.workspace) {
-			return node->container->pending.workspace;
+		if (node->type == N_WINDOW &&
+			node->window->pending.workspace) {
+			return node->window->pending.workspace;
 		} else if (node->type == N_WORKSPACE) {
 			return node->workspace;
 		}
@@ -1065,12 +1057,6 @@ struct wsm_node *seat_get_active_tiling_child(struct wsm_seat *seat,
 		struct wsm_node *node = current->node;
 		if (node_get_parent(node) != parent) {
 			continue;
-		}
-		if (parent->type == N_WORKSPACE) {
-			struct wsm_workspace *ws = parent->workspace;
-			if (wsm_list_find(ws->tiling, node->container) == -1) {
-				continue;
-			}
 		}
 		return node;
 	}
@@ -1093,46 +1079,45 @@ void seat_configure_xcursor(struct wsm_seat *seat) {
 	
 }
 
-struct wsm_container *seat_get_focused_container(struct wsm_seat *seat) {
+struct wsm_window *seat_get_focused_window(struct wsm_seat *seat) {
 	struct wsm_node *focus = seat_get_focus(seat);
-	if (focus && focus->type == N_CONTAINER) {
-		return focus->container;
+	if (focus && focus->type == N_WINDOW) {
+		return focus->window;
 	}
 	return NULL;
 }
 
-void seat_set_focus_container(struct wsm_seat *seat,
-		struct wsm_container *con) {
-	seat_set_focus(seat, con ? &con->node : NULL);
+void seat_set_focus_window(struct wsm_seat *seat,
+		struct wsm_window *window) {
+	seat_set_focus(seat, window ? &window->node : NULL);
 }
 
-void seatop_unref(struct wsm_seat *seat, struct wsm_container *con) {
+void seatop_unref(struct wsm_seat *seat, struct wsm_window *window) {
 	if (seat->seatop_impl->unref) {
-		seat->seatop_impl->unref(seat, con);
+		seat->seatop_impl->unref(seat, window);
 	}
 }
 
 void seat_consider_warp_to_focus(struct wsm_seat *seat) {
 	struct wsm_node *focus = seat_get_focus(seat);
-	if (focus->type == N_CONTAINER) {
-		cursor_warp_to_container(seat->cursor, focus->container, false);
+	if (focus->type == N_WINDOW) {
+		cursor_warp_to_container(seat->cursor, focus->window, false);
 	} else {
 		cursor_warp_to_workspace(seat->cursor, focus->workspace);
 	}
 }
 
-struct wsm_container *seat_get_focus_inactive_tiling(struct wsm_seat *seat,
+struct wsm_window *seat_get_focus_inactive_window(struct wsm_seat *seat,
 		struct wsm_workspace *workspace) {
-	if (!workspace->tiling->length) {
+	if (!workspace->windows->length) {
 		return NULL;
 	}
 	struct wsm_seat_node *current;
 	wl_list_for_each(current, &seat->focus_stack, link) {
 		struct wsm_node *node = current->node;
-		if (node->type == N_CONTAINER &&
-			!container_is_floating_or_child(node->container) &&
-			node->container->pending.workspace == workspace) {
-			return node->container;
+		if (node->type == N_WINDOW &&
+			node->window->pending.workspace == workspace) {
+			return node->window;
 		}
 	}
 	return NULL;
@@ -1155,7 +1140,7 @@ void seat_unfocus_unless_client(struct wsm_seat *seat, struct wl_client *client)
 	if (seat->has_focus) {
 		struct wsm_node *focus = seat_get_focus(seat);
 		if (node_is_view(focus) && wl_resource_get_client(
-					focus->container->view->surface->resource) != client) {
+					focus->window->view->surface->resource) != client) {
 			seat_set_focus(seat, NULL);
 		}
 	}

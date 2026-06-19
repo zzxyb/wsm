@@ -100,15 +100,15 @@ void wsm_xdg_popup_unconstrain(struct wsm_xdg_popup *popup) {
 	struct wsm_view *view = popup->view;
 	struct wlr_xdg_popup *wlr_popup = popup->xdg_popup_wlr;
 
-	struct wsm_workspace *workspace = view->container->pending.workspace;
+	struct wsm_workspace *workspace = view->window->pending.workspace;
 	if (!workspace) {
 		return;
 	}
 
 	struct wsm_output *output = workspace->output;
 	struct wlr_box output_toplevel_sx_box = {
-		.x = output->lx - view->container->pending.content_x + view->geometry.x,
-		.y = output->ly - view->container->pending.content_y + view->geometry.y,
+		.x = output->lx - view->window->pending.content_x + view->geometry.x,
+		.y = output->ly - view->window->pending.content_y + view->geometry.y,
 		.width = output->width,
 		.height = output->height,
 	};

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <wlr/util/edges.h>
 
-struct wsm_container;
+struct wsm_window;
 struct wsm_seat;
 struct wsm_window_snap;
 struct wsm_window_snap_divider;
@@ -106,14 +106,14 @@ void wsm_window_snap_destroy(struct wsm_window_snap *snap);
 
 bool wsm_window_snap_update(struct wsm_window_snap *snap, double lx, double ly);
 bool wsm_window_snap_apply(struct wsm_window_snap *snap,
-	struct wsm_container *container);
-void wsm_window_snap_forget_container(struct wsm_container *container);
+	struct wsm_window *window);
+void wsm_window_snap_forget_window(struct wsm_window *window);
 void wsm_window_snap_set_dividers_visible(bool visible);
 
 struct wsm_window_snap_divider *wsm_window_snap_divider_at(double lx, double ly);
-struct wsm_window_snap_divider *wsm_window_snap_divider_for_container_edge(
-	struct wsm_container *container, int edge, double lx, double ly);
-bool wsm_window_snap_constrain_inner_edge(struct wsm_container *container,
+struct wsm_window_snap_divider *wsm_window_snap_divider_for_window_edge(
+	struct wsm_window *window, int edge, double lx, double ly);
+bool wsm_window_snap_constrain_inner_edge(struct wsm_window *window,
 	enum wlr_edges *edge, bool *lock_width, bool *lock_height);
 const char *wsm_window_snap_divider_cursor(
 	struct wsm_window_snap_divider *divider);

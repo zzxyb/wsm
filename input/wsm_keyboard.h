@@ -35,9 +35,9 @@ enum binding_input_type {
 enum binding_flags {
 	BINDING_RELEASE = 1 << 0, /**< Flag indicating release action */
 	BINDING_LOCKED = 1 << 1, /**< Flag indicating the binding is locked (keyboard only) */
-	BINDING_BORDER = 1 << 2, /**< Flag indicating trigger on container border (mouse only) */
-	BINDING_CONTENTS = 1 << 3, /**< Flag indicating trigger on container contents (mouse only) */
-	BINDING_TITLEBAR = 1 << 4, /**< Flag indicating trigger on container titlebar (mouse only) */
+	BINDING_BORDER = 1 << 2, /**< Flag indicating trigger on window border (mouse only) */
+	BINDING_CONTENTS = 1 << 3, /**< Flag indicating trigger on window contents (mouse only) */
+	BINDING_TITLEBAR = 1 << 4, /**< Flag indicating trigger on window titlebar (mouse only) */
 	BINDING_CODE = 1 << 5, /**< Flag indicating conversion of keysyms into keycodes (keyboard only) */
 	BINDING_RELOAD = 1 << 6, /**< Flag indicating (re)trigger binding on reload (switch only) */
 	BINDING_INHIBITED = 1 << 7, /**< Flag indicating to ignore shortcut inhibitor (keyboard only) */

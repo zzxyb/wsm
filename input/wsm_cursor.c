@@ -8,7 +8,7 @@
 #include "wsm_common.h"
 #include "wsm_scene.h"
 #include "wsm_output.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_workspace.h"
 #include "wsm_output_manager.h"
 #include "wsm_input_manager.h"
@@ -825,11 +825,11 @@ cursor_update_image(struct wsm_cursor *cursor, struct wsm_node *node) {
 		return;
 	}
 
-	if (node && node->type == N_CONTAINER) {
-		enum wlr_edges edge = find_resize_edge(node->container, NULL, cursor);
+	if (node && node->type == N_WINDOW) {
+		enum wlr_edges edge = find_resize_edge(node->window, NULL, cursor);
 		if (edge == WLR_EDGE_NONE) {
 			cursor_set_image(cursor, "default", NULL);
-		} else if (container_is_floating(node->container)) {
+		} else if (window_is_managed(node->window)) {
 			cursor_set_image(cursor, wlr_xcursor_get_resize_name(edge), NULL);
 		} else {
 			if (edge & (WLR_EDGE_LEFT | WLR_EDGE_RIGHT)) {
@@ -844,20 +844,20 @@ cursor_update_image(struct wsm_cursor *cursor, struct wsm_node *node) {
 }
 
 void cursor_warp_to_container(struct wsm_cursor *cursor,
-		struct wsm_container *container, bool force) {
-	if (!container) {
+		struct wsm_window *window, bool force) {
+	if (!window) {
 		return;
 	}
 
 	struct wlr_box box;
-	container_get_box(container, &box);
+	window_get_box(window, &box);
 	if (!force && wlr_box_contains_point(&box, cursor->cursor_wlr->x,
 			cursor->cursor_wlr->y)) {
 		return;
 	}
 
-	double x = container->pending.x + container->pending.width / 2.0;
-	double y = container->pending.y + container->pending.height / 2.0;
+	double x = window->pending.x + window->pending.width / 2.0;
+	double y = window->pending.y + window->pending.height / 2.0;
 
 	wlr_cursor_warp(cursor->cursor_wlr, NULL, x, y);
 	cursor_unhide(cursor);
@@ -883,10 +883,10 @@ static void check_constraint_region(struct wsm_cursor *cursor) {
 	if (cursor->active_confine_requires_warp && view) {
 		cursor->active_confine_requires_warp = false;
 
-		struct wsm_container *con = view->container;
+		struct wsm_window *window = view->window;
 
-		double sx = cursor->cursor_wlr->x - con->pending.content_x + view->geometry.x;
-		double sy = cursor->cursor_wlr->y - con->pending.content_y + view->geometry.y;
+		double sx = cursor->cursor_wlr->x - window->pending.content_x + view->geometry.x;
+		double sy = cursor->cursor_wlr->y - window->pending.content_y + view->geometry.y;
 
 		if (!pixman_region32_contains_point(region,
 				floor(sx), floor(sy), NULL)) {
@@ -897,8 +897,8 @@ static void check_constraint_region(struct wsm_cursor *cursor) {
 				double sy = (boxes[0].y1 + boxes[0].y2) / 2.;
 
 				wlr_cursor_warp_closest(cursor->cursor_wlr, NULL,
-					sx + con->pending.content_x - view->geometry.x,
-					sy + con->pending.content_y - view->geometry.y);
+					sx + window->pending.content_x - view->geometry.x,
+					sy + window->pending.content_y - view->geometry.y);
 
 				cursor_rebase(cursor);
 			}
@@ -971,10 +971,10 @@ void warp_to_constraint_cursor_hint(struct wsm_cursor *cursor) {
 		return;
 	}
 
-	struct wsm_container *con = view->container;
+	struct wsm_window *window = view->window;
 
-	double lx = sx + con->pending.content_x - view->geometry.x;
-	double ly = sy + con->pending.content_y - view->geometry.y;
+	double lx = sx + window->pending.content_x - view->geometry.x;
+	double ly = sy + window->pending.content_y - view->geometry.y;
 	wlr_cursor_warp(cursor->cursor_wlr, NULL, lx, ly);
 	wlr_seat_pointer_warp(constraint->seat, sx, sy);
 }
@@ -1014,27 +1014,27 @@ struct wsm_node *node_at_coords(
 
 		struct wlr_scene_node *current = scene_node;
 		while (true) {
-			struct wsm_container *con = wsm_scene_descriptor_try_get(current,
-				WSM_SCENE_DESC_CONTAINER);
+			struct wsm_window *window = wsm_scene_descriptor_try_get(current,
+				WSM_SCENE_DESC_WINDOW);
 
-			if (!con) {
+			if (!window) {
 				struct wsm_view *view = wsm_scene_descriptor_try_get(current,
 					WSM_SCENE_DESC_VIEW);
 				if (view) {
-					con = view->container;
+					window = view->window;
 				}
 			}
 
-			if (!con) {
+			if (!window) {
 				struct wsm_popup_desc *popup =
 					wsm_scene_descriptor_try_get(current, WSM_SCENE_DESC_POPUP);
 				if (popup && popup->view) {
-					con = popup->view->container;
+					window = popup->view->window;
 				}
 			}
 
-			if (con && (!con->view || con->view->surface)) {
-				return &con->node;
+			if (window && (!window->view || window->view->surface)) {
+				return &window->node;
 			}
 
 			if (wsm_scene_descriptor_try_get(current, WSM_SCENE_DESC_LAYER_SHELL)) {

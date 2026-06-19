@@ -223,10 +223,10 @@ static void output_configure_scene(struct wsm_output *output,
 		return;
 	}
 
-	struct wsm_container *con =
-		wsm_scene_descriptor_try_get(node, WSM_SCENE_DESC_CONTAINER);
-	if (con) {
-		opacity = con->alpha;
+	struct wsm_window *window =
+		wsm_scene_descriptor_try_get(node, WSM_SCENE_DESC_WINDOW);
+	if (window) {
+		opacity = window->alpha;
 	}
 
 	if (node->type == WLR_SCENE_NODE_BUFFER) {
@@ -524,12 +524,12 @@ static void evacuate_sticky(struct wsm_workspace *old_ws,
 	if (!wsm_assert(new_ws, "New output does not have a workspace")) {
 		return;
 	}
-	while(old_ws->floating->length) {
-		struct wsm_container *sticky = old_ws->floating->items[0];
-		container_detach(sticky);
-		workspace_add_floating(new_ws, sticky);
-		container_handle_fullscreen_reparent(sticky);
-		container_floating_move_to_center(sticky);
+	while(old_ws->windows->length) {
+		struct wsm_window *sticky = old_ws->windows->items[0];
+		window_detach(sticky);
+		workspace_add_window(new_ws, sticky);
+		window_handle_fullscreen_reparent(sticky);
+		window_move_to_center(sticky);
 	}
 	workspace_detect_urgent(new_ws);
 }
@@ -737,11 +737,11 @@ struct wsm_output_non_desktop *output_non_desktop_create(struct wlr_output *wlr_
 	return output;
 }
 
-void output_for_each_container(struct wsm_output *output,
-		void (*f)(struct wsm_container *con, void *data), void *data) {
+void output_for_each_window(struct wsm_output *output,
+		void (*f)(struct wsm_window *window, void *data), void *data) {
 	for (int i = 0; i < output->workspaces->length; ++i) {
 		struct wsm_workspace *workspace = output->workspaces->items[i];
-		workspace_for_each_container(workspace, f, data);
+		workspace_for_each_window(workspace, f, data);
 	}
 }
 

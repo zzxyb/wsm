@@ -13,7 +13,7 @@ struct wsm_view;
 enum wsm_scene_descriptor_type {
 	WSM_SCENE_DESC_BUFFER_TIMER, /**< Descriptor for buffer timer */
 	WSM_SCENE_DESC_NON_INTERACTIVE, /**< Descriptor for non-interactive elements */
-	WSM_SCENE_DESC_CONTAINER, /**< Descriptor for container elements */
+	WSM_SCENE_DESC_WINDOW, /**< Descriptor for window elements */
 	WSM_SCENE_DESC_VIEW, /**< Descriptor for view elements */
 	WSM_SCENE_DESC_LAYER_SHELL, /**< Descriptor for layer shell elements */
 	WSM_SCENE_DESC_XWAYLAND_UNMANAGED, /**< Descriptor for unmanaged XWayland elements */

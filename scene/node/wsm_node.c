@@ -4,7 +4,7 @@
 #include "wsm_server.h"
 #include "wsm_output.h"
 #include "wsm_workspace.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 
 #include <wlr/types/wlr_scene.h>
 
@@ -24,8 +24,8 @@ const char *node_type_to_str(enum wsm_node_type type) {
 		return "output";
 	case N_WORKSPACE:
 		return "workspace";
-	case N_CONTAINER:
-		return "container";
+	case N_WINDOW:
+		return "window";
 	}
 	return "";
 }
@@ -39,7 +39,7 @@ void node_set_dirty(struct wsm_node *node) {
 }
 
 bool node_is_view(struct wsm_node *node) {
-	return node->type == N_CONTAINER && node->container->view;
+	return node->type == N_WINDOW && node->window->view;
 }
 
 char *node_get_name(struct wsm_node *node) {
@@ -50,8 +50,8 @@ char *node_get_name(struct wsm_node *node) {
 		return node->output->wlr_output->name;
 	case N_WORKSPACE:
 		return node->workspace->name;
-	case N_CONTAINER:
-		return node->container->title;
+	case N_WINDOW:
+		return node->window->title;
 	}
 	return NULL;
 }
@@ -67,16 +67,16 @@ void node_get_box(struct wsm_node *node, struct wlr_box *box) {
 	case N_WORKSPACE:
 		workspace_get_box(node->workspace, box);
 		break;
-	case N_CONTAINER:
-		container_get_box(node->container, box);
+	case N_WINDOW:
+		window_get_box(node->window, box);
 		break;
 	}
 }
 
 struct wsm_output *node_get_output(struct wsm_node *node) {
 	switch (node->type) {
-	case N_CONTAINER: {
-		struct wsm_workspace *ws = node->container->pending.workspace;
+	case N_WINDOW: {
+		struct wsm_workspace *ws = node->window->pending.workspace;
 		return ws ? ws->output : NULL;
 	}
 	case N_WORKSPACE:
@@ -91,13 +91,10 @@ struct wsm_output *node_get_output(struct wsm_node *node) {
 
 struct wsm_node *node_get_parent(struct wsm_node *node) {
 	switch (node->type) {
-	case N_CONTAINER: {
-		struct wsm_container *con = node->container;
-		if (con->pending.parent) {
-			return &con->pending.parent->node;
-		}
-		if (con->pending.workspace) {
-			return &con->pending.workspace->node;
+	case N_WINDOW: {
+		struct wsm_window *window = node->window;
+		if (window->pending.workspace) {
+			return &window->pending.workspace->node;
 		}
 	}
 	return NULL;
@@ -118,10 +115,10 @@ struct wsm_node *node_get_parent(struct wsm_node *node) {
 
 struct wsm_list *node_get_children(struct wsm_node *node) {
 	switch (node->type) {
-	case N_CONTAINER:
-		return node->container->pending.children;
+	case N_WINDOW:
+		return NULL;
 	case N_WORKSPACE:
-		return node->workspace->tiling;
+		return node->workspace->windows;
 	case N_OUTPUT:
 	case N_ROOT:
 		return NULL;
@@ -141,8 +138,8 @@ void scene_node_disown_children(struct wlr_scene_tree *tree) {
 }
 
 bool node_has_ancestor(struct wsm_node *node, struct wsm_node *ancestor) {
-	if (ancestor->type == N_ROOT && node->type == N_CONTAINER &&
-		node->container->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
+	if (ancestor->type == N_ROOT && node->type == N_WINDOW &&
+		node->window->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
 		return true;
 	}
 	struct wsm_node *parent = node_get_parent(node);
@@ -150,8 +147,8 @@ bool node_has_ancestor(struct wsm_node *node, struct wsm_node *ancestor) {
 		if (parent == ancestor) {
 			return true;
 		}
-		if (ancestor->type == N_ROOT && parent->type == N_CONTAINER &&
-			parent->container->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
+		if (ancestor->type == N_ROOT && parent->type == N_WINDOW &&
+			parent->window->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
 			return true;
 		}
 		parent = node_get_parent(parent);

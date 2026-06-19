@@ -1,7 +1,7 @@
 #ifndef WSM_ARRANGE_H
 #define WSM_ARRANGE_H
 
-#include "wsm_container.h"
+#include "wsm_window.h"
 
 struct wsm_list;
 struct wsm_scene;
@@ -48,10 +48,10 @@ void wsm_arrange_workspace_auto(struct wsm_workspace *workspace);
 void arrange_workspace_tiling(struct wsm_workspace *ws, int width, int height);
 
 /**
- * @brief Arranges the workspace in a floating layout
+ * @brief Arranges the workspace in a windows layout
  * @param ws Pointer to the wsm_workspace to be arranged
  */
-void arrange_workspace_floating(struct wsm_workspace *ws);
+void arrange_workspace_windows(struct wsm_workspace *ws);
 
 /**
  * @brief Arranges a layer surface within the specified output
@@ -76,75 +76,75 @@ void wsm_arrange_popups(struct wlr_scene_tree *popups);
 void wsm_arrange_layers(struct wsm_output *output);
 
 /**
- * @brief Automatically arranges the specified container
- * @param container Pointer to the wsm_container to be arranged
+ * @brief Automatically arranges the specified window
+ * @param window Pointer to the wsm_window to be arranged
  */
-void wsm_arrange_container_auto(struct wsm_container *container);
+void wsm_arrange_window_auto(struct wsm_window *window);
 
 /**
- * @brief Arranges the specified container with a title bar
- * @param con Pointer to the wsm_container to be arranged
- * @param width Desired width for the container
- * @param height Desired height for the container
+ * @brief Arranges the specified window with a title bar
+ * @param window Pointer to the wsm_window to be arranged
+ * @param width Desired width for the window
+ * @param height Desired height for the window
  * @param title_bar Boolean indicating if a title bar should be included
- * @param gaps Gaps to be applied around the container
+ * @param gaps Gaps to be applied around the window
  */
-void wsm_arrange_container_with_title_bar(struct wsm_container *con,
+void wsm_arrange_window_with_title_bar(struct wsm_window *window,
 	int width, int height, bool title_bar, int gaps);
 
 /**
- * @brief Arranges the children of a container
- * @param children Pointer to the list of children to be arranged
+ * @brief Arranges the windows of a window
+ * @param windows Pointer to the list of windows to be arranged
  * @param parent Pointer to the parent box for the arrangement
  */
-void wsm_arrange_children(struct wsm_list *children, struct wlr_box *parent);
+void wsm_arrange_window_list(struct wsm_list *windows, struct wlr_box *parent);
 
 /**
- * @brief Arranges children with a title bar
- * @param children Pointer to the list of children to be arranged
- * @param active Pointer to the active container
+ * @brief Arranges windows with a title bar
+ * @param windows Pointer to the list of windows to be arranged
+ * @param active Pointer to the active window
  * @param content Pointer to the scene tree containing the content
  * @param width Desired width for the arrangement
  * @param height Desired height for the arrangement
  * @param gaps Gaps to be applied around the arrangement
  */
-void arrange_children_with_titlebar(struct wsm_list *children,
-	struct wsm_container *active, struct wlr_scene_tree *content,
+void arrange_windows_with_titlebar(struct wsm_list *windows,
+	struct wsm_window *active, struct wlr_scene_tree *content,
 	int width, int height, int gaps);
 
 /**
- * @brief Arranges the specified floating windows
- * @param floating Pointer to the list of floating windows to be arranged
+ * @brief Arranges the specified windows
+ * @param windows Pointer to the list of windows to be arranged
  */
-void wsm_arrange_floating(struct wsm_list *floating);
+void wsm_arrange_windows(struct wsm_list *windows);
 
 /**
- * @brief Arranges the title bar node of the specified container
- * @param con Pointer to the wsm_container whose title bar node will be arranged
+ * @brief Arranges the title bar node of the specified window
+ * @param window Pointer to the wsm_window whose title bar node will be arranged
  */
-void container_arrange_title_bar_node(struct wsm_container *con);
+void window_arrange_title_bar_node(struct wsm_window *window);
 
 /**
- * @brief Arranges the title bar of the specified container
- * @param con Pointer to the wsm_container whose title bar will be arranged
+ * @brief Arranges the title bar of the specified window
+ * @param window Pointer to the wsm_window whose title bar will be arranged
  * @param x X coordinate for the title bar
  * @param y Y coordinate for the title bar
  * @param width Desired width for the title bar
  * @param height Desired height for the title bar
  */
-void wsm_arrange_title_bar(struct wsm_container *con,
+void wsm_arrange_title_bar(struct wsm_window *window,
 	int x, int y, int width, int height);
 
 /**
- * @brief Arranges the specified container in fullscreen mode
- * @param tree Pointer to the scene tree containing the fullscreen container
- * @param fs Pointer to the wsm_container to be arranged in fullscreen
- * @param ws Pointer to the wsm_workspace where the fullscreen container resides
+ * @brief Arranges the specified window in fullscreen mode
+ * @param tree Pointer to the scene tree containing the fullscreen window
+ * @param fs Pointer to the wsm_window to be arranged in fullscreen
+ * @param ws Pointer to the wsm_workspace where the fullscreen window resides
  * @param width Desired width for the fullscreen arrangement
  * @param height Desired height for the fullscreen arrangement
  */
 void wsm_arrange_fullscreen(struct wlr_scene_tree *tree,
-	struct wsm_container *fs, struct wsm_workspace *ws,
+	struct wsm_window *fs, struct wsm_workspace *ws,
 	int width, int height);
 
 #endif

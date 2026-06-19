@@ -273,13 +273,13 @@ struct wsm_workspace *output_get_active_workspace(struct wsm_output *output);
 struct wsm_output_non_desktop *output_non_desktop_create(struct wlr_output *wlr_output);
 
 /**
- * @brief Executes a function for each container in the specified output
- * @param output Pointer to the wsm_output containing the containers
- * @param f Function to execute for each container
+ * @brief Executes a function for each window in the specified output
+ * @param output Pointer to the wsm_output containing the windows
+ * @param f Function to execute for each window
  * @param data Pointer to user data to be passed to the function
  */
-void output_for_each_container(struct wsm_output *output,
-	void (*f)(struct wsm_container *con, void *data), void *data);
+void output_for_each_window(struct wsm_output *output,
+	void (*f)(struct wsm_window *window, void *data), void *data);
 
 /**
  * @brief Requests a mode set for the output

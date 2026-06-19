@@ -27,7 +27,7 @@ struct wlr_pointer_axis_event;
 
 struct wsm_node;
 struct wsm_server;
-struct wsm_container;
+struct wsm_window;
 struct wsm_workspace;
 
 /**
@@ -217,13 +217,13 @@ void dispatch_cursor_axis(struct wsm_cursor *cursor,
 void cursor_update_image(struct wsm_cursor *cursor, struct wsm_node *node);
 
 /**
- * @brief Warps the cursor to the specified container
+ * @brief Warps the cursor to the specified window
  * @param cursor Pointer to the wsm_cursor instance
- * @param container Pointer to the WSM container to warp to
+ * @param window Pointer to the WSM window to warp to
  * @param force Boolean indicating if the warp should be forced
  */
 void cursor_warp_to_container(struct wsm_cursor *cursor,
-	struct wsm_container *container, bool force);
+	struct wsm_window *window, bool force);
 
 /**
  * @brief Warps the cursor to the specified workspace

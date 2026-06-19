@@ -2,7 +2,7 @@
 #include "wsm_log.h"
 #include "wsm_server.h"
 #include "wsm_arrange.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_transaction.h"
 #include "wsm_xdg_decoration.h"
 #include "wsm_xdg_decoration_manager.h"
@@ -74,21 +74,21 @@ void set_xdg_decoration_mode(struct wsm_xdg_decoration *deco) {
 	enum wlr_xdg_toplevel_decoration_v1_mode client_mode =
 		deco->xdg_decoration_wlr->requested_mode;
 
-	bool floating;
-	if (view->container) {
-		floating = container_is_floating(view->container);
+	bool windows;
+	if (view->window) {
+		windows = window_is_managed(view->window);
 		bool csd = false;
 		csd = client_mode ==
 			WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
 		view_update_csd_from_client(view, csd);
-		wsm_arrange_container_auto(view->container);
+		wsm_arrange_window_auto(view->window);
 		transaction_commit_dirty();
 	} else {
-		floating = view->impl->wants_floating &&
-			view->impl->wants_floating(view);
+		windows = view->impl->wants_window &&
+			view->impl->wants_window(view);
 	}
 
-	if (floating && client_mode) {
+	if (windows && client_mode) {
 		mode = client_mode;
 	}
 

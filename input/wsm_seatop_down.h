@@ -5,16 +5,16 @@ struct wlr_surface;
 struct wlr_touch_down_event;
 
 struct wsm_seat;
-struct wsm_container;
+struct wsm_window;
 
 /**
- * @brief Begins a down event for the specified seat and container
+ * @brief Begins a down event for the specified seat and window
  * @param seat Pointer to the wsm_seat instance
- * @param con Pointer to the wsm_container associated with the down event
+ * @param window Pointer to the wsm_window associated with the down event
  * @param sx X coordinate of the down event in surface coordinates
  * @param sy Y coordinate of the down event in surface coordinates
  */
-void seatop_begin_down(struct wsm_seat *seat, struct wsm_container *con,
+void seatop_begin_down(struct wsm_seat *seat, struct wsm_window *window,
 	double sx, double sy);
 
 /**

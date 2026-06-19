@@ -20,7 +20,7 @@ struct wlr_ext_foreign_toplevel_handle_v1;
 struct wsm_seat;
 struct wsm_view;
 struct wsm_output;
-struct wsm_container;
+struct wsm_window;
 struct wsm_workspace;
 struct wsm_xdg_decoration;
 
@@ -65,7 +65,7 @@ struct wsm_view_impl {
 	void (*set_tiled)(struct wsm_view *view, bool tiled); /**< Function to set tiled state */
 	void (*set_fullscreen)(struct wsm_view *view, bool fullscreen); /**< Function to set fullscreen state */
 	void (*set_resizing)(struct wsm_view *view, bool resizing); /**< Function to set resizing state */
-	bool (*wants_floating)(struct wsm_view *view); /**< Function to check if the view wants to float */
+	bool (*wants_window)(struct wsm_view *view); /**< Function to check if the view wants to float */
 	bool (*is_transient_for)(struct wsm_view *child,
 		struct wsm_view *ancestor); /**< Function to check transient relationship */
 	void (*maximize)(struct wsm_view *view, bool maximize); /**< Function to maximize the view */
@@ -97,7 +97,7 @@ struct wsm_view {
 	struct wlr_scene_tree *content_tree; /**< Content scene tree for the view */
 	struct wlr_scene_tree *saved_surface_tree; /**< Saved surface tree for the view */
 
-	struct wsm_container *container; /**< Pointer to the associated container (NULL if unmapped) */
+	struct wsm_window *window; /**< Pointer to the associated window (NULL if unmapped) */
 	struct wlr_surface *surface; /**< Pointer to the associated WLR surface (NULL for unmapped views) */
 	struct wsm_xdg_decoration *xdg_decoration; /**< Pointer to the XDG decoration */
 

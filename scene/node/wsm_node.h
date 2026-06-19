@@ -14,7 +14,7 @@ struct wlr_scene_tree;
 struct wsm_root;
 struct wsm_output;
 struct wsm_workspace;
-struct wsm_container;
+struct wsm_window;
 struct wsm_transaction_instruction;
 
 /**
@@ -24,7 +24,7 @@ enum wsm_node_type {
 	N_ROOT, /**< Root node type */
 	N_OUTPUT, /**< Output node type */
 	N_WORKSPACE, /**< Workspace node type */
-	N_CONTAINER, /**< Container node type */
+	N_WINDOW, /**< Window node type */
 };
 
 /**
@@ -39,7 +39,7 @@ struct wsm_node {
 		struct wsm_root *root; /**< Pointer to the root node */
 		struct wsm_output *output; /**< Pointer to the output node */
 		struct wsm_workspace *workspace; /**< Pointer to the workspace node */
-		struct wsm_container *container; /**< Pointer to the container node */
+		struct wsm_window *window; /**< Pointer to the window node */
 	};
 
 	size_t id; /**< Unique identifier for the node */
@@ -55,7 +55,7 @@ struct wsm_node {
  * @brief Initializes a wsm_node instance
  * @param node Pointer to the wsm_node to be initialized
  * @param type Type of the node to be initialized
- * @param thing Pointer to the associated object (e.g., root, output, workspace, container)
+ * @param thing Pointer to the associated object (e.g., root, output, workspace, window)
  */
 void node_init(struct wsm_node *node, enum wsm_node_type type, void *thing);
 

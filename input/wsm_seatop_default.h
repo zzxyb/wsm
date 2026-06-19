@@ -15,7 +15,7 @@ struct wlr_scene_node;
 
 struct wsm_list;
 struct wsm_seat;
-struct wsm_container;
+struct wsm_window;
 struct wlr_surface;
 struct wsm_cursor;
 
@@ -36,13 +36,13 @@ struct wsm_seatop_event {
 void seatop_begin_default(struct wsm_seat *seat);
 
 /**
- * @brief Finds the edge for resizing a container
- * @param cont Pointer to the wsm_container to resize
- * @param surface Pointer to the wlr_surface associated with the container
+ * @brief Finds the edge for resizing a window
+ * @param cont Pointer to the wsm_window to resize
+ * @param surface Pointer to the wlr_surface associated with the window
  * @param cursor Pointer to the wsm_cursor for the current cursor position
  * @return Enum value representing the edge for resizing
  */
-enum wlr_edges find_resize_edge(struct wsm_container *cont,
+enum wlr_edges find_resize_edge(struct wsm_window *cont,
 	struct wlr_surface *surface, struct wsm_cursor *cursor);
 
 #endif

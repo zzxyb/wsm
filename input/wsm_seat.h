@@ -42,7 +42,7 @@ struct wsm_keyboard;
 struct wsm_switch;
 struct wsm_tablet;
 struct wsm_pointer;
-struct wsm_container;
+struct wsm_window;
 struct wsm_workspace;
 struct wsm_tablet_pad;
 struct wsm_input_device;
@@ -159,7 +159,7 @@ struct wsm_seatop_impl {
 	void (*tablet_tool_tip)(struct wsm_seat *seat, struct wsm_tablet_tool *tool,
 		uint32_t time_msec, enum wlr_tablet_tool_tip_state state); /**< Tablet tool tip event handler */
 	void (*end)(struct wsm_seat *seat); /**< End event handler */
-	void (*unref)(struct wsm_seat *seat, struct wsm_container *con); /**< Unreference event handler */
+	void (*unref)(struct wsm_seat *seat, struct wsm_window *window); /**< Unreference event handler */
 	bool allow_set_cursor; /**< Flag indicating if setting the cursor is allowed */
 };
 
@@ -437,9 +437,9 @@ struct wsm_node *seat_get_focus_inactive(struct wsm_seat *seat, struct wsm_node 
  * @brief Retrieves the inactive focus view for the specified seat
  * @param seat Pointer to the wsm_seat instance
  * @param ancestor Pointer to the ancestor wsm_node
- * @return Pointer to the inactive focus wsm_container
+ * @return Pointer to the inactive focus wsm_window
  */
-struct wsm_container *seat_get_focus_inactive_view(struct wsm_seat *seat,
+struct wsm_window *seat_get_focus_inactive_view(struct wsm_seat *seat,
 	struct wsm_node *ancestor);
 
 /**
@@ -472,25 +472,25 @@ void seat_set_raw_focus(struct wsm_seat *seat, struct wsm_node *node);
 void seat_configure_xcursor(struct wsm_seat *seat);
 
 /**
- * @brief Retrieves the currently focused container for the specified seat
+ * @brief Retrieves the currently focused window for the specified seat
  * @param seat Pointer to the wsm_seat instance
- * @return Pointer to the currently focused wsm_container
+ * @return Pointer to the currently focused wsm_window
  */
-struct wsm_container *seat_get_focused_container(struct wsm_seat *seat);
+struct wsm_window *seat_get_focused_window(struct wsm_seat *seat);
 
 /**
- * @brief Sets focus to the specified container for the seat
+ * @brief Sets focus to the specified window for the seat
  * @param seat Pointer to the wsm_seat instance
- * @param con Pointer to the wsm_container to focus
+ * @param window Pointer to the wsm_window to focus
  */
-void seat_set_focus_container(struct wsm_seat *seat, struct wsm_container *con);
+void seat_set_focus_window(struct wsm_seat *seat, struct wsm_window *window);
 
 /**
- * @brief Unreferences the specified seat and container
+ * @brief Unreferences the specified seat and window
  * @param seat Pointer to the wsm_seat instance
- * @param con Pointer to the wsm_container to unreference
+ * @param window Pointer to the wsm_window to unreference
  */
-void seatop_unref(struct wsm_seat *seat, struct wsm_container *con);
+void seatop_unref(struct wsm_seat *seat, struct wsm_window *window);
 
 /**
  * @brief Considers warping to the focus for the specified seat
@@ -502,9 +502,9 @@ void seat_consider_warp_to_focus(struct wsm_seat *seat);
  * @brief Retrieves the inactive tiling focus for the specified seat
  * @param seat Pointer to the wsm_seat instance
  * @param workspace Pointer to the wsm_workspace to check
- * @return Pointer to the inactive tiling focus wsm_container
+ * @return Pointer to the inactive tiling focus wsm_window
  */
-struct wsm_container *seat_get_focus_inactive_tiling(struct wsm_seat *seat,
+struct wsm_window *seat_get_focus_inactive_window(struct wsm_seat *seat,
 	struct wsm_workspace *workspace);
 
 /**

@@ -1,7 +1,7 @@
 #ifndef WSM_WORKSPACE_H
 #define WSM_WORKSPACE_H
 
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "node/wsm_node.h"
 
 #include <stdbool.h>
@@ -35,10 +35,9 @@ struct wsm_xwayland_view;
  * @brief Structure representing the state of a workspace.
  */
 struct wsm_workspace_state {
-	struct wsm_list *floating; /**< List of floating containers in the workspace */
-	struct wsm_list *tiling; /**< List of tiled containers in the workspace */
-	struct wsm_container *fullscreen; /**< Pointer to the fullscreen container */
-	struct wsm_container *focused_inactive_child; /**< Pointer to the focused inactive child container */
+	struct wsm_list *windows; /**< List of windows in the workspace */
+	struct wsm_window *fullscreen; /**< Pointer to the fullscreen window */
+	struct wsm_window *focused_inactive_window; /**< Pointer to the focused inactive window */
 	struct wsm_output *output; /**< Pointer to the associated output */
 
 	double x, y; /**< Position of the workspace */
@@ -67,17 +66,16 @@ struct wsm_workspace {
 	struct wsm_node node; /**< Node representing the workspace in the scene graph */
 
 	struct {
-		struct wlr_scene_tree *non_fullscreen; /**< Scene tree for non-fullscreen containers */
-		struct wlr_scene_tree *fullscreen; /**< Scene tree for fullscreen containers */
+		struct wlr_scene_tree *non_fullscreen; /**< Scene tree for non-fullscreen windows */
+		struct wlr_scene_tree *fullscreen; /**< Scene tree for fullscreen windows */
 	} layers; /**< Layers of the workspace */
 
 	struct side_gaps current_gaps; /**< Current gaps in the workspace */
 	struct side_gaps gaps_outer; /**< Outer gaps of the workspace */
 
-	struct wsm_container *fullscreen; /**< Pointer to the fullscreen container */
+	struct wsm_window *fullscreen; /**< Pointer to the fullscreen window */
 	struct wsm_output *output; /**< Pointer to the associated output (NULL if no outputs are connected) */
-	struct wsm_list *floating; /**< List of floating containers */
-	struct wsm_list *tiling; /**< List of tiled containers */
+	struct wsm_list *windows; /**< List of windows */
 	struct wsm_list *output_priority; /**< List of output priorities */
 
 	char *name; /**< Name of the workspace */
@@ -118,13 +116,13 @@ void workspace_detach(struct wsm_workspace *workspace);
 void workspace_get_box(struct wsm_workspace *workspace, struct wlr_box *box);
 
 /**
- * @brief Applies a function to each container in the specified workspace.
+ * @brief Applies a function to each window in the specified workspace.
  * @param ws Pointer to the wsm_workspace instance.
- * @param f Function to apply to each container.
+ * @param f Function to apply to each window.
  * @param data Additional data to pass to the function.
  */
-void workspace_for_each_container(struct wsm_workspace *ws,
-	void (*f)(struct wsm_container *con, void *data), void *data);
+void workspace_for_each_window(struct wsm_workspace *ws,
+	void (*f)(struct wsm_window *window, void *data), void *data);
 
 /**
  * @brief Checks if the specified workspace is visible.
@@ -141,11 +139,11 @@ bool workspace_is_visible(struct wsm_workspace *ws);
 bool workspace_is_empty(struct wsm_workspace *ws);
 
 /**
- * @brief Applies a function to each container in the root workspace.
- * @param f Function to apply to each container.
+ * @brief Applies a function to each window in the root workspace.
+ * @param f Function to apply to each window.
  * @param data Additional data to pass to the function.
  */
-void root_for_each_container(void (*f)(struct wsm_container *con, void *data), void *data);
+void root_for_each_window(void (*f)(struct wsm_window *window, void *data), void *data);
 
 /**
  * @brief Applies a function to each workspace in the root.
@@ -161,12 +159,12 @@ void root_for_each_workspace(void (*f)(struct wsm_workspace *ws, void *data), vo
 void workspace_update_representation(struct wsm_workspace *ws);
 
 /**
- * @brief Adds a floating container to the specified workspace.
+ * @brief Adds a windows window to the specified workspace.
  * @param workspace Pointer to the wsm_workspace instance.
- * @param con Pointer to the wsm_container to add.
+ * @param window Pointer to the wsm_window to add.
  */
-void workspace_add_floating(struct wsm_workspace *workspace,
-	struct wsm_container *con);
+void workspace_add_window(struct wsm_workspace *workspace,
+	struct wsm_window *window);
 
 /**
  * @brief Adds gaps to the specified workspace.
@@ -187,29 +185,20 @@ void workspace_consider_destroy(struct wsm_workspace *ws);
 void workspace_begin_destroy(struct wsm_workspace *workspace);
 
 /**
- * @brief Adds a tiling container to the specified workspace.
- * @param workspace Pointer to the wsm_workspace instance.
- * @param con Pointer to the wsm_container to add.
- * @return Pointer to the newly added wsm_container.
- */
-struct wsm_container *workspace_add_tiling(struct wsm_workspace *workspace,
-	struct wsm_container *con);
-
-/**
  * @brief Detects urgent state for the specified workspace.
  * @param workspace Pointer to the wsm_workspace instance.
  */
 void workspace_detect_urgent(struct wsm_workspace *workspace);
 
 /**
- * @brief Finds a container in the specified workspace based on a test function.
+ * @brief Finds a window in the specified workspace based on a test function.
  * @param ws Pointer to the wsm_workspace instance.
- * @param test Function to test each container.
+ * @param test Function to test each window.
  * @param data Additional data to pass to the test function.
- * @return Pointer to the found wsm_container, or NULL if not found.
+ * @return Pointer to the found wsm_window, or NULL if not found.
  */
-struct wsm_container *workspace_find_container(struct wsm_workspace *ws,
-	bool (*test)(struct wsm_container *con, void *data), void *data);
+struct wsm_window *workspace_find_window(struct wsm_workspace *ws,
+	bool (*test)(struct wsm_window *window, void *data), void *data);
 
 /**
  * @brief Gets the highest available output for the specified workspace.
@@ -221,9 +210,9 @@ struct wsm_output *workspace_output_get_highest_available(
 	struct wsm_workspace *ws, struct wsm_output *exclude);
 
 /**
- * @brief Counts the number of sticky containers in the specified workspace.
+ * @brief Counts the number of sticky windows in the specified workspace.
  * @param ws Pointer to the wsm_workspace instance.
- * @return Number of sticky containers.
+ * @return Number of sticky windows.
  */
 size_t workspace_num_sticky_containers(struct wsm_workspace *ws);
 

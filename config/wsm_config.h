@@ -1,7 +1,7 @@
 #ifndef WSM_CONFIG_H
 #define WSM_CONFIG_H
 
-#include "wsm_container.h"
+#include "wsm_window.h"
 
 extern struct wsm_config global_config;
 
@@ -71,15 +71,15 @@ struct wsm_config {
 	struct wsm_list *input_type_configs; /**< List of input type configurations */
 
 	size_t urgent_timeout; /**< Timeout for urgent notifications */
-	enum wsm_container_border border; /**< Border style for containers */
-	enum wsm_container_border floating_border; /**< Border style for floating containers */
-	int floating_border_thickness; /**< Thickness of the floating border */
+	enum wsm_window_border border; /**< Default border style */
+	enum wsm_window_border window_border; /**< Border style for windows */
+	int window_border_thickness; /**< Thickness of the window border */
 	int sensing_border_thickness; /**< Thickness of the sensing border (in pixels) */
 
-	int32_t floating_maximum_width; /**< Maximum width for floating windows */
-	int32_t floating_maximum_height; /**< Maximum height for floating windows */
-	int32_t floating_minimum_width; /**< Minimum width for floating windows */
-	int32_t floating_minimum_height; /**< Minimum height for floating windows */
+	int32_t window_maximum_width; /**< Maximum width for windows */
+	int32_t window_maximum_height; /**< Maximum height for windows */
+	int32_t window_minimum_width; /**< Minimum width for windows */
+	int32_t window_minimum_height; /**< Minimum height for windows */
 
 	int font_height; /**< Height of the font */
 	int font_baseline; /**< Baseline of the font */

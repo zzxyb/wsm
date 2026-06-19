@@ -7,7 +7,7 @@
 #include "wsm_server.h"
 #include "wsm_scene.h"
 #include "wsm_cursor.h"
-#include "wsm_container.h"
+#include "wsm_window.h"
 #include "wsm_tablet.h"
 #include "wsm_output.h"
 #include "wsm_transaction.h"
@@ -15,8 +15,8 @@
 #include "wsm_layer_shell.h"
 #include "wsm_workspace.h"
 #include "wsm_input_manager.h"
-#include "wsm_seatop_move_floating.h"
-#include "wsm_seatop_resize_floating.h"
+#include "wsm_seatop_move_window.h"
+#include "wsm_seatop_resize_window.h"
 #include "wsm_window_snap.h"
 #include "node/wsm_node.h"
 #include "node/wsm_button_node.h"
@@ -89,26 +89,11 @@ static struct wsm_button_node *update_button_hover(struct wsm_seat *seat) {
 	return button;
 }
 
-static bool edge_is_external(struct wsm_container *cont, enum wlr_edges edge) {
-	while (cont) {
-		struct wsm_list *siblings = container_get_siblings(cont);
-		if (!siblings) {
-			return false;
-		}
-		int index = wsm_list_find(siblings, cont);
-		if (index > 0 && (edge == WLR_EDGE_LEFT || edge == WLR_EDGE_TOP)) {
-			return false;
-		}
-		if (index < siblings->length - 1 &&
-			(edge == WLR_EDGE_RIGHT || edge == WLR_EDGE_BOTTOM)) {
-			return false;
-		}
-		cont = cont->pending.parent;
-	}
+static bool edge_is_external(struct wsm_window *cont, enum wlr_edges edge) {
 	return true;
 }
 
-static enum wlr_edges find_edge(struct wsm_container *cont,
+static enum wlr_edges find_edge(struct wsm_window *cont,
 		struct wlr_surface *surface, struct wsm_cursor *cursor) {
 	if (!cont->view || (surface && cont->view->surface != surface)) {
 		return WLR_EDGE_NONE;
@@ -140,10 +125,10 @@ static enum wlr_edges find_edge(struct wsm_container *cont,
  * If the cursor is over a _resizable_ edge, return the edge.
  * Edges that can't be resized are edges of the workspace.
  */
-enum wlr_edges find_resize_edge(struct wsm_container *cont,
+enum wlr_edges find_resize_edge(struct wsm_window *cont,
 		struct wlr_surface *surface, struct wsm_cursor *cursor) {
 	enum wlr_edges edge = find_edge(cont, surface, cursor);
-	if (edge && !container_is_floating(cont) && edge_is_external(cont, edge)) {
+	if (edge && !window_is_managed(cont) && edge_is_external(cont, edge)) {
 		return WLR_EDGE_NONE;
 	}
 	return edge;
@@ -209,8 +194,8 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 		return;
 	}
 
-	struct wsm_container *cont = node && node->type == N_CONTAINER ?
-		node->container : NULL;
+	struct wsm_window *cont = node && node->type == N_WINDOW ?
+		node->window : NULL;
 
 	struct wlr_layer_surface_v1 *layer;
 #if HAVE_XWAYLAND
@@ -221,21 +206,21 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 		seat_set_focus_layer(seat, layer);
 		transaction_commit_dirty();
 	} else if (cont) {
-		bool is_floating_or_child = container_is_floating_or_child(cont);
-		bool is_fullscreen_or_child = container_is_fullscreen_or_child(cont);
+		bool is_managed = window_is_managed(cont);
+		bool is_fullscreen = window_is_fullscreen(cont);
 		struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->seat);
 		bool mod_pressed = keyboard &&
 			(wlr_keyboard_get_modifiers(keyboard));
 
-		if (is_floating_or_child && !is_fullscreen_or_child && mod_pressed) {
-			seat_set_focus_container(seat,
+		if (is_managed && !is_fullscreen && mod_pressed) {
+			seat_set_focus_window(seat,
 				seat_get_focus_inactive_view(seat, &cont->node));
-			seatop_begin_move_floating(seat, container_toplevel_ancestor(cont));
+			seatop_begin_move_window(seat, cont);
 			return;
 		}
 
-		seat_set_focus_container(seat, cont);
-		seatop_begin_down(seat, node->container, sx, sy);
+		seat_set_focus_window(seat, cont);
+		seatop_begin_down(seat, node->window, sx, sy);
 	}
 #if HAVE_XWAYLAND
 	// Handle tapping on an xwayland unmanaged view
@@ -274,10 +259,10 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 	struct wsm_node *node = node_at_coords(seat,
 		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
 
-	struct wsm_container *cont = node && node->type == N_CONTAINER ?
-		node->container : NULL;
-	bool is_floating_or_child = cont && container_is_floating_or_child(cont);
-	bool is_fullscreen_or_child = cont && container_is_fullscreen_or_child(cont);
+	struct wsm_window *cont = node && node->type == N_WINDOW ?
+		node->window : NULL;
+	bool is_managed = cont && window_is_managed(cont);
+	bool is_fullscreen = cont && window_is_fullscreen(cont);
 	enum wlr_edges edge = cont ? find_edge(cont, surface, cursor) : WLR_EDGE_NONE;
 	enum wlr_edges resize_edge = cont && edge ?
 		find_resize_edge(cont, surface, cursor) : WLR_EDGE_NONE;
@@ -338,8 +323,8 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 	if (cont && state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		node = &cont->node;
 		if (on_titlebar) {
-			struct wsm_container *focus = seat_get_focused_container(seat);
-			if (focus == cont || !container_has_ancestor(focus, cont)) {
+			struct wsm_window *focus = seat_get_focused_window(seat);
+			if (focus == cont || focus != cont) {
 				node = seat_get_focus_inactive(seat, &cont->node);
 			}
 		}
@@ -349,21 +334,21 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 	}
 
 	bool mod_pressed = modifiers;
-	if (cont && is_floating_or_child && !is_fullscreen_or_child &&
+	if (cont && is_managed && !is_fullscreen &&
 		state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		uint32_t btn_move = BTN_LEFT;
 		if (button == btn_move && (mod_pressed || on_titlebar)) {
-			seatop_begin_move_floating(seat, container_toplevel_ancestor(cont));
+			seatop_begin_move_window(seat, cont);
 			return;
 		}
 	}
 
-	if (cont && is_floating_or_child && !is_fullscreen_or_child &&
+	if (cont && is_managed && !is_fullscreen &&
 		state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		if (button == BTN_LEFT && resize_edge != WLR_EDGE_NONE) {
 			struct wsm_window_snap_divider *edge_divider =
-				wsm_window_snap_divider_for_container_edge(
-					container_toplevel_ancestor(cont), resize_edge,
+				wsm_window_snap_divider_for_window_edge(
+					cont, resize_edge,
 					cursor->cursor_wlr->x, cursor->cursor_wlr->y);
 			if (edge_divider) {
 				wsm_window_snap_begin_resize_divider(seat, edge_divider);
@@ -372,24 +357,24 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 			bool lock_width = false;
 			bool lock_height = false;
 			wsm_window_snap_constrain_inner_edge(
-				container_toplevel_ancestor(cont), &resize_edge,
+				cont, &resize_edge,
 				&lock_width, &lock_height);
-			seat_set_focus_container(seat, cont);
-			seatop_begin_resize_floating_locked(seat, cont, resize_edge,
+			seat_set_focus_window(seat, cont);
+			seatop_begin_resize_window_locked(seat, cont, resize_edge,
 				lock_width, lock_height);
 			return;
 		}
 
 		uint32_t btn_resize = BTN_LEFT;
 		if (mod_pressed && button == btn_resize) {
-			struct wsm_container *floater = container_toplevel_ancestor(cont);
+			struct wsm_window *window = cont;
 			edge = 0;
-			edge |= cursor->cursor_wlr->x > floater->pending.x + floater->pending.width / 2 ?
+			edge |= cursor->cursor_wlr->x > window->pending.x + window->pending.width / 2 ?
 					WLR_EDGE_RIGHT : WLR_EDGE_LEFT;
-			edge |= cursor->cursor_wlr->y > floater->pending.y + floater->pending.height / 2 ?
+			edge |= cursor->cursor_wlr->y > window->pending.y + window->pending.height / 2 ?
 					WLR_EDGE_BOTTOM : WLR_EDGE_TOP;
-			seat_set_focus_container(seat, floater);
-			seatop_begin_resize_floating(seat, floater, edge);
+			seat_set_focus_window(seat, window);
+			seatop_begin_resize_window(seat, window, edge);
 			return;
 		}
 	}
@@ -468,7 +453,7 @@ static void check_focus_follows_mouse(struct wsm_seat *seat,
 	}
 
 	if (node_is_view(hovered_node) &&
-		view_is_visible(hovered_node->container->view)) {
+		view_is_visible(hovered_node->window->view)) {
 		if (hovered_node != e->previous_node) {
 			seat_set_focus(seat, hovered_node);
 			transaction_commit_dirty();
@@ -583,8 +568,8 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 	double sx, sy;
 	struct wsm_node *node = node_at_coords(seat,
 		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &surface, &sx, &sy);
-	struct wsm_container *cont = node && node->type == N_CONTAINER ?
-		node->container : NULL;
+	struct wsm_window *cont = node && node->type == N_WINDOW ?
+		node->window : NULL;
 	enum wlr_edges edge = cont ? find_edge(cont, surface, cursor) : WLR_EDGE_NONE;
 	bool on_border = edge != WLR_EDGE_NONE;
 	bool on_titlebar = cont && !on_border && !surface;
@@ -601,16 +586,14 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 
 	if (!handled && (on_titlebar || on_titlebar_border)) {
 		struct wsm_node *new_focus;
-		struct wsm_node *tabcontainer = node_get_parent(node);
-		struct wsm_node *active =
-			seat_get_active_tiling_child(seat, tabcontainer);
-		struct wsm_list *siblings = container_get_siblings(cont);
+		struct wsm_list *siblings = cont->pending.workspace ?
+			cont->pending.workspace->windows : NULL;
 		if (!siblings || siblings->length == 0) {
 			goto axis_done;
 		}
 
-		int active_index = active && active->type == N_CONTAINER ?
-			wsm_list_find(siblings, active->container) : -1;
+		struct wsm_window *active = seat_get_focused_window(seat);
+		int active_index = active ? wsm_list_find(siblings, active) : -1;
 		if (active_index == -1) {
 			active_index = wsm_list_find(siblings, cont);
 		}
@@ -626,7 +609,7 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 			desired = siblings->length - 1;
 		}
 
-		struct wsm_container *new_sibling_con = siblings->items[desired];
+		struct wsm_window *new_sibling_con = siblings->items[desired];
 		struct wsm_node *new_sibling = &new_sibling_con->node;
 		new_focus = seat_get_focus_inactive(seat, new_sibling);
 
