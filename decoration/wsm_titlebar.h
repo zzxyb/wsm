@@ -99,6 +99,7 @@ struct wsm_titlebar {
 	struct wl_listener min_button_clicked; /**< Listener for minimize button clicks */
 	struct wl_listener max_button_clicked; /**< Listener for maximize button clicks */
 	struct wl_listener close_button_clicked; /**< Listener for close button clicks */
+	struct wl_listener double_clicked; /**< Listener for titlebar double clicks */
 	struct wsm_window *window; /**< Window owning this titlebar */
 	bool button_icons_loaded; /**< Whether titlebar button icons match current state */
 	bool button_icons_maximized; /**< Maximized state represented by the max button icon */

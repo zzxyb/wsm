@@ -14,6 +14,7 @@
 #include "wsm_seatop_down.h"
 #include "wsm_layer_shell.h"
 #include "wsm_workspace.h"
+#include "wsm_titlebar.h"
 #include "wsm_input_manager.h"
 #include "wsm_seatop_move_window.h"
 #include "wsm_seatop_resize_window.h"
@@ -38,6 +39,8 @@
 #include <wlr/types/wlr_tablet_v2.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
 #include <wlr/types/wlr_pointer_gestures_v1.h>
+
+#define TITLEBAR_DOUBLE_CLICK_TIME_MSEC 500
 
 struct seatop_default_event {
 	uint32_t pressed_buttons[WSM_CURSOR_PRESSED_BUTTONS_CAP];
@@ -249,6 +252,32 @@ static bool trigger_pointer_button_binding(struct wsm_seat *seat,
 	return false;
 }
 
+static bool handle_titlebar_double_click(struct wsm_seat *seat,
+		struct wsm_window *window, uint32_t time_msec, uint32_t button,
+		enum wl_pointer_button_state state) {
+	if (button != BTN_LEFT || state != WL_POINTER_BUTTON_STATE_PRESSED ||
+			!window || !window->title_bar) {
+		return false;
+	}
+
+	bool same_window = seat->last_titlebar_click_window == window;
+	bool within_time = time_msec >= seat->last_titlebar_click_msec &&
+		time_msec - seat->last_titlebar_click_msec <=
+			TITLEBAR_DOUBLE_CLICK_TIME_MSEC;
+
+	seat->last_titlebar_click_window = window;
+	seat->last_titlebar_click_msec = time_msec;
+
+	if (!same_window || !within_time) {
+		return false;
+	}
+
+	seat->last_titlebar_click_window = NULL;
+	seat->last_titlebar_click_msec = 0;
+	wl_signal_emit_mutable(&window->title_bar->events.double_click, NULL);
+	return true;
+}
+
 static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		struct wlr_input_device *device, uint32_t button,
 		enum wl_pointer_button_state state) {
@@ -279,11 +308,17 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		wsm_window_snap_divider_at(cursor->cursor_wlr->x, cursor->cursor_wlr->y);
 	if (divider && state == WL_POINTER_BUTTON_STATE_PRESSED &&
 			button == BTN_LEFT) {
+		seat->last_titlebar_click_window = NULL;
+		seat->last_titlebar_click_msec = 0;
 		wsm_window_snap_begin_resize_divider(seat, divider);
 		return;
 	}
 
 	if (titlebar_button) {
+		if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+			seat->last_titlebar_click_window = NULL;
+			seat->last_titlebar_click_msec = 0;
+		}
 		if (cont && state == WL_POINTER_BUTTON_STATE_PRESSED) {
 			seat_set_focus(seat, &cont->node);
 			transaction_commit_dirty();
@@ -296,6 +331,12 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 	if (trigger_pointer_button_binding(seat, device, button, state, modifiers,
 			on_titlebar, on_border, on_contents, on_workspace)) {
 		return;
+	}
+
+	if (!on_titlebar && button == BTN_LEFT &&
+			state == WL_POINTER_BUTTON_STATE_PRESSED) {
+		seat->last_titlebar_click_window = NULL;
+		seat->last_titlebar_click_msec = 0;
 	}
 
 	if (node && node->type == N_WORKSPACE) {
@@ -331,6 +372,11 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 
 		seat_set_focus(seat, node);
 		transaction_commit_dirty();
+
+		if (on_titlebar && handle_titlebar_double_click(seat, cont,
+				time_msec, button, state)) {
+			return;
+		}
 	}
 
 	bool mod_pressed = modifiers;

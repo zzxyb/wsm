@@ -16,6 +16,9 @@ struct wsm_titlebar* wsm_titlebar_create() {
 	wl_list_init(&titlebar->min_button_clicked.link);
 	wl_list_init(&titlebar->max_button_clicked.link);
 	wl_list_init(&titlebar->close_button_clicked.link);
+	wl_list_init(&titlebar->double_clicked.link);
+	wl_signal_init(&titlebar->events.double_click);
+	wl_signal_init(&titlebar->events.request_state);
 
 	return titlebar;
 }
@@ -29,6 +32,9 @@ void wsm_titlebar_destroy(struct wsm_titlebar *titlebar) {
 	}
 	if (!wl_list_empty(&titlebar->close_button_clicked.link)) {
 		wl_list_remove(&titlebar->close_button_clicked.link);
+	}
+	if (!wl_list_empty(&titlebar->double_clicked.link)) {
+		wl_list_remove(&titlebar->double_clicked.link);
 	}
 
 	wlr_scene_node_destroy(&titlebar->tree->node);

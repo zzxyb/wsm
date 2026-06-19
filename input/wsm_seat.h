@@ -126,7 +126,9 @@ struct wsm_seat {
 	double touch_x, touch_y; /**< Coordinates of the last touch event */
 	int32_t touch_id; /**< ID of the last touch event */
 	uint32_t last_button_serial; /**< Serial number of the last button event */
+	uint32_t last_titlebar_click_msec; /**< Time of the last titlebar click */
 	uint32_t idle_inhibit_sources, idle_wake_sources; /**< Sources for idle inhibition and wake */
+	struct wsm_window *last_titlebar_click_window; /**< Window clicked on the titlebar last */
 	bool has_focus; /**< Flag indicating if the seat has focus */
 	bool has_exclusive_layer; /**< Flag indicating if the seat has an exclusive layer */
 };

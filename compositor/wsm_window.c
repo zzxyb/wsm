@@ -186,15 +186,26 @@ static void handle_min_button_clicked(struct wl_listener *listener, void *data) 
 	}
 }
 
-static void handle_max_button_clicked(struct wl_listener *listener, void *data) {
-	struct wsm_titlebar *titlebar =
-		wl_container_of(listener, titlebar, max_button_clicked);
+static void titlebar_toggle_maximized(struct wsm_titlebar *titlebar) {
 	if (titlebar->window && titlebar->window->view &&
 			view_can_maximize(titlebar->window->view)) {
 		window_set_maximized(titlebar->window,
 			!titlebar->window->maximized);
 		transaction_commit_dirty();
 	}
+}
+
+static void handle_max_button_clicked(struct wl_listener *listener, void *data) {
+	struct wsm_titlebar *titlebar =
+		wl_container_of(listener, titlebar, max_button_clicked);
+	titlebar_toggle_maximized(titlebar);
+}
+
+static void handle_titlebar_double_clicked(struct wl_listener *listener,
+		void *data) {
+	struct wsm_titlebar *titlebar =
+		wl_container_of(listener, titlebar, double_clicked);
+	titlebar_toggle_maximized(titlebar);
 }
 
 static void handle_close_button_clicked(struct wl_listener *listener, void *data) {
@@ -256,12 +267,15 @@ static void create_titlebar_buttons(struct wsm_window *window, bool *failed) {
 	titlebar->min_button_clicked.notify = handle_min_button_clicked;
 	titlebar->max_button_clicked.notify = handle_max_button_clicked;
 	titlebar->close_button_clicked.notify = handle_close_button_clicked;
+	titlebar->double_clicked.notify = handle_titlebar_double_clicked;
 	wl_signal_add(&titlebar->min_button->events.clicked,
 		&titlebar->min_button_clicked);
 	wl_signal_add(&titlebar->max_button->events.clicked,
 		&titlebar->max_button_clicked);
 	wl_signal_add(&titlebar->close_button->events.clicked,
 		&titlebar->close_button_clicked);
+	wl_signal_add(&titlebar->events.double_click,
+		&titlebar->double_clicked);
 
 cleanup:
 	free(min_path);
