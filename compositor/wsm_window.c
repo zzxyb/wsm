@@ -390,7 +390,14 @@ void window_destroy(struct wsm_window *window) {
 
 	if (window->view && window->view->window == window) {
 		window->view->window = NULL;
-		wlr_scene_node_destroy(&window->output_handler->node);
+		if (window->output_handler) {
+			wl_list_remove(&window->output_enter.link);
+			wl_list_init(&window->output_enter.link);
+			wl_list_remove(&window->output_leave.link);
+			wl_list_init(&window->output_leave.link);
+			wlr_scene_node_destroy(&window->output_handler->node);
+			window->output_handler = NULL;
+		}
 		if (window->view->destroying) {
 			view_destroy(window->view);
 		}

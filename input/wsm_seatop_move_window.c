@@ -8,10 +8,13 @@
 #include "wsm_window_snap.h"
 #include "wsm_log.h"
 
+#include <linux/input-event-codes.h>
+
 #include <wayland-server-core.h>
 
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_seat.h>
+#include <wlr/types/wlr_touch.h>
 
 static const int move_commit_interval_ms = 8;
 
@@ -53,6 +56,9 @@ static void schedule_move_commit(struct seatop_move_window_event *e) {
 
 static void finalize_move(struct wsm_seat *seat) {
 	struct seatop_move_window_event *e = seat->seatop_data;
+	struct wlr_cursor *cursor = seat->cursor->cursor_wlr;
+
+	wsm_window_snap_update(e->snap, cursor->x, cursor->y);
 
 	if (!wsm_window_snap_apply(e->snap, e->window)) {
 		window_move_to(e->window,
@@ -66,7 +72,8 @@ static void finalize_move(struct wsm_seat *seat) {
 static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		struct wlr_input_device *device, uint32_t button,
 		enum wl_pointer_button_state state) {
-	if (seat->cursor->pressed_button_count == 0) {
+	if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_RELEASED &&
+			seat->cursor->pressed_button_count == 0) {
 		finalize_move(seat);
 	}
 }
@@ -75,6 +82,20 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 		struct wsm_tablet_tool *tool, uint32_t time_msec,
 		enum wlr_tablet_tool_tip_state state) {
 	if (state == WLR_TABLET_TOOL_TIP_UP) {
+		finalize_move(seat);
+	}
+}
+
+static void handle_touch_up(struct wsm_seat *seat,
+		struct wlr_touch_up_event *event) {
+	if (seat->cursor->pointer_touch_id == event->touch_id) {
+		finalize_move(seat);
+	}
+}
+
+static void handle_touch_cancel(struct wsm_seat *seat,
+		struct wlr_touch_cancel_event *event) {
+	if (seat->cursor->pointer_touch_id == event->touch_id) {
 		finalize_move(seat);
 	}
 }
@@ -125,6 +146,8 @@ static const struct wsm_seatop_impl seatop_impl = {
 	.pointer_motion = handle_pointer_motion,
 	.tablet_tool_motion = handle_tablet_tool_motion,
 	.tablet_tool_tip = handle_tablet_tool_tip,
+	.touch_up = handle_touch_up,
+	.touch_cancel = handle_touch_cancel,
 	.end = handle_end,
 	.unref = handle_unref,
 };

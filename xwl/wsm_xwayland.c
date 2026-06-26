@@ -218,7 +218,7 @@ static void set_tiled(struct wsm_view *view, bool tiled) {
 	}
 
 	struct wlr_xwayland_surface *surface = view->wlr_xwayland_surface;
-	wlr_xwayland_surface_set_maximized(surface, tiled);
+	wlr_xwayland_surface_set_maximized(surface, tiled, tiled);
 }
 
 static void set_fullscreen(struct wsm_view *view, bool fullscreen) {
@@ -298,7 +298,7 @@ static void _maximize(struct wsm_view *view, bool maximize) {
 	if (xwayland_view_from_view(view) == NULL) {
 		return;
 	}
-	wlr_xwayland_surface_set_maximized(view->wlr_xwayland_surface, maximize);
+	wlr_xwayland_surface_set_maximized(view->wlr_xwayland_surface, maximize, maximize);
 }
 
 static void _minimize(struct wsm_view *view, bool minimize) {
@@ -316,6 +316,22 @@ static void _close(struct wsm_view *view) {
 	}
 
 	wlr_xwayland_surface_close(view->wlr_xwayland_surface);
+}
+
+static bool has_popups(struct wsm_view *view) {
+	if (xwayland_view_from_view(view) == NULL) {
+		return false;
+	}
+
+	return wsm_xwayland_unmanaged_has_popup(view->wlr_xwayland_surface);
+}
+
+static void close_popups(struct wsm_view *view) {
+	if (xwayland_view_from_view(view) == NULL) {
+		return;
+	}
+
+	wsm_xwayland_unmanaged_close_popups(view->wlr_xwayland_surface);
 }
 
 static void destroy(struct wsm_view *view) {
@@ -359,6 +375,8 @@ static const struct wsm_view_impl view_impl = {
 	.maximize = _maximize,
 	.minimize = _minimize,
 	.close = _close,
+	.has_popups = has_popups,
+	.close_popups = close_popups,
 	.destroy = destroy,
 };
 

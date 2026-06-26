@@ -29,7 +29,7 @@
 #     - name: Install Build Requirements
 #       run: |
 #         apt-get update -q
-#         apt-get install -y meson libwlroots-0.18-dev libwayland-dev cppcheck doxygen graphviz libxslt1-dev xmlto wayland-protocols libsystemd-dev libdrm-dev libxcb1-dev libxcb-icccm4-dev libxml2-dev libcairo2-dev libpango1.0-dev libxpm-dev libjpeg-dev librsvg2-dev
+#         apt-get install -y meson libwlroots-0.20-dev libwayland-dev cppcheck doxygen graphviz libxslt1-dev xmlto wayland-protocols libsystemd-dev libdrm-dev libxcb1-dev libxcb-icccm4-dev libxml2-dev libcairo2-dev libpango1.0-dev libxpm-dev libjpeg-dev librsvg2-dev
 
 #     - name: Build with Meson
 #       run: |

@@ -33,6 +33,28 @@
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_activation_v1.h>
 
+static struct wl_list unmanaged_surfaces;
+static bool unmanaged_surfaces_initialized = false;
+
+static void ensure_unmanaged_surfaces(void) {
+	if (unmanaged_surfaces_initialized) {
+		return;
+	}
+	wl_list_init(&unmanaged_surfaces);
+	unmanaged_surfaces_initialized = true;
+}
+
+static bool xwayland_surface_has_parent(struct wlr_xwayland_surface *surface,
+		struct wlr_xwayland_surface *parent) {
+	while (surface) {
+		if (surface->parent == parent) {
+			return true;
+		}
+		surface = surface->parent;
+	}
+	return false;
+}
+
 static void unmanaged_handle_unmap(struct wl_listener *listener, void *data) {
 	struct wsm_xwayland_unmanaged *surface =
 		wl_container_of(listener, surface, unmap);
@@ -133,6 +155,8 @@ struct wsm_xwayland_unmanaged *create_wsm_xwayland_unmanaged(
 	}
 
 	surface->wlr_xwayland_surface = xsurface;
+	ensure_unmanaged_surfaces();
+	wl_list_insert(&unmanaged_surfaces, &surface->link);
 
 	wl_signal_add(&xsurface->events.request_configure,
 		&surface->request_configure);
@@ -152,6 +176,7 @@ struct wsm_xwayland_unmanaged *create_wsm_xwayland_unmanaged(
 }
 
 void wsm_xwayland_unmanaged_destroy(struct wsm_xwayland_unmanaged *surface) {
+	wl_list_remove(&surface->link);
 	wl_list_remove(&surface->request_configure.link);
 	wl_list_remove(&surface->associate.link);
 	wl_list_remove(&surface->dissociate.link);
@@ -188,7 +213,7 @@ void wsm_xwayland_unmanaged_unmap(struct wsm_xwayland_unmanaged *surface) {
 		// This simply returns focus to the parent surface if there's one available.
 		// This seems to handle JetBrains issues.
 		if (xsurface->parent && xsurface->parent->surface
-				&& wlr_xwayland_or_surface_wants_focus(xsurface->parent)) {
+				&& wlr_xwayland_surface_override_redirect_wants_focus(xsurface->parent)) {
 			seat_set_focus_surface(seat, xsurface->parent->surface, false);
 			return;
 		}
@@ -219,11 +244,38 @@ void wsm_xwayland_unmanaged_map(struct wsm_xwayland_unmanaged *surface) {
 		surface->set_geometry.notify = unmanaged_handle_set_geometry;
 	}
 
-	if (wlr_xwayland_or_surface_wants_focus(xsurface)) {
+	if (wlr_xwayland_surface_override_redirect_wants_focus(xsurface)) {
 		struct wsm_seat *seat = input_manager_current_seat();
 		struct wlr_xwayland *xwayland = global_server.xwayland.xwayland_wlr;
 		wlr_xwayland_set_seat(xwayland, seat->seat);
 		seat_set_focus_surface(seat, xsurface->surface, false);
+	}
+}
+
+bool wsm_xwayland_unmanaged_has_popup(struct wlr_xwayland_surface *parent) {
+	ensure_unmanaged_surfaces();
+
+	struct wsm_xwayland_unmanaged *surface;
+	wl_list_for_each(surface, &unmanaged_surfaces, link) {
+		struct wlr_xwayland_surface *xsurface = surface->wlr_xwayland_surface;
+		if (xsurface && xsurface->surface && xsurface->surface->mapped &&
+				xwayland_surface_has_parent(xsurface, parent)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void wsm_xwayland_unmanaged_close_popups(struct wlr_xwayland_surface *parent) {
+	ensure_unmanaged_surfaces();
+
+	struct wsm_xwayland_unmanaged *surface, *tmp;
+	wl_list_for_each_safe(surface, tmp, &unmanaged_surfaces, link) {
+		struct wlr_xwayland_surface *xsurface = surface->wlr_xwayland_surface;
+		if (xsurface && xsurface->surface && xsurface->surface->mapped &&
+				xwayland_surface_has_parent(xsurface, parent)) {
+			wlr_xwayland_surface_close(xsurface);
+		}
 	}
 }
 

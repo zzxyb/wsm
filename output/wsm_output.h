@@ -18,6 +18,7 @@ struct wlr_output_mode;
 struct wlr_scene_output;
 struct wlr_drm_connector;
 struct wlr_output_power_v1_set_mode_event;
+struct wlr_surface;
 
 struct wsm_workspace;
 struct wsm_workspace_manager;

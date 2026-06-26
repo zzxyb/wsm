@@ -377,6 +377,10 @@ void view_close(struct wsm_view *view) {
 	}
 }
 
+bool view_has_popups(struct wsm_view *view) {
+	return view && view->impl->has_popups && view->impl->has_popups(view);
+}
+
 void view_close_popups(struct wsm_view *view) {
 	if (view->impl->close_popups) {
 		view->impl->close_popups(view);
@@ -618,7 +622,7 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
 #if HAVE_XWAYLAND
 	struct wlr_xwayland_surface *xsurface;
 	if ((xsurface = wlr_xwayland_surface_try_from_wlr_surface(wlr_surface))) {
-		set_focus &= wlr_xwayland_icccm_input_model(xsurface) !=
+		set_focus &= wlr_xwayland_surface_icccm_input_model(xsurface) !=
 			WLR_ICCCM_INPUT_MODEL_NONE;
 	}
 #endif
@@ -960,7 +964,11 @@ bool view_is_transient_for(struct wsm_view *child, struct wsm_view *ancestor) {
 static void send_frame_done_iterator(struct wlr_scene_buffer *scene_buffer,
 		int x, int y, void *data) {
 	struct timespec *when = data;
-	wl_signal_emit_mutable(&scene_buffer->events.frame_done, when);
+	struct wlr_scene_surface *scene_surface =
+		wlr_scene_surface_try_from_buffer(scene_buffer);
+	if (scene_surface) {
+		wlr_scene_surface_send_frame_done(scene_surface, when);
+	}
 }
 
 void view_send_frame_done(struct wsm_view *view) {

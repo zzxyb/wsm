@@ -14,6 +14,8 @@ struct wlr_xwayland_surface;
  * @brief Structure representing an unmanaged XWayland surface
  */
 struct wsm_xwayland_unmanaged {
+	struct wl_list link; /**< Link for the global unmanaged surface list */
+
 	struct wlr_xwayland_surface *wlr_xwayland_surface; /**< Pointer to the WLR XWayland surface */
 
 	struct wlr_scene_surface *surface_scene; /**< Scene surface for the unmanaged surface */
@@ -37,6 +39,8 @@ void wsm_xwayland_unmanaged_associate(struct wsm_xwayland_unmanaged *surface);
 void wsm_xwayland_unmanaged_dissociate(struct wsm_xwayland_unmanaged *surface);
 void wsm_xwayland_unmanaged_unmap(struct wsm_xwayland_unmanaged *surface);
 void wsm_xwayland_unmanaged_map(struct wsm_xwayland_unmanaged *surface);
+bool wsm_xwayland_unmanaged_has_popup(struct wlr_xwayland_surface *parent);
+void wsm_xwayland_unmanaged_close_popups(struct wlr_xwayland_surface *parent);
 
 #endif
 

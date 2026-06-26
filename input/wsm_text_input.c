@@ -537,11 +537,11 @@ void wsm_input_method_relay_init(struct wsm_seat *seat,
 	wl_list_init(&relay->input_popups);
 
 	relay->text_input_new.notify = relay_handle_text_input;
-	wl_signal_add(&global_server.text_input->events.text_input,
+	wl_signal_add(&global_server.text_input->events.new_text_input,
 		&relay->text_input_new);
 
 	relay->input_method_new.notify = relay_handle_input_method;
-	wl_signal_add(&global_server.input_method->events.input_method,
+	wl_signal_add(&global_server.input_method->events.new_input_method,
 		&relay->input_method_new);
 }
 

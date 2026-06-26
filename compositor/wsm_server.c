@@ -323,7 +323,7 @@ bool wsm_server_init(struct wsm_server *server)
 	wl_signal_add(&server->pointer_constraints->events.new_constraint,
 		&server->pointer_constraint);
 
-	server->presentation = wlr_presentation_create(server->wl_display, server->backend);
+	server->presentation = wlr_presentation_create(server->wl_display, server->backend, 2);
 	server->input_method = wlr_input_method_manager_v2_create(server->wl_display);
 	server->text_input = wlr_text_input_manager_v3_create(server->wl_display);
 	server->foreign_toplevel_list =

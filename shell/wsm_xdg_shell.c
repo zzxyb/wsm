@@ -182,6 +182,11 @@ static void _minimize(struct wsm_view *view, bool minimize) {
 	view_set_enable(view, !minimize);
 }
 
+static bool has_popups(struct wsm_view *view) {
+	return xdg_shell_view_from_view(view) != NULL &&
+		!wl_list_empty(&view->wlr_xdg_toplevel->base->popups);
+}
+
 static void close_popups(struct wsm_view *view) {
 	struct wlr_xdg_popup *popup, *tmp;
 	wl_list_for_each_safe(popup, tmp, &view->wlr_xdg_toplevel->base->popups, link) {
@@ -211,6 +216,7 @@ static const struct wsm_view_impl view_impl = {
 	.maximize = _maximize,
 	.minimize = _minimize,
 	.close = _close,
+	.has_popups = has_popups,
 	.close_popups = close_popups,
 	.destroy = destroy,
 };
@@ -237,8 +243,7 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	struct wlr_box new_geo;
-	wlr_xdg_surface_get_geometry(xdg_surface, &new_geo);
+	struct wlr_box new_geo = xdg_surface->current.geometry;
 	bool new_size = new_geo.width != view->geometry.width ||
 		new_geo.height != view->geometry.height ||
 		new_geo.x != view->geometry.x ||

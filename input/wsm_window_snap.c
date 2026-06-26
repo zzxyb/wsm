@@ -32,6 +32,7 @@ struct wsm_window_snap_record {
 
 struct wsm_window_snap_divider {
 	struct wl_list link;
+	bool seen;
 	enum snap_divider_orientation orientation;
 	struct wsm_window *first;
 	struct wsm_window *second;
@@ -262,18 +263,6 @@ static struct wsm_window_snap_record *find_record(
 	return NULL;
 }
 
-static void destroy_dividers(void) {
-	ensure_snap_lists();
-	struct wsm_window_snap_divider *divider, *tmp;
-	wl_list_for_each_safe(divider, tmp, &snap_dividers, link) {
-		wl_list_remove(&divider->link);
-		if (divider->rect) {
-			wlr_scene_node_destroy(&divider->rect->node);
-		}
-		free(divider);
-	}
-}
-
 static bool same_vertical_span(struct wlr_box *a, struct wlr_box *b) {
 	return a->y == b->y && a->height == b->height;
 }
@@ -296,6 +285,7 @@ static void create_divider(enum snap_divider_orientation orientation,
 	const int visual_thickness = 6;
 	const int visual_length = 80;
 	struct wlr_box visual_box = {0};
+	divider->seen = true;
 	divider->orientation = orientation;
 	divider->first = first->window;
 	divider->second = second->window;
@@ -338,9 +328,72 @@ static void create_divider(enum snap_divider_orientation orientation,
 	wl_list_insert(&snap_dividers, &divider->link);
 }
 
+static void update_divider(struct wsm_window_snap_divider *divider,
+		enum snap_divider_orientation orientation,
+		struct wsm_window_snap_record *first,
+		struct wsm_window_snap_record *second, int edge) {
+	const int hit_thickness = 6;
+	const int visual_thickness = 6;
+	const int visual_length = 80;
+	struct wlr_box visual_box = {0};
+
+	divider->seen = true;
+	divider->orientation = orientation;
+	divider->first = first->window;
+	divider->second = second->window;
+	divider->first_box = first->box;
+	divider->second_box = second->box;
+	if (orientation == SNAP_DIVIDER_VERTICAL) {
+		int length = MIN(visual_length, first->box.height);
+		divider->hitbox.x = edge - hit_thickness / 2;
+		divider->hitbox.y = first->box.y;
+		divider->hitbox.width = hit_thickness;
+		divider->hitbox.height = first->box.height;
+		visual_box.x = edge - visual_thickness / 2;
+		visual_box.y = first->box.y + (first->box.height - length) / 2;
+		visual_box.width = visual_thickness;
+		visual_box.height = length;
+	} else {
+		int length = MIN(visual_length, first->box.width);
+		divider->hitbox.x = first->box.x;
+		divider->hitbox.y = edge - hit_thickness / 2;
+		divider->hitbox.width = first->box.width;
+		divider->hitbox.height = hit_thickness;
+		visual_box.x = first->box.x + (first->box.width - length) / 2;
+		visual_box.y = edge - visual_thickness / 2;
+		visual_box.width = length;
+		visual_box.height = visual_thickness;
+	}
+
+	divider->rectbox = visual_box;
+	wlr_scene_rect_set_size(divider->rect, visual_box.width, visual_box.height);
+	wlr_scene_node_set_position(&divider->rect->node,
+		visual_box.x - first->box.x, visual_box.y - first->box.y);
+}
+
+static void upsert_divider(enum snap_divider_orientation orientation,
+		struct wsm_window_snap_record *first,
+		struct wsm_window_snap_record *second, int edge) {
+	struct wsm_window_snap_divider *divider;
+	wl_list_for_each(divider, &snap_dividers, link) {
+		if (divider->orientation == orientation &&
+				divider->first == first->window &&
+				divider->second == second->window) {
+			update_divider(divider, orientation, first, second, edge);
+			return;
+		}
+	}
+
+	create_divider(orientation, first, second, edge);
+}
+
 static void rebuild_dividers(void) {
 	ensure_snap_lists();
-	destroy_dividers();
+
+	struct wsm_window_snap_divider *divider, *tmp;
+	wl_list_for_each(divider, &snap_dividers, link) {
+		divider->seen = false;
+	}
 
 	struct wsm_window_snap_record *a, *b;
 	wl_list_for_each(a, &snap_records, link) {
@@ -351,24 +404,35 @@ static void rebuild_dividers(void) {
 
 			if (same_vertical_span(&a->box, &b->box)) {
 				if (a->box.x + a->box.width == b->box.x) {
-					create_divider(SNAP_DIVIDER_VERTICAL,
+					upsert_divider(SNAP_DIVIDER_VERTICAL,
 						a, b, b->box.x);
 				} else if (b->box.x + b->box.width == a->box.x) {
-					create_divider(SNAP_DIVIDER_VERTICAL,
+					upsert_divider(SNAP_DIVIDER_VERTICAL,
 						b, a, a->box.x);
 				}
 			}
 
 			if (same_horizontal_span(&a->box, &b->box)) {
 				if (a->box.y + a->box.height == b->box.y) {
-					create_divider(SNAP_DIVIDER_HORIZONTAL,
+					upsert_divider(SNAP_DIVIDER_HORIZONTAL,
 						a, b, b->box.y);
 				} else if (b->box.y + b->box.height == a->box.y) {
-					create_divider(SNAP_DIVIDER_HORIZONTAL,
+					upsert_divider(SNAP_DIVIDER_HORIZONTAL,
 						b, a, a->box.y);
 				}
 			}
 		}
+	}
+
+	wl_list_for_each_safe(divider, tmp, &snap_dividers, link) {
+		if (divider->seen) {
+			continue;
+		}
+		wl_list_remove(&divider->link);
+		if (divider->rect) {
+			wlr_scene_node_destroy(&divider->rect->node);
+		}
+		free(divider);
 	}
 }
 
@@ -402,6 +466,24 @@ static void record_window(struct wsm_window *window,
 	}
 	record->box = *box;
 	rebuild_dividers();
+}
+
+static void record_window_without_rebuild(struct wsm_window *window,
+		struct wlr_box *box) {
+	ensure_snap_lists();
+	struct wsm_window_snap_record *record = find_record(window);
+	if (!record) {
+		record = calloc(1, sizeof(struct wsm_window_snap_record));
+		if (!record) {
+			wsm_log(WSM_ERROR, "Could not create snap record: allocation failed!");
+			return;
+		}
+		record->window = window;
+		record->destroy.notify = handle_record_destroy;
+		wl_signal_add(&window->node.events.destroy, &record->destroy);
+		wl_list_insert(&snap_records, &record->link);
+	}
+	record->box = *box;
 }
 
 static bool create_preview(struct wsm_window_snap *snap) {
@@ -697,10 +779,28 @@ static void update_snap_resize(struct wsm_seat *seat) {
 		second.height = bottom - edge;
 	}
 
+	struct wlr_box current_first = {
+		.x = e->first->pending.x,
+		.y = e->first->pending.y,
+		.width = e->first->pending.width,
+		.height = e->first->pending.height,
+	};
+	struct wlr_box current_second = {
+		.x = e->second->pending.x,
+		.y = e->second->pending.y,
+		.width = e->second->pending.width,
+		.height = e->second->pending.height,
+	};
+	if (wlr_box_equal(&first, &current_first) &&
+			wlr_box_equal(&second, &current_second)) {
+		return;
+	}
+
 	set_window_box(e->first, &first);
 	set_window_box(e->second, &second);
-	record_window(e->first, &first);
-	record_window(e->second, &second);
+	record_window_without_rebuild(e->first, &first);
+	record_window_without_rebuild(e->second, &second);
+	rebuild_dividers();
 	show_snap_divider(e->orientation, e->first, e->second);
 	transaction_commit_dirty();
 }

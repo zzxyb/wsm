@@ -229,7 +229,7 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 	// Handle tapping on an xwayland unmanaged view
 	else if ((xsurface = wlr_xwayland_surface_try_from_wlr_surface(surface)) &&
 			 xsurface->override_redirect &&
-			 wlr_xwayland_or_surface_wants_focus(xsurface)) {
+			 wlr_xwayland_surface_override_redirect_wants_focus(xsurface)) {
 		struct wlr_xwayland *xwayland = global_server.xwayland.xwayland_wlr;
 		wlr_xwayland_set_seat(xwayland, seat->seat);
 		seat_set_focus_surface(seat, xsurface->surface, false);
@@ -278,6 +278,16 @@ static bool handle_titlebar_double_click(struct wsm_seat *seat,
 	return true;
 }
 
+static bool close_window_popups_on_ssd_click(struct wsm_window *window,
+		enum wl_pointer_button_state state) {
+	if (state == WL_POINTER_BUTTON_STATE_PRESSED && window && window->view) {
+		bool had_popups = view_has_popups(window->view);
+		view_close_popups(window->view);
+		return had_popups;
+	}
+	return false;
+}
+
 static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		struct wlr_input_device *device, uint32_t button,
 		enum wl_pointer_button_state state) {
@@ -315,6 +325,7 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 	}
 
 	if (titlebar_button) {
+		bool closed_popups = close_window_popups_on_ssd_click(cont, state);
 		if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
 			seat->last_titlebar_click_window = NULL;
 			seat->last_titlebar_click_msec = 0;
@@ -322,6 +333,10 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		if (cont && state == WL_POINTER_BUTTON_STATE_PRESSED) {
 			seat_set_focus(seat, &cont->node);
 			transaction_commit_dirty();
+		}
+
+		if (closed_popups) {
+			return;
 		}
 
 		wsm_button_node_notify_button(titlebar_button, button, state);
@@ -363,7 +378,9 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 
 	if (cont && state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		node = &cont->node;
+		bool closed_popups = false;
 		if (on_titlebar) {
+			closed_popups = close_window_popups_on_ssd_click(cont, state);
 			struct wsm_window *focus = seat_get_focused_window(seat);
 			if (focus == cont || focus != cont) {
 				node = seat_get_focus_inactive(seat, &cont->node);
@@ -372,6 +389,10 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 
 		seat_set_focus(seat, node);
 		transaction_commit_dirty();
+
+		if (closed_popups) {
+			return;
+		}
 
 		if (on_titlebar && handle_titlebar_double_click(seat, cont,
 				time_msec, button, state)) {
@@ -442,7 +463,7 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 	if (surface &&
 		(xsurface = wlr_xwayland_surface_try_from_wlr_surface(surface)) &&
 		xsurface->override_redirect &&
-		wlr_xwayland_or_surface_wants_focus(xsurface)) {
+		wlr_xwayland_surface_override_redirect_wants_focus(xsurface)) {
 		struct wlr_xwayland *xwayland = global_server.xwayland.xwayland_wlr;
 		wlr_xwayland_set_seat(xwayland, seat->seat);
 		seat_set_focus_surface(seat, xsurface->surface, false);
@@ -572,7 +593,7 @@ static void handle_touch_down(struct wsm_seat *seat,
 	double sx, sy;
 	node_at_coords(seat, seat->touch_x, seat->touch_y, &surface, &sx, &sy);
 
-	if (surface && wlr_surface_accepts_touch(wlr_seat, surface)) {
+	if (surface && wlr_surface_accepts_touch(surface, wlr_seat)) {
 		if (seat_is_input_allowed(seat, surface)) {
 			cursor->simulating_pointer_from_touch = false;
 			seatop_begin_touch_down(seat, surface, event, sx, sy, lx, ly);
@@ -581,11 +602,8 @@ static void handle_touch_down(struct wsm_seat *seat,
 			(!surface || seat_is_input_allowed(seat, surface))) {
 		cursor->simulating_pointer_from_touch = true;
 		cursor->pointer_touch_id = seat->touch_id;
-		double dx, dy;
-		dx = seat->touch_x - cursor->cursor_wlr->x;
-		dy = seat->touch_y - cursor->cursor_wlr->y;
-		pointer_motion(cursor, event->time_msec, &event->touch->base, dx, dy,
-			dx, dy);
+		wlr_cursor_warp(cursor->cursor_wlr, NULL, seat->touch_x, seat->touch_y);
+		seatop_pointer_motion(seat, event->time_msec);
 		dispatch_cursor_button(cursor, &event->touch->base, event->time_msec,
 			BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED);
 	}

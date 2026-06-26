@@ -133,7 +133,7 @@ bool wsm_scene_output_commit(struct wlr_scene_output *scene_output,
 		goto out;
 	}
 
-	wlr_damage_ring_rotate(&scene_output->damage_ring);
+	pixman_region32_clear(&scene_output->damage_ring.current);
 
 out:
 	wlr_output_state_finish(&state);
@@ -729,9 +729,6 @@ bool wsm_scene_output_build_state(struct wlr_scene_output *scene_output,
 	struct render_list_entry *list_data = list_con.render_list->data;
 	int list_len = list_con.render_list->size / sizeof(*list_data);
 
-	wlr_damage_ring_set_bounds(&scene_output->damage_ring,
-		render_data.trans_width, render_data.trans_height);
-
 	if (debug_damage == WLR_SCENE_DEBUG_DAMAGE_RERENDER) {
 		wlr_damage_ring_add_whole(&scene_output->damage_ring);
 	}
@@ -799,7 +796,7 @@ bool wsm_scene_output_build_state(struct wlr_scene_output *scene_output,
 		swapchain = output->swapchain;
 	}
 
-	struct wlr_buffer *buffer = wlr_swapchain_acquire(swapchain, NULL);
+	struct wlr_buffer *buffer = wlr_swapchain_acquire(swapchain);
 	if (buffer == NULL) {
 		return false;
 	}

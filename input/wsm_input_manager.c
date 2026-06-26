@@ -204,9 +204,9 @@ void input_manager_configure_xcursor(void) {
 		}
 		if (xcursor && xcursor->image_count > 0) {
 			struct wlr_xcursor_image *image = xcursor->images[0];
+			struct wlr_buffer *buffer = wlr_xcursor_image_get_buffer(image);
 			wlr_xwayland_set_cursor(global_server.xwayland.xwayland_wlr,
-				image->buffer, image->width * 4, image->width,
-				image->height, image->hotspot_x, image->hotspot_y);
+				buffer, image->hotspot_x, image->hotspot_y);
 		} else {
 			wsm_log(WSM_ERROR, "Could not load default XWayland cursor");
 		}

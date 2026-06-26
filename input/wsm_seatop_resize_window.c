@@ -13,6 +13,7 @@
 
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_cursor.h>
+#include <wlr/types/wlr_touch.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 
@@ -157,14 +158,38 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 
 	if (seat->cursor->pressed_button_count == 0) {
 		window_set_resizing(window, false);
-		if (window->view && window->view->using_csd) {
-			seatop_begin_default(seat);
-			return;
+		if (!(window->view && window->view->using_csd)) {
+			wsm_arrange_window_auto(window); // Send configure w/o resizing hint
+			transaction_commit_dirty();
 		}
-		wsm_arrange_window_auto(window); // Send configure w/o resizing hint
-		transaction_commit_dirty();
 		seatop_begin_default(seat);
     }
+}
+
+static void finalize_resize(struct wsm_seat *seat) {
+	struct seatop_resize_window_event *e = seat->seatop_data;
+	struct wsm_window *window = e->window;
+
+	window_set_resizing(window, false);
+	if (!(window->view && window->view->using_csd)) {
+		wsm_arrange_window_auto(window);
+		transaction_commit_dirty();
+	}
+	seatop_begin_default(seat);
+}
+
+static void handle_touch_up(struct wsm_seat *seat,
+		struct wlr_touch_up_event *event) {
+	if (seat->cursor->pointer_touch_id == event->touch_id) {
+		finalize_resize(seat);
+	}
+}
+
+static void handle_touch_cancel(struct wsm_seat *seat,
+		struct wlr_touch_cancel_event *event) {
+	if (seat->cursor->pointer_touch_id == event->touch_id) {
+		finalize_resize(seat);
+	}
 }
 
 static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
@@ -240,6 +265,10 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 	grow_height = height - e->ref_height;
 
 	if (window->view && window->view->using_csd) {
+		if (window->pending.content_width == (int)width &&
+				window->pending.content_height == (int)height) {
+			return;
+		}
 		e->deferred = true;
 		view_configure(window->view, window->pending.content_x,
 			window->pending.content_y, width, height);
@@ -267,6 +296,11 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 	int relative_grow_x = (e->ref_window_lx + grow_x) - window->pending.x;
 	int relative_grow_y = (e->ref_window_ly + grow_y) - window->pending.y;
 
+	if (relative_grow_x == 0 && relative_grow_y == 0 &&
+			relative_grow_width == 0 && relative_grow_height == 0) {
+		return;
+	}
+
 	window->pending.x += relative_grow_x;
 	window->pending.y += relative_grow_y;
 	window->pending.width += relative_grow_width;
@@ -291,6 +325,8 @@ static void handle_unref(struct wsm_seat *seat, struct wsm_window *window) {
 static const struct wsm_seatop_impl seatop_impl = {
 	.button = handle_button,
 	.pointer_motion = handle_pointer_motion,
+	.touch_up = handle_touch_up,
+	.touch_cancel = handle_touch_cancel,
 	.unref = handle_unref,
 };
 

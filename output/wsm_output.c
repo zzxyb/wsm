@@ -111,15 +111,24 @@ static void handle_present(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	output->last_presentation = *output_event->when;
+	output->last_presentation = output_event->when;
 	output->refresh_nsec = output_event->refresh;
+}
+
+static void scene_buffer_send_frame_done_at(struct wlr_scene_buffer *buffer,
+		const struct timespec *when) {
+	struct wlr_scene_frame_done_event event = {
+		.output = buffer->primary_output,
+		.when = *when,
+	};
+	wlr_scene_buffer_send_frame_done(buffer, &event);
 }
 
 static int handle_buffer_timer(void *data) {
 	struct wlr_scene_buffer *buffer = data;
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
-	wlr_scene_buffer_send_frame_done(buffer, &now);
+	scene_buffer_send_frame_done_at(buffer, &now);
 	return 0;
 }
 
@@ -197,7 +206,7 @@ static void send_frame_done_iterator(struct wlr_scene_buffer *buffer,
 	if (timer) {
 		wl_event_source_timer_update(timer->frame_done_timer, delay);
 	} else {
-		wlr_scene_buffer_send_frame_done(buffer, &data->when);
+		scene_buffer_send_frame_done_at(buffer, &data->when);
 	}
 }
 
@@ -231,8 +240,14 @@ static void output_configure_scene(struct wsm_output *output,
 
 	if (node->type == WLR_SCENE_NODE_BUFFER) {
 		struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
-		buffer->filter_mode = get_scale_filter(output, buffer);
-		wlr_scene_buffer_set_opacity(buffer, opacity);
+		enum wlr_scale_filter_mode filter_mode =
+			get_scale_filter(output, buffer);
+		if (buffer->filter_mode != filter_mode) {
+			buffer->filter_mode = filter_mode;
+		}
+		if (buffer->opacity != opacity) {
+			wlr_scene_buffer_set_opacity(buffer, opacity);
+		}
 	} else if (node->type == WLR_SCENE_NODE_TREE) {
 		struct wlr_scene_tree *tree = wlr_scene_tree_from_node(node);
 		struct wlr_scene_node *node;

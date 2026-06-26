@@ -15,6 +15,7 @@ add_project_arguments(
 	[
 		'-Wno-error=expansion-to-defined',
 		'-DWLR_USE_UNSTABLE',
+		'-DWLR_PRIVATE=',
 		'-D_POSIX_C_SOURCE=200809L',
 		'-Wno-unused-parameter',
 		'-Wno-unused-result',
@@ -36,14 +37,14 @@ if is_freebsd
 	add_project_arguments('-D_C11_SOURCE', language: 'c')
 endif
 
-wlroots_version = ['>=0.18.0', '<0.20.0']
+wlroots_version = ['>=0.20.0', '<0.21.0']
 # subproject(
 # 	'wlroots',
 # 	default_options: ['examples=false'],
 # 	required: false,
 # 	version: wlroots_version,
 # )
-wlroots = dependency('wlroots-0.18', version: wlroots_version, fallback: 'wlroots')
+wlroots = dependency('wlroots-0.20', version: wlroots_version, fallback: 'wlroots')
 wlroots_features = {
 	'xwayland': get_option('xwayland').enabled(),
 	'libinput_backend': true,

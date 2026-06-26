@@ -71,6 +71,7 @@ struct wsm_view_impl {
 	void (*maximize)(struct wsm_view *view, bool maximize); /**< Function to maximize the view */
 	void (*minimize)(struct wsm_view *view, bool minimize); /**< Function to minimize the view */
 	void (*close)(struct wsm_view *view); /**< Function to close the view */
+	bool (*has_popups)(struct wsm_view *view); /**< Function to check if popups are associated with the view */
 	void (*close_popups)(struct wsm_view *view); /**< Function to close popups associated with the view */
 	void (*destroy)(struct wsm_view *view); /**< Function to destroy the view */
 };
@@ -384,6 +385,13 @@ bool view_can_minimize(struct wsm_view *view);
  * @param view Pointer to the wsm_view instance
  */
 void view_close(struct wsm_view *view);
+
+/**
+ * @brief Checks whether popups are associated with a view
+ * @param view Pointer to the wsm_view instance
+ * @return true if the view has popups, false otherwise
+ */
+bool view_has_popups(struct wsm_view *view);
 
 /**
  * @brief Closes popups associated with a view

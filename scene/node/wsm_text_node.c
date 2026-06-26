@@ -298,11 +298,15 @@ void wsm_text_node_set_max_width(struct wsm_text_node *node, int max_width) {
 	if (max_width == buffer->props.max_width) {
 		return;
 	}
+	bool toggles_empty_buffer =
+		max_width == 0 || buffer->props.max_width == 0;
 	buffer->props.max_width = max_width;
 	wlr_scene_buffer_set_dest_size(buffer->buffer_node,
 		get_text_width(&buffer->props), buffer->props.height);
 	update_source_box(buffer);
-	render_backing_buffer(buffer);
+	if (toggles_empty_buffer) {
+		render_backing_buffer(buffer);
+	}
 }
 
 void wsm_text_node_set_background(struct wsm_text_node *node, float background[4]) {

@@ -170,6 +170,12 @@ void pointer_motion(struct wsm_cursor *cursor, uint32_t time_msec,
 	seatop_pointer_motion(cursor->seat_wsm, time_msec);
 }
 
+static void touch_pointer_motion(struct wsm_cursor *cursor,
+		uint32_t time_msec, double lx, double ly) {
+	wlr_cursor_warp(cursor->cursor_wlr, NULL, lx, ly);
+	seatop_pointer_motion(cursor->seat_wsm, time_msec);
+}
+
 static void handle_pointer_motion_relative(
 		struct wl_listener *listener, void *data) {
 	struct wsm_cursor *cursor = wl_container_of(listener, cursor, motion);
@@ -266,11 +272,7 @@ static void handle_touch_motion(struct wl_listener *listener, void *data) {
 
 	if (cursor->simulating_pointer_from_touch) {
 		if (seat->touch_id == cursor->pointer_touch_id) {
-			double dx, dy;
-			dx = lx - cursor->cursor_wlr->x;
-			dy = ly - cursor->cursor_wlr->y;
-			pointer_motion(cursor, event->time_msec, &event->touch->base,
-				dx, dy, dx, dy);
+			touch_pointer_motion(cursor, event->time_msec, lx, ly);
 		}
 	} else {
 		seatop_touch_motion(seat, event, lx, ly);
@@ -285,10 +287,11 @@ static void handle_touch_cancel(struct wl_listener *listener, void *data) {
 	struct wsm_seat *seat = cursor->seat_wsm;
 
 	if (cursor->simulating_pointer_from_touch) {
-		if (cursor->pointer_touch_id == cursor->seat_wsm->touch_id) {
+		if (cursor->pointer_touch_id == event->touch_id) {
 			cursor->pointer_touch_up = true;
 			dispatch_cursor_button(cursor, &event->touch->base,
 				event->time_msec, BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED);
+			seatop_touch_cancel(seat, event);
 		}
 	} else {
 		seatop_touch_cancel(seat, event);
@@ -303,10 +306,11 @@ static void handle_touch_up(struct wl_listener *listener, void *data) {
 	struct wsm_seat *seat = cursor->seat_wsm;
 
 	if (cursor->simulating_pointer_from_touch) {
-		if (cursor->pointer_touch_id == seat->touch_id) {
+		if (cursor->pointer_touch_id == event->touch_id) {
 			cursor->pointer_touch_up = true;
 			dispatch_cursor_button(cursor, &event->touch->base,
 				event->time_msec, BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED);
+			seatop_touch_up(seat, event);
 		}
 	} else {
 		seatop_touch_up(seat, event);
@@ -358,7 +362,7 @@ static void handle_tablet_tool_position(struct wsm_cursor *cursor,
 		&global_server.scene->root_scene->tree.node, cursor->cursor_wlr->x, cursor->cursor_wlr->y, &sx, &sy);
 
 	if (!cursor->simulating_pointer_from_tool_tip &&
-		((surface && wlr_surface_accepts_tablet_v2(tablet->tablet_v2, surface)) ||
+		((surface && wlr_surface_accepts_tablet_v2(surface, tablet->tablet_v2)) ||
 		 wlr_tablet_tool_v2_has_implicit_grab(tool->tablet_v2_tool))) {
 		seatop_tablet_tool_motion(seat, tool, time_msec);
 	} else {
@@ -444,7 +448,7 @@ static void handle_tool_tip(struct wl_listener *listener, void *data) {
 		dispatch_cursor_button(cursor, &event->tablet->base, event->time_msec,
 			BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED);
 		wlr_seat_pointer_notify_frame(seat->seat);
-	} else if (!surface || !wlr_surface_accepts_tablet_v2(tablet_v2, surface)) {
+	} else if (!surface || !wlr_surface_accepts_tablet_v2(surface, tablet_v2)) {
 		if (event->state == WLR_TABLET_TOOL_TIP_UP) {
 			seatop_tablet_tool_tip(seat, wsm_tool, event->time_msec,
 				WLR_TABLET_TOOL_TIP_UP);
