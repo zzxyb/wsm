@@ -381,14 +381,13 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		bool closed_popups = false;
 		if (on_titlebar) {
 			closed_popups = close_window_popups_on_ssd_click(cont, state);
-			struct wsm_window *focus = seat_get_focused_window(seat);
-			if (focus == cont || focus != cont) {
-				node = seat_get_focus_inactive(seat, &cont->node);
-			}
+			node = seat_get_focus_inactive(seat, &cont->node);
 		}
 
-		seat_set_focus(seat, node);
-		transaction_commit_dirty();
+		if (seat_get_focus(seat) != node || closed_popups) {
+			seat_set_focus(seat, node);
+			transaction_commit_dirty();
+		}
 
 		if (closed_popups) {
 			return;

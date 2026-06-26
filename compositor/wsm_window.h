@@ -183,7 +183,7 @@ size_t window_titlebar_height(void);
  * @brief Raises the specified window
  * @param window Pointer to the wsm_window to raise
  */
-void window_raise(struct wsm_window *window);
+bool window_raise(struct wsm_window *window);
 
 /**
  * @brief Sets the maximized state for a window

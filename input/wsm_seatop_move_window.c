@@ -173,8 +173,9 @@ void seatop_begin_move_window(struct wsm_seat *seat,
 	seat->seatop_impl = &seatop_impl;
 	seat->seatop_data = e;
 
-	window_raise(window);
-	transaction_commit_dirty();
+	if (window_raise(window)) {
+		transaction_commit_dirty();
+	}
 
 	cursor_set_image(cursor, "grab", NULL);
 	wlr_seat_pointer_notify_clear_focus(seat->seat);

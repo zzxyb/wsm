@@ -461,12 +461,20 @@ size_t window_titlebar_height(void) {
 	return global_config.font_height + global_config.titlebar_v_padding * 2;
 }
 
-void window_raise(struct wsm_window *window) {
-	if (window_is_managed(window) && window->pending.workspace) {
-		wlr_scene_node_raise_to_top(&window->scene_tree->node);
-		wsm_list_move_to_end(window->pending.workspace->windows, window);
-		node_set_dirty(&window->pending.workspace->node);
+bool window_raise(struct wsm_window *window) {
+	if (!window_is_managed(window) || !window->pending.workspace) {
+		return false;
 	}
+
+	struct wsm_list *windows = window->pending.workspace->windows;
+	if (windows->length > 0 && windows->items[windows->length - 1] == window) {
+		return false;
+	}
+
+	wlr_scene_node_raise_to_top(&window->scene_tree->node);
+	wsm_list_move_to_end(windows, window);
+	node_set_dirty(&window->pending.workspace->node);
+	return true;
 }
 
 static void window_set_content_geometry_from_box(struct wsm_window *window) {
