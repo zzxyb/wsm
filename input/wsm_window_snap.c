@@ -750,6 +750,33 @@ static void show_snap_divider(enum snap_divider_orientation orientation,
 	}
 }
 
+static void update_active_snap_divider(struct snap_resize_event *e,
+		struct wlr_box *first_box, struct wlr_box *second_box) {
+	struct wsm_window_snap_divider *divider;
+	wl_list_for_each(divider, &snap_dividers, link) {
+		if (divider->orientation != e->orientation ||
+				divider->first != e->first ||
+				divider->second != e->second) {
+			continue;
+		}
+
+		struct wsm_window_snap_record first = {
+			.window = e->first,
+			.box = *first_box,
+		};
+		struct wsm_window_snap_record second = {
+			.window = e->second,
+			.box = *second_box,
+		};
+		int edge = e->orientation == SNAP_DIVIDER_VERTICAL ?
+			second_box->x : second_box->y;
+		update_divider(divider, e->orientation, &first, &second, edge);
+		return;
+	}
+
+	rebuild_dividers();
+}
+
 static void update_snap_resize(struct wsm_seat *seat) {
 	struct snap_resize_event *e = seat->seatop_data;
 	struct wlr_cursor *cursor = seat->cursor->cursor_wlr;
@@ -800,7 +827,7 @@ static void update_snap_resize(struct wsm_seat *seat) {
 	set_window_box(e->second, &second);
 	record_window_without_rebuild(e->first, &first);
 	record_window_without_rebuild(e->second, &second);
-	rebuild_dividers();
+	update_active_snap_divider(e, &first, &second);
 	show_snap_divider(e->orientation, e->first, e->second);
 	transaction_commit_dirty();
 }
@@ -809,6 +836,7 @@ static void handle_snap_resize_button(struct wsm_seat *seat, uint32_t time_msec,
 		struct wlr_input_device *device, uint32_t button,
 		enum wl_pointer_button_state state) {
 	if (seat->cursor->pressed_button_count == 0) {
+		rebuild_dividers();
 		seatop_begin_default(seat);
 	}
 }
