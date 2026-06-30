@@ -70,6 +70,8 @@ static bool snap_lists_initialized = false;
 static bool snap_dividers_visible = true;
 
 static const struct wsm_seatop_impl snap_resize_seatop_impl;
+static const int snap_edge_threshold = 32;
+static const int snap_edge_guard = 16;
 
 static void ensure_snap_lists(void) {
 	if (snap_lists_initialized) {
@@ -146,6 +148,20 @@ static bool output_has_neighbor(struct wsm_output *output,
 	return false;
 }
 
+static void apply_snap_edge_guard(struct wlr_box *area, double *lx, double *ly) {
+	if (*lx <= area->x + snap_edge_threshold) {
+		*lx += snap_edge_guard;
+	} else if (*lx >= area->x + area->width - snap_edge_threshold) {
+		*lx -= snap_edge_guard;
+	}
+
+	if (*ly <= area->y + snap_edge_threshold) {
+		*ly += snap_edge_guard;
+	} else if (*ly >= area->y + area->height - snap_edge_threshold) {
+		*ly -= snap_edge_guard;
+	}
+}
+
 static bool calculate_snap_box(double lx, double ly, struct wlr_box *snap_box) {
 	struct wsm_output *output = output_at(lx, ly);
 	if (!output) {
@@ -157,14 +173,15 @@ static bool calculate_snap_box(double lx, double ly, struct wlr_box *snap_box) {
 		return false;
 	}
 
-	const int threshold = 32;
-	bool near_left = lx <= area.x + threshold &&
+	apply_snap_edge_guard(&area, &lx, &ly);
+
+	bool near_left = lx <= area.x + snap_edge_threshold &&
 		!output_has_neighbor(output, WLR_DIRECTION_LEFT);
-	bool near_right = lx >= area.x + area.width - threshold &&
+	bool near_right = lx >= area.x + area.width - snap_edge_threshold &&
 		!output_has_neighbor(output, WLR_DIRECTION_RIGHT);
-	bool near_top = ly <= area.y + threshold &&
+	bool near_top = ly <= area.y + snap_edge_threshold &&
 		!output_has_neighbor(output, WLR_DIRECTION_UP);
-	bool near_bottom = ly >= area.y + area.height - threshold &&
+	bool near_bottom = ly >= area.y + area.height - snap_edge_threshold &&
 		!output_has_neighbor(output, WLR_DIRECTION_DOWN);
 
 	if (!near_left && !near_right && !near_top && !near_bottom) {
@@ -209,11 +226,12 @@ static bool point_near_output_edge(double lx, double ly) {
 		return false;
 	}
 
-	const int threshold = 32;
-	return lx <= area.x + threshold ||
-		lx >= area.x + area.width - threshold ||
-		ly <= area.y + threshold ||
-		ly >= area.y + area.height - threshold;
+	apply_snap_edge_guard(&area, &lx, &ly);
+
+	return lx <= area.x + snap_edge_threshold ||
+		lx >= area.x + area.width - snap_edge_threshold ||
+		ly <= area.y + snap_edge_threshold ||
+		ly >= area.y + area.height - snap_edge_threshold;
 }
 
 static void set_content_geometry_from_box(struct wsm_window *window) {
