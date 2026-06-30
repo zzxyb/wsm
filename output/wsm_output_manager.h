@@ -60,6 +60,12 @@ struct wsm_output_manager *wsm_output_manager_create(const struct wsm_server *se
 void wsm_output_manager_destory(struct wsm_output_manager *manager);
 
 /**
+ * @brief Detaches output manager listeners from the backend
+ * @param manager Pointer to the output manager instance
+ */
+void wsm_output_manager_detach_backend(struct wsm_output_manager *manager);
+
+/**
  * @brief Updates the configuration of the output manager
  * @param server Pointer to the WSM server whose output manager configuration will be updated
  */

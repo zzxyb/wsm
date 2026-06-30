@@ -633,6 +633,9 @@ void wsm_xdg_shell_destroy(struct wsm_xdg_shell *shell) {
 	}
 
 	wl_list_remove(&shell->xdg_shell_toplevel.link);
+	wl_list_remove(&shell->xdg_activation_request.link);
+	wl_list_remove(&shell->xdg_activation_v1_request_activate.link);
+	wl_list_remove(&shell->xdg_activation_v1_new_token.link);
 
 	free(shell);
 }

@@ -716,6 +716,12 @@ void output_get_box(struct wsm_output *output, struct wlr_box *box) {
 
 struct wsm_workspace *output_get_active_workspace(struct wsm_output *output) {
 	struct wsm_seat *seat = input_manager_current_seat();
+	if (!seat) {
+		if (!output->workspaces->length) {
+			return NULL;
+		}
+		return output->workspaces->items[0];
+	}
 	struct wsm_node *focus = seat_get_active_tiling_child(seat, &output->node);
 	if (!focus) {
 		if (!output->workspaces->length) {

@@ -5,11 +5,14 @@
 #include "wsm_common.h"
 #include "wsm_config.h"
 #include "wsm_output.h"
+#include "wsm_input.h"
 #include "wsm_input_config.h"
 #include "wsm_input_manager.h"
 #include "wsm_xwayland.h"
+#include "wsm_seat.h"
 
 #include <ctype.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <libinput.h>
@@ -109,6 +112,44 @@ struct wsm_input_manager *wsm_input_manager_create(const struct wsm_server* serv
 	return input_manager;
 }
 
+void wsm_input_manager_detach_backend(struct wsm_input_manager *input_manager) {
+	if (!input_manager) {
+		return;
+	}
+
+	if (!wl_list_empty(&input_manager->new_input.link)) {
+		wl_list_remove(&input_manager->new_input.link);
+		wl_list_init(&input_manager->new_input.link);
+	}
+}
+
+void wsm_input_manager_destroy(struct wsm_input_manager *input_manager) {
+	if (!input_manager) {
+		return;
+	}
+
+	wsm_input_manager_detach_backend(input_manager);
+
+	struct wsm_seat *seat, *tmp_seat;
+	wl_list_for_each_safe(seat, tmp_seat, &input_manager->seats, link) {
+		wsm_seat_destroy(seat);
+	}
+
+	struct wsm_input_device *device, *tmp_device;
+	wl_list_for_each_safe(device, tmp_device, &input_manager->devices, link) {
+		wl_list_remove(&device->device_destroy.link);
+		wl_list_remove(&device->link);
+		free(device->identifier);
+		free(device);
+	}
+
+	wl_list_remove(&input_manager->virtual_keyboard_new.link);
+	wl_list_remove(&input_manager->virtual_pointer_new.link);
+	wl_list_remove(&input_manager->keyboard_shortcuts_inhibit_new_inhibitor.link);
+
+	free(input_manager);
+}
+
 struct wsm_seat *input_manager_get_default_seat() {
 	return input_manager_get_seat(DEFAULT_SEAT, true);
 }
@@ -118,6 +159,10 @@ struct wsm_seat *input_manager_current_seat(void) {
 }
 
 struct wsm_seat *input_manager_get_seat(const char *seat_name, bool create) {
+	if (!global_server.input_manager) {
+		return NULL;
+	}
+
 	struct wsm_seat *seat = NULL;
 	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
 		if (strcmp(seat->seat->name, seat_name) == 0) {
@@ -125,7 +170,7 @@ struct wsm_seat *input_manager_get_seat(const char *seat_name, bool create) {
 		}
 	}
 
-	return create ? seat_create(seat_name) : NULL;
+	return create ? wsm_seat_create(seat_name) : NULL;
 }
 
 struct wsm_seat *input_manager_seat_from_wlr_seat(struct wlr_seat *wlr_seat) {

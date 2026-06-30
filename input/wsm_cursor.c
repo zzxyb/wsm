@@ -684,8 +684,12 @@ void wsm_cursor_destroy(struct wsm_cursor *cursor) {
 		return;
 	}
 
-	wl_event_source_remove(cursor->hide_source);
+	if (cursor->hide_source) {
+		wl_event_source_remove(cursor->hide_source);
+		cursor->hide_source = NULL;
+	}
 
+	wl_list_remove(&cursor->request_set_shape.link);
 	wl_list_remove(&cursor->image_surface_destroy.link);
 	wl_list_remove(&cursor->hold_begin.link);
 	wl_list_remove(&cursor->hold_end.link);
@@ -707,8 +711,10 @@ void wsm_cursor_destroy(struct wsm_cursor *cursor) {
 	wl_list_remove(&cursor->touch_frame.link);
 	wl_list_remove(&cursor->tool_axis.link);
 	wl_list_remove(&cursor->tool_tip.link);
+	wl_list_remove(&cursor->tool_proximity.link);
 	wl_list_remove(&cursor->tool_button.link);
 	wl_list_remove(&cursor->request_set_cursor.link);
+	wl_list_remove(&cursor->constraint_commit.link);
 
 	wlr_cursor_destroy(cursor->cursor_wlr);
 	free(cursor);

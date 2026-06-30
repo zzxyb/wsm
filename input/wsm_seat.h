@@ -170,13 +170,13 @@ struct wsm_seatop_impl {
  * @param seat_name Name of the seat to create
  * @return Pointer to the newly created wsm_seat instance
  */
-struct wsm_seat *seat_create(const char *seat_name);
+struct wsm_seat *wsm_seat_create(const char *seat_name);
 
 /**
  * @brief Destroys the specified seat instance
  * @param seat Pointer to the wsm_seat instance to destroy
  */
-void seat_destroy(struct wsm_seat *seat);
+void wsm_seat_destroy(struct wsm_seat *seat);
 
 /**
  * @brief Adds a device to the specified seat

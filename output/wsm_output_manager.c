@@ -285,10 +285,29 @@ struct wsm_output_manager *wsm_output_manager_create(const struct wsm_server *se
 	return output_manager;
 }
 
+void wsm_output_manager_detach_backend(struct wsm_output_manager *manager) {
+	if (!manager) {
+		return;
+	}
+
+	if (!wl_list_empty(&manager->new_output.link)) {
+		wl_list_remove(&manager->new_output.link);
+		wl_list_init(&manager->new_output.link);
+	}
+}
+
 void wsm_output_manager_destory(struct wsm_output_manager *manager) {
 	if (!manager) {
 		return;
 	}
+
+	wsm_output_manager_detach_backend(manager);
+
+	wl_list_remove(&manager->output_layout_change.link);
+	wl_list_remove(&manager->output_manager_apply.link);
+	wl_list_remove(&manager->output_manager_test.link);
+	wl_list_remove(&manager->wsm_output_power_manager_set_mode.link);
+	wl_list_remove(&manager->gamma_control_set_gamma.link);
 
 	free(manager);
 }

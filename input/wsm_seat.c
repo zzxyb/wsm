@@ -358,7 +358,7 @@ static void collect_focus_window_iter(struct wsm_window *window, void *data) {
 	collect_focus_iter(&window->node, data);
 }
 
-struct wsm_seat *seat_create(const char *seat_name) {
+struct wsm_seat *wsm_seat_create(const char *seat_name) {
 	struct wsm_seat *seat = calloc(1, sizeof(struct wsm_seat));
 	if (!seat) {
 		wsm_log(WSM_ERROR, "Could not create wsm_seat: allocation failed!");
@@ -446,6 +446,14 @@ struct wsm_seat *seat_create(const char *seat_name) {
 	seatop_begin_default(seat);
 
 	return seat;
+}
+
+void wsm_seat_destroy(struct wsm_seat *seat) {
+	if (seat == NULL) {
+		return;
+	}
+
+	wlr_seat_destroy(seat->seat);
 }
 
 static struct wsm_seat_device *seat_get_device(struct wsm_seat *seat,

@@ -46,6 +46,18 @@ struct wsm_input_manager {
 struct wsm_input_manager *wsm_input_manager_create(const struct wsm_server* server);
 
 /**
+ * @brief Destroys the specified input manager instance
+ * @param input_manager Pointer to the input manager instance
+ */
+void wsm_input_manager_destroy(struct wsm_input_manager *input_manager);
+
+/**
+ * @brief Detaches input manager listeners from the backend
+ * @param input_manager Pointer to the input manager instance
+ */
+void wsm_input_manager_detach_backend(struct wsm_input_manager *input_manager);
+
+/**
  * @brief Retrieves the default seat from the input manager
  * @return Pointer to the default wsm_seat
  */

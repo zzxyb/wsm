@@ -313,6 +313,15 @@ struct wsm_layer_shell *wsm_layer_shell_create(const struct wsm_server *server) 
 	return layer_shell;
 }
 
+void wsm_layer_shell_destroy(struct wsm_layer_shell *shell) {
+	if (!shell) {
+		return;
+	}
+
+	wl_list_remove(&shell->layer_shell_surface.link);
+	free(shell);
+}
+
 struct wlr_layer_surface_v1 *toplevel_layer_surface_from_surface(
 	struct wlr_surface *surface) {
 	struct wlr_layer_surface_v1 *layer;

@@ -371,14 +371,12 @@ bool wsm_server_init(struct wsm_server *server)
 
 	if (!server->socket) {
 		wsm_log(WSM_ERROR, "Unable to open wayland socket");
-		wlr_backend_destroy(server->backend);
 		return false;
 	}
 
 	server->headless_backend = wlr_headless_backend_create(server->wl_event_loop);
 	if (!server->headless_backend) {
 		wsm_log(WSM_ERROR, "Failed to create secondary headless backend");
-		wlr_backend_destroy(server->backend);
 		return false;
 	} else {
 		wlr_multi_backend_add(server->backend, server->headless_backend);
@@ -405,20 +403,20 @@ bool wsm_server_init(struct wsm_server *server)
 }
 
 void server_finish(struct wsm_server *server) {
-	if (server->icon_theme_change.link.next) {
-		wl_list_remove(&server->icon_theme_change.link);
-		wl_list_init(&server->icon_theme_change.link);
+	if (server->delayed_modeset) {
+		wl_event_source_remove(server->delayed_modeset);
+		server->delayed_modeset = NULL;
 	}
-	if (server->color_theme_change.link.next) {
-		wl_list_remove(&server->color_theme_change.link);
-		wl_list_init(&server->color_theme_change.link);
-	}
+	wl_list_remove(&server->icon_theme_change.link);
+	wl_list_remove(&server->color_theme_change.link);
 	if (server->theme_check_timer) {
 		wl_event_source_remove(server->theme_check_timer);
 		server->theme_check_timer = NULL;
 	}
 #if HAVE_XWAYLAND
 	if (server->xwayland.xwayland_wlr) {
+		wl_list_remove(&server->xwayland_surface.link);
+		wl_list_remove(&server->xwayland_ready.link);
 		wlr_xwayland_destroy(server->xwayland.xwayland_wlr);
 		server->xwayland.xwayland_wlr = NULL;
 	}
@@ -426,13 +424,55 @@ void server_finish(struct wsm_server *server) {
 	if (server->wl_display) {
 		wl_display_destroy_clients(server->wl_display);
 	}
+	wl_list_remove(&server->pointer_constraint.link);
+#if WLR_HAS_DRM_BACKEND
+	if (server->drm_lease_manager) {
+		wl_list_remove(&server->drm_lease_request.link);
+	}
+#endif
+	wl_list_remove(&server->session_lock.new_lock.link);
+	wl_list_remove(&server->session_lock.manager_destroy.link);
+	wl_list_remove(&server->idle_inhibit_manager_v1.new_idle_inhibitor_v1.link);
+	if (server->layer_shell) {
+		wsm_layer_shell_destroy(server->layer_shell);
+		server->layer_shell = NULL;
+	}
+	if (server->xdg_shell) {
+		wsm_xdg_shell_destroy(server->xdg_shell);
+		server->xdg_shell = NULL;
+	}
+	if (server->xdg_decoration_manager) {
+		wl_list_remove(&server->xdg_decoration_manager->xdg_decoration.link);
+		free(server->xdg_decoration_manager);
+		server->xdg_decoration_manager = NULL;
+	}
+	if (server->server_decoration_manager) {
+		wl_list_remove(&server->server_decoration_manager->server_decoration.link);
+		free(server->server_decoration_manager);
+		server->server_decoration_manager = NULL;
+	}
+	if (server->output_manager) {
+		wsm_output_manager_detach_backend(server->output_manager);
+	}
+	if (server->input_manager) {
+		wsm_input_manager_detach_backend(server->input_manager);
+	}
 	if (server->backend) {
 		wlr_backend_destroy(server->backend);
 		server->backend = NULL;
 	}
-	if (server->wl_display) {
-		wl_display_destroy(server->wl_display);
-		server->wl_display = NULL;
+	if (server->output_manager) {
+		wsm_output_manager_destory(server->output_manager);
+		server->output_manager = NULL;
+	}
+	if (server->input_manager) {
+		struct wsm_input_manager *input_manager = server->input_manager;
+		server->input_manager = NULL;
+		wsm_input_manager_destroy(input_manager);
+	}
+	if (server->delayed_modeset) {
+		wl_event_source_remove(server->delayed_modeset);
+		server->delayed_modeset = NULL;
 	}
 	if (server->xcursor_manager) {
 		wlr_xcursor_manager_destroy(server->xcursor_manager);
@@ -441,5 +481,9 @@ void server_finish(struct wsm_server *server) {
 	if (server->dirty_nodes) {
 		wsm_list_destroy(server->dirty_nodes);
 		server->dirty_nodes = NULL;
+	}
+	if (server->wl_display) {
+		wl_display_destroy(server->wl_display);
+		server->wl_display = NULL;
 	}
 }
