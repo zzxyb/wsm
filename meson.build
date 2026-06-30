@@ -69,6 +69,7 @@ drm_full = dependency('libdrm') # only needed for drm_fourcc.h
 drm = drm_full.partial_dependency(compile_args: true, includes: true)
 threads = dependency('threads') # for pthread_setschedparam
 systemd = dependency('libsystemd')
+ddcutil = dependency('ddcutil', required: get_option('ddcutil'))
 xcb = wlroots_features['xwayland'] ? dependency('xcb') : null_dep
 xcb_icccm = wlroots_features['xwayland'] ? dependency('xcb-icccm') : null_dep
 udev = wlroots_features['libinput_backend'] ? dependency('libudev') : null_dep
@@ -185,6 +186,7 @@ dir_libexec = join_paths(dir_prefix, get_option('libexecdir'))
 version_wsm = meson.project_version()
 conf = configuration_data()
 conf.set10('HAVE_XWAYLAND', have_xwayland)
+conf.set10('HAVE_DDCUTIL', ddcutil.found())
 conf.set10('IS_MOBILE', get_option('mobile').enabled())
 conf.set_quoted('VERSION', version_wsm)
 conf.set_quoted('BINDIR', dir_bin)

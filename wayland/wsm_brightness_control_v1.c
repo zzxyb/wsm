@@ -2,7 +2,7 @@
 #include "ext-brightness-control-v1-protocol.h"
 #include "wsm_log.h"
 #include "wsm_output.h"
-#include "wsm_backlight_device.h"
+#include "wsm_brightness.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -106,7 +106,7 @@ static void brightness_control_manager_get_output_brightness(struct wl_client *c
 
 	struct wsm_output *wsm_output = wlr_output->data;
 	assert(wsm_output);
-	if (!wsm_output->backlight_device) {
+	if (!wsm_output->brightness) {
 		ext_brightness_control_v1_send_failed(resource);
 		return;
 	}
@@ -129,12 +129,22 @@ static void brightness_control_manager_get_output_brightness(struct wl_client *c
 	brightness_control->resource = resource;
 	wl_resource_set_user_data(resource, brightness_control);
 
+	long current_brightness = wsm_output->brightness->brightness;
+	if (current_brightness < 0) {
+		ext_brightness_control_v1_send_failed(resource);
+		free(brightness_control);
+		wl_resource_set_user_data(resource, NULL);
+		return;
+	}
+
 	brightness_control->output_destroy_listener.notify = brightness_control_handle_output_destroy;
 	wl_signal_add(&wlr_output->events.destroy,
 		&brightness_control->output_destroy_listener);
 	wl_list_insert(&manager->controls, &brightness_control->link);
-	ext_brightness_control_v1_send_brightness(resource, wsm_output->backlight_device->brightness);
-	ext_brightness_control_v1_send_max_brightness(resource, wsm_output->backlight_device->max_brightness);
+	ext_brightness_control_v1_send_brightness(resource,
+		current_brightness);
+	ext_brightness_control_v1_send_max_brightness(resource,
+		wsm_output->brightness->max_brightness);
 }
 
 static void brightness_control_manager_destroy(struct wl_client *client,
@@ -221,8 +231,7 @@ bool wsm_brightness_control_v1_set_brightness(
 		struct wsm_brightness_control_v1 *brightness_control, long brightness) {
 	assert(brightness_control);
 
-	if (!wsm_backlight_device_set_brightness(
-		brightness_control->output->backlight_device, brightness)) {
+	if (!wsm_brightness_set(brightness_control->output->brightness, brightness)) {
 		return false;
 	}
 
