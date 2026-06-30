@@ -5,7 +5,7 @@
 #include "wsm_input_config.h"
 #include "wsm_keyboard.h"
 #include "wsm_text_input.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 
 #include <stdlib.h>
 #include <strings.h>
@@ -22,6 +22,7 @@
 
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_keyboard.h>
+#include <wlr/types/wlr_keyboard_shortcuts_inhibit_v1.h>
 #include <wlr/interfaces/wlr_keyboard.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_keyboard_group.h>

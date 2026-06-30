@@ -9,7 +9,6 @@ wsm_config = static_library(
 	files(
 		'wsm_config.c',
 		'wsm_output_config.c',
-		'wsm_output_manager_config.c',
 		'wsm_input_config.c',
 		'wsm_keyboard_shortcuts_config.c',
 	),

@@ -1,11 +1,348 @@
 #include "wsm_input.h"
-#include "wsm_input_manager.h"
+#include "wsm_common.h"
+#include "wsm_config.h"
+#include "wsm_input_config.h"
 #include "wsm_server.h"
 #include "wsm_log.h"
+#include "wsm_output.h"
+#include "wsm_scene.h"
 #include "wsm_seat.h"
+#include "wsm_xwayland.h"
 
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <wlr/config.h>
 #include <wlr/types/wlr_input_method_v2.h>
 #include <wlr/backend/libinput.h>
+#include <wlr/types/wlr_keyboard_shortcuts_inhibit_v1.h>
+#include <wlr/types/wlr_output.h>
+#include <wlr/types/wlr_seat.h>
+#include <wlr/types/wlr_xcursor_manager.h>
+#include <wlr/types/wlr_virtual_keyboard_v1.h>
+#include <wlr/types/wlr_virtual_pointer_v1.h>
+#include <wlr/types/wlr_pointer_gestures_v1.h>
+
+#if HAVE_XWAYLAND
+#include <wlr/xwayland.h>
+#endif
+
+#define DEFAULT_SEAT "seat0"
+
+static void handle_device_destroy(struct wl_listener *listener, void *data) {
+	struct wlr_input_device *device = data;
+	wsm_input_device_destroy(device);
+}
+
+static void handle_new_input(struct wl_listener *listener, void *data) {
+	struct wsm_input_manager *input_manager =
+		wl_container_of(listener, input_manager, new_input);
+	struct wlr_input_device *device = data;
+
+	struct wsm_input_device *input_device = wsm_input_device_create();
+	device->data = input_device;
+
+	input_device->input_device_wlr = device;
+	input_device->identifier = input_device_get_identifier(device);
+	wl_list_insert(&input_manager->devices, &input_device->link);
+
+	struct wsm_seat *seat = NULL;
+	wl_list_for_each(seat, &input_manager->seats, link) {
+		seat_add_device(seat, input_device);
+	}
+
+	wsm_log(WSM_DEBUG, "adding device: '%s'",
+		input_device->identifier);
+
+	input_device->device_destroy.notify = handle_device_destroy;
+	wl_signal_add(&device->events.destroy, &input_device->device_destroy);
+}
+
+static void handle_new_virtual_keyboard(struct wl_listener *listener, void *data) {
+
+}
+
+static void handle_new_virtual_pointer(struct wl_listener *listener, void *data) {
+
+}
+
+static void handle_keyboard_shortcuts_inhibit_new_inhibitor(
+	struct wl_listener *listener, void *data) {
+
+}
+
+struct wsm_input_manager *wsm_input_manager_create(const struct wsm_server *server) {
+	struct wsm_input_manager *input_manager = calloc(1, sizeof(struct wsm_input_manager));
+	if (!input_manager) {
+		wsm_log(WSM_ERROR, "Could not create wsm_input_manager: allocation failed!");
+		return NULL;
+	}
+
+	wl_list_init(&input_manager->devices);
+	wl_list_init(&input_manager->seats);
+
+	input_manager->pointer_gestures_wlr = wlr_pointer_gestures_v1_create(server->wl_display);
+
+	input_manager->new_input.notify = handle_new_input;
+	wl_signal_add(&server->backend->events.new_input, &input_manager->new_input);
+
+	input_manager->virtual_keyboard_manager_wlr =
+		wlr_virtual_keyboard_manager_v1_create(server->wl_display);
+	input_manager->virtual_keyboard_new.notify = handle_new_virtual_keyboard;
+	wl_signal_add(&input_manager->virtual_keyboard_manager_wlr->events.new_virtual_keyboard,
+		&input_manager->virtual_keyboard_new);
+
+	input_manager->virtual_pointer_manager_wlr =
+		wlr_virtual_pointer_manager_v1_create(server->wl_display);
+	input_manager->virtual_pointer_new.notify = handle_new_virtual_pointer;
+	wl_signal_add(&input_manager->virtual_pointer_manager_wlr->events.new_virtual_pointer,
+		&input_manager->virtual_pointer_new);
+
+	input_manager->keyboard_shortcuts_inhibit_wlr =
+		wlr_keyboard_shortcuts_inhibit_v1_create(server->wl_display);
+	input_manager->keyboard_shortcuts_inhibit_new_inhibitor.notify =
+		handle_keyboard_shortcuts_inhibit_new_inhibitor;
+	wl_signal_add(&input_manager->keyboard_shortcuts_inhibit_wlr->events.new_inhibitor,
+		&input_manager->keyboard_shortcuts_inhibit_new_inhibitor);
+
+	return input_manager;
+}
+
+void wsm_input_manager_detach_backend(struct wsm_input_manager *input_manager) {
+	if (!input_manager) {
+		return;
+	}
+
+	if (!wl_list_empty(&input_manager->new_input.link)) {
+		wl_list_remove(&input_manager->new_input.link);
+		wl_list_init(&input_manager->new_input.link);
+	}
+}
+
+void wsm_input_manager_destroy(struct wsm_input_manager *input_manager) {
+	if (!input_manager) {
+		return;
+	}
+
+	wsm_input_manager_detach_backend(input_manager);
+
+	struct wsm_seat *seat, *tmp_seat;
+	wl_list_for_each_safe(seat, tmp_seat, &input_manager->seats, link) {
+		wsm_seat_destroy(seat);
+	}
+
+	struct wsm_input_device *device, *tmp_device;
+	wl_list_for_each_safe(device, tmp_device, &input_manager->devices, link) {
+		wl_list_remove(&device->device_destroy.link);
+		wl_list_remove(&device->link);
+		free(device->identifier);
+		free(device);
+	}
+
+	wl_list_remove(&input_manager->virtual_keyboard_new.link);
+	wl_list_remove(&input_manager->virtual_pointer_new.link);
+	wl_list_remove(&input_manager->keyboard_shortcuts_inhibit_new_inhibitor.link);
+
+	free(input_manager);
+}
+
+struct wsm_seat *input_manager_get_default_seat(void) {
+	return input_manager_get_seat(DEFAULT_SEAT, true);
+}
+
+struct wsm_seat *input_manager_current_seat(void) {
+	return input_manager_get_default_seat();
+}
+
+struct wsm_seat *input_manager_get_seat(const char *seat_name, bool create) {
+	if (!global_server.input_manager) {
+		return NULL;
+	}
+
+	struct wsm_seat *seat = NULL;
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		if (strcmp(seat->seat->name, seat_name) == 0) {
+			return seat;
+		}
+	}
+
+	return create ? wsm_seat_create(seat_name) : NULL;
+}
+
+struct wsm_seat *input_manager_seat_from_wlr_seat(struct wlr_seat *wlr_seat) {
+	struct wsm_seat *seat = NULL;
+
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		if (seat->seat == wlr_seat) {
+			return seat;
+		}
+	}
+
+	return NULL;
+}
+
+char *input_device_get_identifier(struct wlr_input_device *device) {
+	int vendor = 0, product = 0;
+#if WLR_HAS_LIBINPUT_BACKEND
+	if (wlr_input_device_is_libinput(device)) {
+		struct libinput_device *libinput_dev = wlr_libinput_get_device_handle(device);
+		vendor = libinput_device_get_id_vendor(libinput_dev);
+		product = libinput_device_get_id_product(libinput_dev);
+	}
+#endif
+	char *name = strdup(device->name ? device->name : "");
+	strip_whitespace(name);
+
+	char *p = name;
+	for (; *p; ++p) {
+		if (*p == ' ' || !isprint(*p)) {
+			*p = '_';
+		}
+	}
+
+	char *identifier = format_str("%d:%d:%s", vendor, product, name);
+	free(name);
+	return identifier;
+}
+
+void input_manager_configure_xcursor(void) {
+	if (!global_server.xcursor_manager) {
+		global_server.xcursor_manager =
+			wlr_xcursor_manager_create(NULL, 24);
+		if (!global_server.xcursor_manager) {
+			wsm_log(WSM_ERROR, "Could not create xcursor manager");
+			return;
+		}
+	}
+
+	if (global_server.scene && global_server.scene->outputs &&
+			global_server.scene->outputs->length > 0) {
+		for (int i = 0; i < global_server.scene->outputs->length; ++i) {
+			struct wsm_output *output =
+				global_server.scene->outputs->items[i];
+			if (!wlr_xcursor_manager_load(global_server.xcursor_manager,
+					output->wlr_output->scale)) {
+				wsm_log(WSM_ERROR, "Could not load xcursor theme '%s' at scale %f",
+					global_server.xcursor_manager->name ?
+					global_server.xcursor_manager->name : "(default)",
+					output->wlr_output->scale);
+			}
+		}
+	} else if (!wlr_xcursor_manager_load(global_server.xcursor_manager, 1.0f)) {
+		wsm_log(WSM_ERROR, "Could not load xcursor theme '%s'",
+			global_server.xcursor_manager->name ?
+			global_server.xcursor_manager->name : "(default)");
+	}
+
+#if HAVE_XWAYLAND
+	if (global_server.xwayland.xwayland_wlr) {
+		struct wlr_xcursor *xcursor =
+			wlr_xcursor_manager_get_xcursor(global_server.xcursor_manager,
+				"left_ptr", 1.0f);
+		if (!xcursor) {
+			xcursor = wlr_xcursor_manager_get_xcursor(
+				global_server.xcursor_manager, "default", 1.0f);
+		}
+		if (xcursor && xcursor->image_count > 0) {
+			struct wlr_xcursor_image *image = xcursor->images[0];
+			struct wlr_buffer *buffer = wlr_xcursor_image_get_buffer(image);
+			wlr_xwayland_set_cursor(global_server.xwayland.xwayland_wlr,
+				buffer, image->hotspot_x, image->hotspot_y);
+		} else {
+			wsm_log(WSM_ERROR, "Could not load default XWayland cursor");
+		}
+	}
+#endif
+
+	struct wsm_seat *seat = NULL;
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		seat_configure_xcursor(seat);
+	}
+}
+
+void input_manager_set_focus(struct wsm_node *node) {
+	struct wsm_seat *seat;
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		seat_set_focus(seat, node);
+		seat_consider_warp_to_focus(seat);
+	}
+}
+
+void input_manager_configure_all_input_mappings(void) {
+	struct wsm_input_device *input_device;
+	wl_list_for_each(input_device, &global_server.input_manager->devices, link) {
+		struct wsm_seat *seat;
+		wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+			seat_configure_device_mapping(seat, input_device);
+		}
+
+#if WLR_HAS_LIBINPUT_BACKEND
+		wsm_input_configure_libinput_device_send_events(input_device);
+#endif
+	}
+}
+
+struct input_config *input_device_get_config(struct wsm_input_device *device) {
+	struct input_config *wildcard_config = NULL;
+	struct input_config *input_config = NULL;
+	for (int i = 0; i < global_config.input_configs->length; ++i) {
+		input_config = global_config.input_configs->items[i];
+		if (strcmp(input_config->identifier, device->identifier) == 0) {
+			return input_config;
+		} else if (strcmp(input_config->identifier, "*") == 0) {
+			wildcard_config = input_config;
+		}
+	}
+
+	const char *device_type = input_device_get_type(device);
+	for (int i = 0; i < global_config.input_type_configs->length; ++i) {
+		input_config = global_config.input_type_configs->items[i];
+		if (strcmp(input_config->identifier + 5, device_type) == 0) {
+			return input_config;
+		}
+	}
+
+	return wildcard_config;
+}
+
+static bool device_is_touchpad(struct wsm_input_device *device) {
+#if WLR_HAS_LIBINPUT_BACKEND
+	if (device->input_device_wlr->type != WLR_INPUT_DEVICE_POINTER ||
+		!wlr_input_device_is_libinput(device->input_device_wlr)) {
+		return false;
+	}
+
+	struct libinput_device *libinput_device =
+		wlr_libinput_get_device_handle(device->input_device_wlr);
+
+	return libinput_device_config_tap_get_finger_count(libinput_device) > 0;
+#else
+	return false;
+#endif
+}
+
+const char *input_device_get_type(struct wsm_input_device *device) {
+	switch (device->input_device_wlr->type) {
+	case WLR_INPUT_DEVICE_POINTER:
+		if (device_is_touchpad(device)) {
+			return "touchpad";
+		} else {
+			return "pointer";
+		}
+	case WLR_INPUT_DEVICE_KEYBOARD:
+		return "keyboard";
+	case WLR_INPUT_DEVICE_TOUCH:
+		return "touch";
+	case WLR_INPUT_DEVICE_TABLET:
+		return "tablet_tool";
+	case WLR_INPUT_DEVICE_TABLET_PAD:
+		return "tablet_pad";
+	case WLR_INPUT_DEVICE_SWITCH:
+		return "switch";
+	}
+	return "unknown";
+}
 
 static enum libinput_config_status handle_set_send_events(struct libinput_device *device, uint32_t mode) {
 	if (libinput_device_config_send_events_get_mode(device) == mode) {

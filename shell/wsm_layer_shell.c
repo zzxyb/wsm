@@ -7,7 +7,7 @@
 #include "wsm_cursor.h"
 #include "wsm_arrange.h"
 #include "wsm_transaction.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 #include "wsm_workspace.h"
 #include "wsm_layer_popup.h"
 #include "node/wsm_node_descriptor.h"

@@ -12,7 +12,7 @@
 #include "wsm_workspace.h"
 #include "wsm_xdg_decoration.h"
 #include "wsm_server_decoration.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 #include "node/wsm_node_descriptor.h"
 #include "wsm_seatop_move_window.h"
 #include "wsm_seatop_resize_window.h"

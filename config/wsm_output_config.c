@@ -5,9 +5,11 @@
 #include "wsm_cursor.h"
 #include "wsm_output.h"
 #include "wsm_output_config.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
+#include "wsm_list.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <limits.h>
 
 #include <drm_fourcc.h>
@@ -15,6 +17,7 @@
 #include <wlr/config.h>
 #include <wlr/backend.h>
 #include <wlr/render/color.h>
+#include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/backend/drm.h>
 #include <wlr/types/wlr_output_swapchain_manager.h>
@@ -26,6 +29,24 @@ struct search_context {
 	size_t configs_len;
 	bool degrade_to_off;
 };
+
+struct wsm_output_manager_config *wsm_output_manager_config_create(
+		struct wsm_output_manager *output_manager) {
+	struct wsm_output_manager_config *outputs_manager_config =
+		calloc(1, sizeof(struct wsm_output_manager_config));
+	if (!outputs_manager_config) {
+		wsm_log(WSM_ERROR, "Could not create wsm_output_manager: allocation failed!");
+		return NULL;
+	}
+
+	outputs_manager_config->configs = wsm_list_create();
+	outputs_manager_config->output_manager = output_manager;
+	return outputs_manager_config;
+}
+
+void wwsm_output_manager_config_destory(struct wsm_output_manager_config *config) {
+
+}
 
 static void default_output_config(struct output_config *oc,
 		struct wlr_output *wlr_output) {

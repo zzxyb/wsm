@@ -3,7 +3,6 @@ wsm_output = static_library(
 	files(
 		'wsm_output.c',
 		'wsm_backlight_device.c',
-		'wsm_output_manager.c',
 	),
 	dependencies: [
 		wlroots,

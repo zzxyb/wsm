@@ -1,7 +1,7 @@
 #include "wsm_log.h"
 #include "wsm_seat.h"
 #include "wsm_switch.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 
 #include <stdlib.h>
 

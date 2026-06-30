@@ -5,9 +5,8 @@
 #include "wsm_output.h"
 #include "wsm_window.h"
 #include "wsm_common.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 #include "node/wsm_node_descriptor.h"
-#include "wsm_output_manager.h"
 #include "wsm_workspace.h"
 #include "wsm_arrange.h"
 

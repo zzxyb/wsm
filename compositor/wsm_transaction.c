@@ -12,9 +12,8 @@
 #include "wsm_server.h"
 #include "wsm_scene.h"
 #include "wsm_arrange.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 #include "wsm_idle_inhibit_v1.h"
-#include "wsm_workspace_manager.h"
 #include "node/wsm_node_descriptor.h"
 
 #include <stdlib.h>

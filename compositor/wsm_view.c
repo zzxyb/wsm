@@ -17,7 +17,7 @@
 #include "node/wsm_node_descriptor.h"
 #include "node/wsm_text_node.h"
 #include "wsm_idle_inhibit_v1.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 #include "wsm_xdg_decoration.h"
 #include "wsm_arrange.h"
 

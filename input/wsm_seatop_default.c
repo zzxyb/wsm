@@ -15,7 +15,7 @@
 #include "wsm_layer_shell.h"
 #include "wsm_workspace.h"
 #include "wsm_titlebar.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 #include "wsm_seatop_move_window.h"
 #include "wsm_seatop_resize_window.h"
 #include "wsm_window_snap.h"

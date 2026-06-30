@@ -4,7 +4,7 @@
 #include "wsm_view.h"
 #include "wsm_server.h"
 #include "wsm_window.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 
 #include <stdlib.h>
 

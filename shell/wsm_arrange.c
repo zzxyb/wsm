@@ -10,7 +10,6 @@
 #include "wsm_titlebar.h"
 #include "wsm_layer_shell.h"
 #include "wsm_desktop.h"
-#include "wsm_workspace_manager.h"
 #include "node/wsm_node_descriptor.h"
 #include "node/wsm_text_node.h"
 #include "node/wsm_image_node.h"

@@ -5,8 +5,7 @@
 #include "wsm_server.h"
 #include "wsm_output.h"
 #include "wsm_workspace.h"
-#include "wsm_input_manager.h"
-#include "wsm_workspace_manager.h"
+#include "wsm_input.h"
 #include "wsm_output_config.h"
 
 #include <stdlib.h>

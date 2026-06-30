@@ -6,7 +6,7 @@
 #include "wsm_scene.h"
 #include "wsm_cursor.h"
 #include "wsm_arrange.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 #include "wsm_layer_shell.h"
 
 #include <stdlib.h>

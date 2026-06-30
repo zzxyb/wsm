@@ -9,8 +9,7 @@
 #include "wsm_arrange.h"
 #include "wsm_workspace.h"
 #include "wsm_transaction.h"
-#include "wsm_output_manager.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 #include "node/wsm_node_descriptor.h"
 #include "wsm_seatop_move_window.h"
 #include "wsm_seatop_resize_window.h"
@@ -20,6 +19,8 @@
 #include <assert.h>
 
 #include <wayland-util.h>
+
+#include <wlr/types/wlr_seat.h>
 
 #include <xcb/xcb.h>
 #include <xcb/xcb_icccm.h>

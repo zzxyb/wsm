@@ -6,7 +6,7 @@
 #include "wsm_server.h"
 #include "wsm_scene.h"
 #include "wsm_workspace.h"
-#include "wsm_input_manager.h"
+#include "wsm_input.h"
 #include "wsm_seatop_default.h"
 #include "wsm_seat.h"
 #include "wsm_config.h"
