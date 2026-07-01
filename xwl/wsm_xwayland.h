@@ -5,7 +5,7 @@
 
 #include <stdbool.h>
 
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
 
 #include <xcb/xproto.h>
 

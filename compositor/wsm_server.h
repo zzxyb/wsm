@@ -10,7 +10,7 @@
 #include "wsm_idle_inhibit_v1.h"
 
 #include "../config.h"
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
 #include "wsm_xwayland.h"
 #endif
 #include <wayland-server-core.h>
@@ -82,7 +82,7 @@ struct wsm_pointer_constraint {
  * @brief Structure representing the WSM server
  */
 struct wsm_server {
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
 	struct wsm_xwayland xwayland; /**< XWayland instance */
 	struct wl_listener xwayland_surface; /**< Listener for XWayland surface events */
 	struct wl_listener xwayland_ready; /**< Listener for XWayland readiness events */
@@ -129,9 +129,7 @@ struct wsm_server {
 	struct wlr_input_method_manager_v2 *input_method; /**< Pointer to the input method manager */
 	struct wlr_text_input_manager_v3 *text_input; /**< Pointer to the text input manager */
 
-#ifdef HAVE_XWAYLAND
 	struct wlr_xcursor_manager *xcursor_manager; /**< Pointer to the X cursor manager */
-#endif
 
 	struct wsm_scene *scene; /**< Pointer to the scene manager */
 	struct wsm_xdg_shell *xdg_shell; /**< Pointer to the XDG shell manager */

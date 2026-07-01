@@ -49,7 +49,7 @@ struct wsm_scene {
 		struct wlr_scene_tree *shell_top; /**< Scene tree for the top layer */
 		struct wlr_scene_tree *fullscreen; /**< Scene tree for fullscreen windows */
 		struct wlr_scene_tree *fullscreen_global; /**< Scene tree for globally fullscreen windows */
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
 		struct wlr_scene_tree *unmanaged; /**< Scene tree for unmanaged windows (if XWayland is enabled) */
 #endif
 		struct wlr_scene_tree *shell_overlay; /**< Scene tree for overlay layers */

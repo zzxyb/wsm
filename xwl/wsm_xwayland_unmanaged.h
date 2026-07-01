@@ -5,7 +5,7 @@
 
 #include <wayland-server-core.h>
 
-#ifdef HAVE_XWAYLAND
+#if HAVE_XWAYLAND
 
 struct wlr_scene_surface;
 struct wlr_xwayland_surface;
