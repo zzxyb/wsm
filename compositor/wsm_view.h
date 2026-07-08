@@ -66,6 +66,7 @@ struct wsm_view_impl {
 	void (*set_fullscreen)(struct wsm_view *view, bool fullscreen); /**< Function to set fullscreen state */
 	void (*set_resizing)(struct wsm_view *view, bool resizing); /**< Function to set resizing state */
 	bool (*wants_floating)(struct wsm_view *view); /**< Function to check if the view wants to float */
+	bool (*can_split)(struct wsm_view *view); /**< Function to check if the view can participate in a split layout */
 	bool (*is_transient_for)(struct wsm_view *child,
 		struct wsm_view *ancestor); /**< Function to check transient relationship */
 	void (*maximize)(struct wsm_view *view, bool maximize); /**< Function to maximize the view */
@@ -364,6 +365,13 @@ void view_maximize(struct wsm_view *view, bool maximize);
  * @return true when maximize should be available
  */
 bool view_can_maximize(struct wsm_view *view);
+
+/**
+ * @brief Checks whether a view can participate in a split layout
+ * @param view Pointer to the view
+ * @return true when the view is resizable and has no parent
+ */
+bool view_can_split(struct wsm_view *view);
 
 /**
  * @brief Minimizes a view

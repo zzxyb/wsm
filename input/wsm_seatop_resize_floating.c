@@ -6,6 +6,7 @@
 #include "wsm_arrange.h"
 #include "wsm_server.h"
 #include "wsm_container.h"
+#include "wsm_workspace.h"
 #include "wsm_input_manager.h"
 #include "wsm_transaction.h"
 #include "wsm_log.h"
@@ -17,7 +18,10 @@
 
 struct seatop_resize_floating_event {
 	struct wsm_container *container;
+	struct wsm_container *group_left;
+	struct wsm_container *group_right;
 	double ref_lx, ref_ly;
+	double ref_split_x;
 	double ref_width, ref_height;
 	double ref_con_lx, ref_con_ly;
 	double ref_content_lx, ref_content_ly;
@@ -27,6 +31,7 @@ struct seatop_resize_floating_event {
 	enum wlr_edges edge;
 	bool preserve_ratio;
 	bool deferred;
+	bool resize_snap_group;
 };
 
 static const struct wsm_seatop_impl seatop_impl;
@@ -172,6 +177,34 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 
 	double mouse_move_x = cursor->cursor_wlr->x - e->ref_lx;
 	double mouse_move_y = cursor->cursor_wlr->y - e->ref_ly;
+	if (e->resize_snap_group) {
+		struct wsm_workspace *workspace = con->pending.workspace;
+		if (!workspace || !e->group_left || !e->group_right) {
+			seatop_begin_default(seat);
+			return;
+		}
+
+		double split_x = e->ref_split_x + mouse_move_x;
+		double min_split = workspace->x + MIN_SANE_W;
+		double max_split = workspace->x + workspace->width - MIN_SANE_W;
+		split_x = fmax(min_split, fmin(split_x, max_split));
+		struct wlr_box left_box = {
+			.x = workspace->x,
+			.y = workspace->y,
+			.width = split_x - workspace->x,
+			.height = workspace->height,
+		};
+		struct wlr_box right_box = {
+			.x = split_x,
+			.y = workspace->y,
+			.width = workspace->x + workspace->width - split_x,
+			.height = workspace->height,
+		};
+		container_floating_set_geometry_from_box(e->group_left, left_box);
+		container_floating_set_geometry_from_box(e->group_right, right_box);
+		transaction_commit_dirty();
+		return;
+	}
 
 	if (edge == WLR_EDGE_TOP || edge == WLR_EDGE_BOTTOM) {
 		mouse_move_x = 0;
@@ -273,7 +306,7 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 
 static void handle_unref(struct wsm_seat *seat, struct wsm_container *con) {
 	struct seatop_resize_floating_event *e = seat->seatop_data;
-	if (e->container == con) {
+	if (e->container == con || e->group_left == con || e->group_right == con) {
 		seatop_begin_default(seat);
 	}
 }
@@ -286,6 +319,14 @@ static const struct wsm_seatop_impl seatop_impl = {
 
 void seatop_begin_resize_floating(struct wsm_seat *seat,
 		struct wsm_container *con, enum wlr_edges edge) {
+	struct wsm_container *peer = con->snap_group_peer;
+	bool con_is_left = peer && con->pending.x <= peer->pending.x;
+	bool shared_divider = peer && ((con_is_left && (edge & WLR_EDGE_RIGHT)) ||
+		(!con_is_left && (edge & WLR_EDGE_LEFT)));
+	if (peer && !shared_divider) {
+		con->snap_group_peer->snap_group_peer = NULL;
+		con->snap_group_peer = NULL;
+	}
 	seatop_end(seat);
 
 	struct seatop_resize_floating_event *e =
@@ -295,6 +336,12 @@ void seatop_begin_resize_floating(struct wsm_seat *seat,
 		return;
 	}
 	e->container = con;
+	if (shared_divider) {
+		e->resize_snap_group = true;
+		e->group_left = con_is_left ? con : peer;
+		e->group_right = con_is_left ? peer : con;
+		e->ref_split_x = e->group_right->pending.x;
+	}
 
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->seat);
 	e->preserve_ratio = keyboard &&

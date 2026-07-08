@@ -321,9 +321,7 @@ void view_update_csd_from_client(struct wsm_view *view, bool enabled) {
 	struct wsm_container *con = view->container;
 	if (enabled && con && con->pending.border != B_CSD) {
 		con->saved_border = con->pending.border;
-		if (container_is_floating(con)) {
-			con->pending.border = B_CSD;
-		}
+		con->pending.border = B_CSD;
 	} else if (!enabled && con && con->pending.border == B_CSD) {
 		con->pending.border = con->saved_border;
 	}
@@ -355,6 +353,10 @@ bool view_can_maximize(struct wsm_view *view) {
 	}
 
 	return true;
+}
+
+bool view_can_split(struct wsm_view *view) {
+	return view && view->impl->can_split && view->impl->can_split(view);
 }
 
 void view_minimize(struct wsm_view *view, bool minimize) {

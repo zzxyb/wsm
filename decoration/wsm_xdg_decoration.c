@@ -69,27 +69,17 @@ struct wsm_xdg_decoration *xdg_decoration_from_surface(
 
 void set_xdg_decoration_mode(struct wsm_xdg_decoration *deco) {
 	struct wsm_view *view = deco->view;
-	enum wlr_xdg_toplevel_decoration_v1_mode mode =
-		WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE;
 	enum wlr_xdg_toplevel_decoration_v1_mode client_mode =
 		deco->xdg_decoration_wlr->requested_mode;
+	enum wlr_xdg_toplevel_decoration_v1_mode mode = client_mode ? client_mode :
+		WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE;
 
-	bool floating;
 	if (view->container) {
-		floating = container_is_floating(view->container);
-		bool csd = false;
-		csd = client_mode ==
+		bool csd = client_mode ==
 			WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
 		view_update_csd_from_client(view, csd);
 		wsm_arrange_container_auto(view->container);
 		transaction_commit_dirty();
-	} else {
-		floating = view->impl->wants_floating &&
-			view->impl->wants_floating(view);
-	}
-
-	if (floating && client_mode) {
-		mode = client_mode;
 	}
 
 	if (view->wlr_xdg_toplevel->base->initialized) {

@@ -17,7 +17,9 @@
 #include "wsm_titlebar.h"
 #include "wsm_input_manager.h"
 #include "wsm_seatop_move_floating.h"
+#include "wsm_seatop_move_tiling.h"
 #include "wsm_seatop_resize_floating.h"
+#include "wsm_seatop_resize_tiling.h"
 #include "node/wsm_node.h"
 #include "node/wsm_button_node.h"
 #include "node/wsm_node_descriptor.h"
@@ -92,11 +94,13 @@ static struct wsm_button_node *update_button_hover(struct wsm_seat *seat) {
 }
 
 static bool edge_is_external(struct wsm_container *cont, enum wlr_edges edge) {
-	enum wsm_container_layout layout = L_NONE;
+	enum wsm_container_layout layout =
+		(edge == WLR_EDGE_LEFT || edge == WLR_EDGE_RIGHT) ? L_HORIZ : L_NONE;
 
 	while (cont) {
-		if (container_parent_layout(cont) == layout) {
-			struct wsm_list *siblings = container_get_siblings(cont);
+		struct wsm_list *siblings = container_get_siblings(cont);
+		enum wsm_container_layout parent_layout = container_parent_layout(cont);
+		if (parent_layout == layout) {
 			if (!siblings) {
 				return false;
 			}
@@ -241,6 +245,7 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 		}
 
 		seat_set_focus_container(seat, cont);
+		container_raise(cont);
 		seatop_begin_down(seat, node->container, sx, sy);
 	}
 #if HAVE_XWAYLAND
@@ -331,6 +336,7 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		}
 		if (cont && state == WL_POINTER_BUTTON_STATE_PRESSED) {
 			seat_set_focus(seat, &cont->node);
+			container_raise(cont);
 			transaction_commit_dirty();
 		}
 
@@ -345,6 +351,13 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 
 	if (trigger_pointer_button_binding(seat, device, button, state, modifiers,
 			on_titlebar, on_border, on_contents, on_workspace)) {
+		return;
+	}
+
+	if (state == WL_POINTER_BUTTON_STATE_PRESSED && button == BTN_LEFT &&
+			seatop_can_resize_tiling_at_node(node) &&
+			seatop_begin_resize_tiling_at(seat,
+				cursor->cursor_wlr->x, cursor->cursor_wlr->y)) {
 		return;
 	}
 
@@ -380,9 +393,19 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		}
 
 		seat_set_focus(seat, node);
+		container_raise(cont);
 		transaction_commit_dirty();
 		if (on_titlebar && handle_titlebar_double_click(seat, cont,
 				time_msec, button, state)) {
+			return;
+		}
+	}
+
+	if (cont && !is_floating_or_child && !is_fullscreen_or_child &&
+		state == WL_POINTER_BUTTON_STATE_PRESSED &&
+		button == BTN_LEFT && resize_edge != WLR_EDGE_NONE) {
+		seat_set_focus_container(seat, cont);
+		if (seatop_begin_resize_tiling(seat, cont, resize_edge)) {
 			return;
 		}
 	}
@@ -393,6 +416,19 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		uint32_t btn_move = BTN_LEFT;
 		if (button == btn_move && (mod_pressed || on_titlebar)) {
 			seatop_begin_move_floating(seat, container_toplevel_ancestor(cont));
+			return;
+		}
+	}
+
+	if (cont && !is_floating_or_child && !is_fullscreen_or_child &&
+		state == WL_POINTER_BUTTON_STATE_PRESSED) {
+		uint32_t btn_move = BTN_LEFT;
+		if (button == btn_move && on_titlebar) {
+			seatop_begin_move_tiling_to_floating(seat, cont);
+			return;
+		}
+		if (button == btn_move && mod_pressed) {
+			seatop_begin_move_tiling_threshold(seat, cont);
 			return;
 		}
 	}

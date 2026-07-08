@@ -233,7 +233,7 @@ void seatop_begin_down(struct wsm_seat *seat, struct wsm_container *con,
 	struct seatop_down_event *e = seat->seatop_data;
 	e->container = con;
 
-	container_raise_floating(con);
+	container_raise(con);
 	transaction_commit_dirty();
 }
 

@@ -18,7 +18,6 @@
 #include "wsm_layer_shell.h"
 #include "node/wsm_text_node.h"
 #include "wsm_titlebar.h"
-#include "wsm_xdg_decoration.h"
 #include "node/wsm_node_descriptor.h"
 #include "node/wsm_image_node.h"
 #include "node/wsm_button_node.h"
@@ -439,6 +438,10 @@ void container_destroy(struct wsm_container *con) {
 }
 
 void container_begin_destroy(struct wsm_container *con) {
+	if (con->snap_group_peer) {
+		con->snap_group_peer->snap_group_peer = NULL;
+		con->snap_group_peer = NULL;
+	}
 	if (con->pending.fullscreen_mode == FULLSCREEN_WORKSPACE && con->pending.workspace) {
 		con->pending.workspace->fullscreen = NULL;
 	}
@@ -551,9 +554,35 @@ size_t container_titlebar_height(void) {
 void container_raise_floating(struct wsm_container *con) {
 	struct wsm_container *floater = container_toplevel_ancestor(con);
 	if (container_is_floating(floater) && floater->pending.workspace) {
+		wlr_scene_node_place_above(&global_server.scene->layers.floating->node,
+			&global_server.scene->layers.tiling->node);
+		struct wsm_container *peer = floater->snap_group_peer;
+		if (peer && peer->snap_group_peer == floater &&
+				peer->pending.workspace == floater->pending.workspace &&
+				container_is_floating(peer)) {
+			wlr_scene_node_raise_to_top(&peer->scene_tree->node);
+			wsm_list_move_to_end(floater->pending.workspace->floating, peer);
+		}
 		wlr_scene_node_raise_to_top(&floater->scene_tree->node);
 		wsm_list_move_to_end(floater->pending.workspace->floating, floater);
 		node_set_dirty(&floater->pending.workspace->node);
+	}
+}
+
+void container_raise(struct wsm_container *con) {
+	if (!con || container_is_fullscreen_or_child(con)) {
+		return;
+	}
+
+	if (container_is_floating_or_child(con)) {
+		container_raise_floating(con);
+		return;
+	}
+
+	if (con->pending.workspace) {
+		wlr_scene_node_place_above(&global_server.scene->layers.tiling->node,
+			&global_server.scene->layers.floating->node);
+		node_set_dirty(&con->pending.workspace->node);
 	}
 }
 
@@ -708,6 +737,33 @@ void container_set_maximized(struct wsm_container *con, bool maximized) {
 		node_set_dirty(&con->pending.workspace->node);
 	}
 	container_end_mouse_operation(con);
+}
+
+void container_floating_set_geometry_from_box(struct wsm_container *con,
+		struct wlr_box box) {
+	con = container_toplevel_ancestor(con);
+	if (!con || !container_is_floating(con) || wlr_box_empty(&box)) {
+		return;
+	}
+
+	if (con->maximized) {
+		con->maximized = false;
+		if (con->view) {
+			view_maximize(con->view, false);
+		}
+	}
+
+	con->pending.x = box.x;
+	con->pending.y = box.y;
+	con->pending.width = box.width;
+	con->pending.height = box.height;
+	container_set_content_geometry_from_box(con);
+	container_floating_move_to(con, box.x, box.y);
+	container_raise_floating(con);
+	node_set_dirty(&con->node);
+	if (con->pending.workspace) {
+		node_set_dirty(&con->pending.workspace->node);
+	}
 }
 
 void container_minimize(struct wsm_container *con) {
@@ -1284,6 +1340,10 @@ void container_set_floating(struct wsm_container *container, bool enable) {
 	if (container_is_floating(container) == enable) {
 		return;
 	}
+	if (container->snap_group_peer) {
+		container->snap_group_peer->snap_group_peer = NULL;
+		container->snap_group_peer = NULL;
+	}
 
 	struct wsm_seat *seat = input_manager_current_seat();
 	struct wsm_workspace *workspace = container->pending.workspace;
@@ -1296,14 +1356,10 @@ void container_set_floating(struct wsm_container *container, bool enable) {
 		workspace_add_floating(workspace, container);
 		if (container->view) {
 			view_set_tiled(container->view, false);
-			if (container->view->using_csd) {
+			if (container->view->using_csd &&
+					container->pending.border != B_CSD) {
 				container->saved_border = container->pending.border;
 				container->pending.border = B_CSD;
-				if (container->view->xdg_decoration) {
-					struct wsm_xdg_decoration *deco = container->view->xdg_decoration;
-					wlr_xdg_toplevel_decoration_v1_set_mode(deco->xdg_decoration_wlr,
-						WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE);
-				}
 			}
 		}
 		container_floating_set_default_size(container);
@@ -1338,14 +1394,6 @@ void container_set_floating(struct wsm_container *container, bool enable) {
 		}
 		if (container->view) {
 			view_set_tiled(container->view, true);
-			if (container->view->using_csd) {
-				container->pending.border = container->saved_border;
-				if (container->view->xdg_decoration) {
-					struct wsm_xdg_decoration *deco = container->view->xdg_decoration;
-					wlr_xdg_toplevel_decoration_v1_set_mode(deco->xdg_decoration_wlr,
-						WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
-				}
-			}
 		}
 		container->width_fraction = 0;
 		container->height_fraction = 0;
