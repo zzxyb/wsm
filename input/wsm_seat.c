@@ -638,6 +638,9 @@ void seatop_touch_cancel(struct wsm_seat *seat, struct wlr_touch_cancel_event *e
 }
 
 void seatop_rebase(struct wsm_seat *seat, uint32_t time_msec) {
+	if (!seat->seatop_impl) {
+		return;
+	}
 	if (seat->seatop_impl->rebase) {
 		seat->seatop_impl->rebase(seat, time_msec);
 	}

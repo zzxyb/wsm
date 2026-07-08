@@ -15,6 +15,7 @@
 #include "wsm_input_manager.h"
 #include "node/wsm_node_descriptor.h"
 #include "wsm_seatop_move_floating.h"
+#include "wsm_seatop_move_tiling.h"
 #include "wsm_seatop_resize_floating.h"
 
 #include <float.h>
@@ -149,6 +150,16 @@ static bool wants_floating(struct wsm_view *view) {
 		toplevel->parent;
 }
 
+static bool can_split(struct wsm_view *view) {
+	struct wlr_xdg_toplevel *toplevel = view->wlr_xdg_toplevel;
+	struct wlr_xdg_toplevel_state *state = &toplevel->current;
+	bool fixed_width = state->min_width > 0 && state->max_width > 0 &&
+		state->min_width == state->max_width;
+	bool fixed_height = state->min_height > 0 && state->max_height > 0 &&
+		state->min_height == state->max_height;
+	return !toplevel->parent && !fixed_width && !fixed_height;
+}
+
 static bool is_transient_for(struct wsm_view *child,
 		struct wsm_view *ancestor) {
 	if (xdg_shell_view_from_view(child) == NULL) {
@@ -207,6 +218,7 @@ static const struct wsm_view_impl view_impl = {
 	.set_fullscreen = set_fullscreen,
 	.set_resizing = set_resizing,
 	.wants_floating = wants_floating,
+	.can_split = can_split,
 	.is_transient_for = is_transient_for,
 	.maximize = _maximize,
 	.minimize = _minimize,
@@ -395,14 +407,19 @@ static void handle_request_move(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_shell_view *xdg_shell_view =
 		wl_container_of(listener, xdg_shell_view, request_move);
 	struct wsm_view *view = &xdg_shell_view->view;
-	if (!container_is_floating(view->container) ||
-		view->container->pending.fullscreen_mode) {
+	if (view->container->pending.fullscreen_mode) {
 		return;
 	}
 	struct wlr_xdg_toplevel_move_event *e = data;
 	struct wsm_seat *seat = e->seat->seat->data;
-	if (e->serial == seat->last_button_serial) {
+	if (e->serial != seat->last_button_serial) {
+		return;
+	}
+
+	if (container_is_floating(view->container)) {
 		seatop_begin_move_floating(seat, view->container);
+	} else {
+		seatop_begin_move_tiling_to_floating(seat, view->container);
 	}
 }
 

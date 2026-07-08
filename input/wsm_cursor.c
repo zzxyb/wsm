@@ -13,6 +13,7 @@
 #include "wsm_output_manager.h"
 #include "wsm_input_manager.h"
 #include "wsm_seatop_default.h"
+#include "wsm_seatop_resize_tiling.h"
 #include "node/wsm_node_descriptor.h"
 
 #include <stdlib.h>
@@ -817,6 +818,19 @@ void dispatch_cursor_axis(struct wsm_cursor *cursor,
 
 void
 cursor_update_image(struct wsm_cursor *cursor, struct wsm_node *node) {
+	if (seatop_can_resize_tiling_at_node(node)) {
+		enum wlr_edges tiling_edge = seatop_resize_tiling_at(cursor->seat_wsm,
+			cursor->cursor_wlr->x, cursor->cursor_wlr->y);
+		if (tiling_edge != WLR_EDGE_NONE) {
+			if (tiling_edge & (WLR_EDGE_LEFT | WLR_EDGE_RIGHT)) {
+				cursor_set_image(cursor, "col-resize", NULL);
+			} else {
+				cursor_set_image(cursor, "row-resize", NULL);
+			}
+			return;
+		}
+	}
+
 	if (node && node->type == N_CONTAINER) {
 		enum wlr_edges edge = find_resize_edge(node->container, NULL, cursor);
 		if (edge == WLR_EDGE_NONE) {

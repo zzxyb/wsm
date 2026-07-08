@@ -298,9 +298,128 @@ static void apply_stacked_layout(struct wsm_list *children, struct wlr_box *pare
 	}
 }
 
+static void set_child_box(struct wsm_container *child, double x, double y,
+		double width, double height, double total_width) {
+	child->pending.x = x;
+	child->pending.y = y;
+	child->pending.width = width;
+	child->pending.height = height;
+	child->child_total_width = total_width;
+	child->width_fraction = total_width > 0 ? width / total_width : 0;
+}
+
+static double layout_column_height_fraction(struct wsm_list *children,
+		int start, double fallback) {
+	struct wsm_container *top = children->items[start];
+	if (top->height_fraction > 0 && top->height_fraction < 1.0) {
+		return top->height_fraction;
+	}
+	return fallback;
+}
+
+static void apply_column(struct wsm_list *children, int start, int count,
+		double x, double y, double width, double height,
+		double total_width) {
+	if (count == 1) {
+		struct wsm_container *child = children->items[start];
+		child->height_fraction = 0;
+		child->child_total_height = height;
+		set_child_box(child, x, y, width, height, total_width);
+		return;
+	}
+
+	double top_fraction = layout_column_height_fraction(children, start, 0.5);
+	double top_height = height * top_fraction;
+	struct wsm_container *top = children->items[start];
+	struct wsm_container *bottom = children->items[start + 1];
+
+	top->height_fraction = height > 0 ? top_height / height : 0;
+	top->child_total_height = height;
+	set_child_box(top, x, y, width, top_height, total_width);
+
+	bottom->height_fraction = height > 0 ? (height - top_height) / height : 0;
+	bottom->child_total_height = height;
+	set_child_box(bottom, x, y + top_height, width, height - top_height,
+		total_width);
+}
+
+static double layout_left_fraction(struct wsm_list *children,
+		double fallback) {
+	struct wsm_container *left = children->items[0];
+	return left->width_fraction > 0 ? left->width_fraction : fallback;
+}
+
+static bool apply_ratio_layout(struct wsm_list *children,
+		struct wlr_box *parent, int left_count, int right_count,
+		double fallback_left_fraction) {
+	if (children->length != left_count + right_count) {
+		return false;
+	}
+
+	double left_fraction = layout_left_fraction(children,
+		fallback_left_fraction);
+	double left_width = parent->width * left_fraction;
+	double right_width = parent->width - left_width;
+
+	apply_column(children, 0, left_count, parent->x, parent->y,
+		left_width, parent->height, parent->width);
+	apply_column(children, left_count, right_count, parent->x + left_width,
+		parent->y, right_width, parent->height, parent->width);
+	return true;
+}
+
+static bool apply_fixed_layout(struct wsm_list *children,
+		enum wsm_container_layout layout, struct wlr_box *parent) {
+	switch (layout) {
+	case L_HORIZ:
+		return apply_ratio_layout(children, parent, 1, 1, 0.5);
+	case L_HORIZ_1_V_2:
+		if (children->length == 2) {
+			return apply_ratio_layout(children, parent, 1, 1, 1.0 / 3.0);
+		}
+		return apply_ratio_layout(children, parent, 1, 2, 1.0 / 3.0);
+	case L_HORIZ_2_V_1:
+		if (children->length == 2) {
+			return apply_ratio_layout(children, parent, 1, 1, 2.0 / 3.0);
+		}
+		return apply_ratio_layout(children, parent, 2, 1, 2.0 / 3.0);
+	case L_GRID:
+		return apply_ratio_layout(children, parent, 2, 2, 0.5);
+	case L_NONE:
+		return false;
+	}
+	return false;
+}
+
+static bool layout_has_fixed_children(enum wsm_container_layout layout,
+		int length) {
+	switch (layout) {
+	case L_HORIZ:
+		return length == 2;
+	case L_HORIZ_1_V_2:
+	case L_HORIZ_2_V_1:
+		return length == 2 || length == 3;
+	case L_GRID:
+		return length == 4;
+	case L_NONE:
+		return false;
+	}
+	return false;
+}
+
+static int titlebar_visible_width(struct wsm_container *con, int width) {
+	if (con->view == NULL || con->view->geometry.width <= 0) {
+		return width;
+	}
+
+	return MIN(width, con->view->geometry.width);
+}
+
 void wsm_arrange_children(struct wsm_list *children,
 	enum wsm_container_layout layout, struct wlr_box *parent) {
-	apply_stacked_layout(children, parent);
+	if (!apply_fixed_layout(children, layout, parent)) {
+		apply_stacked_layout(children, parent);
+	}
 
 	for (int i = 0; i < children->length; ++i) {
 		struct wsm_container *child = children->items[i];
@@ -468,7 +587,10 @@ void wsm_arrange_container_with_title_bar(struct wsm_container *con,
 
 		if (con->current.border == B_NORMAL) {
 			if (title_bar) {
-				wsm_arrange_title_bar(con, max_thickness, 0, width - max_thickness * 2, border_top);
+				int title_width = titlebar_visible_width(con,
+					width - max_thickness * 2);
+				wsm_arrange_title_bar(con, max_thickness, 0,
+					title_width, border_top);
 			} else {
 				border_top = 0;
 			}
@@ -513,6 +635,21 @@ void wsm_arrange_container_with_title_bar(struct wsm_container *con,
 			wlr_scene_node_set_enabled(&con->title_bar->tree->node, false);
 		}
 
+		if (layout_has_fixed_children(con->current.layout,
+				con->current.children->length)) {
+			for (int i = 0; i < con->current.children->length; i++) {
+				struct wsm_container *child = con->current.children->items[i];
+				wlr_scene_node_set_enabled(&child->scene_tree->node, true);
+				wlr_scene_node_reparent(&child->scene_tree->node, con->content_tree);
+				wlr_scene_node_set_position(&child->scene_tree->node,
+					child->current.x - con->current.x,
+					child->current.y - con->current.y);
+				wsm_arrange_container_with_title_bar(child,
+					child->current.width, child->current.height, true, 0);
+			}
+			return;
+		}
+
 		arrange_children_with_titlebar(con->current.layout, con->current.children,
 			con->current.focused_inactive_child, con->content_tree,
 			width, height, gaps);
@@ -555,6 +692,20 @@ void arrange_children_with_titlebar(enum wsm_container_layout layout, struct wsm
 
 void arrange_workspace_tiling(struct wsm_workspace *ws,
 		int width, int height) {
+	if (layout_has_fixed_children(ws->current.layout,
+			ws->current.tiling->length)) {
+		for (int i = 0; i < ws->current.tiling->length; i++) {
+			struct wsm_container *child = ws->current.tiling->items[i];
+			wlr_scene_node_set_enabled(&child->scene_tree->node, true);
+			wlr_scene_node_reparent(&child->scene_tree->node, ws->layers.non_fullscreen);
+			wlr_scene_node_set_position(&child->scene_tree->node,
+				child->current.x - ws->current.x, child->current.y - ws->current.y);
+			wsm_arrange_container_with_title_bar(child,
+				child->current.width, child->current.height, true, 0);
+		}
+		return;
+	}
+
 	arrange_children_with_titlebar(ws->current.layout, ws->current.tiling,
 		ws->current.focused_inactive_child, ws->layers.non_fullscreen,
 		width, height, ws->gaps_inner);

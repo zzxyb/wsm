@@ -263,6 +263,25 @@ static bool wants_floating(struct wsm_view *view) {
 	return false;
 }
 
+static bool can_split(struct wsm_view *view) {
+	struct wlr_xwayland_surface *surface = view->wlr_xwayland_surface;
+	const xcb_size_hints_t *size_hints = surface->size_hints;
+	if (surface->parent) {
+		return false;
+	}
+	if (!size_hints) {
+		return true;
+	}
+
+	bool fixed_width = size_hints->min_width > 0 &&
+		size_hints->max_width > 0 &&
+		size_hints->min_width == size_hints->max_width;
+	bool fixed_height = size_hints->min_height > 0 &&
+		size_hints->max_height > 0 &&
+		size_hints->min_height == size_hints->max_height;
+	return !fixed_width && !fixed_height;
+}
+
 static void handle_set_decorations(struct wl_listener *listener, void *data) {
 	struct wsm_xwayland_view *xwayland_view =
 		wl_container_of(listener, xwayland_view, set_decorations);
@@ -355,6 +374,7 @@ static const struct wsm_view_impl view_impl = {
 	.set_tiled = set_tiled,
 	.set_fullscreen = set_fullscreen,
 	.wants_floating = wants_floating,
+	.can_split = can_split,
 	.is_transient_for = is_transient_for,
 	.maximize = _maximize,
 	.minimize = _minimize,

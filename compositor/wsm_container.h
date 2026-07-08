@@ -207,6 +207,7 @@ struct wsm_container {
 	struct wlr_box transform; /**< Transformation box for the container */
 
 	struct wsm_view *view; /**< Pointer to the associated wsm_view */
+	struct wsm_container *snap_group_peer; /**< Other member of a floating snap group */
 
 	struct wlr_scene_tree *scene_tree; /**< Scene tree for the container's content */
 
@@ -340,11 +341,25 @@ size_t container_titlebar_height(void);
 void container_raise_floating(struct wsm_container *con);
 
 /**
+ * @brief Raises the specified container in the normal window stack
+ * @param con Pointer to the wsm_container to raise
+ */
+void container_raise(struct wsm_container *con);
+
+/**
  * @brief Sets the maximized state for a floating container
  * @param con Pointer to the wsm_container to maximize or restore
  * @param maximized true to maximize, false to restore
  */
 void container_set_maximized(struct wsm_container *con, bool maximized);
+
+/**
+ * @brief Sets a floating container's outer geometry to the specified box
+ * @param con Pointer to the wsm_container to move and resize
+ * @param box Target geometry in layout coordinates
+ */
+void container_floating_set_geometry_from_box(struct wsm_container *con,
+	struct wlr_box box);
 
 /**
  * @brief Minimizes a container's view
