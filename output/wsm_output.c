@@ -370,17 +370,16 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
 		wlr_output_set_name(wlr_output, name);
 	}
 
-	if (wlr_output_is_wl(wlr_output) ||
-		wlr_output_is_x11(wlr_output)) {
-		char *title = NULL;
-		char wl_title[32];
-		if (title == NULL) {
-			if (snprintf(wl_title, sizeof(wl_title), "wsm - %s", wlr_output->name) <= 0) {
-				wsm_log(WSM_INFO, "snprintf failed!");
-			}
-			title = wl_title;
+	if (wlr_output_is_wl(wlr_output) || wlr_output_is_x11(wlr_output)) {
+		char title[128];
+		int ret = snprintf(title, sizeof(title), "wsm - %s", wlr_output->name);
+		if (ret < 0 || (size_t)ret >= sizeof(title)) {
+			wsm_log(WSM_INFO, "failed to format output title");
+		} else if (wlr_output_is_wl(wlr_output)) {
+			wlr_wl_output_set_title(wlr_output, title);
+		} else {
+			wlr_x11_output_set_title(wlr_output, title);
 		}
-		wlr_wl_output_set_title(wlr_output, title);
 	}
 
 	bool failed = false;
