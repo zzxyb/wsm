@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<protocol name="ext_brightness_control_v1">
+<protocol name="wsm_brightness_management_unstable_v1">
   <copyright>
     Copyright (c) 2024 YaoBing Xiao
 
@@ -36,12 +36,11 @@
     may be added together with the corresponding interface version bump.
     Backward incompatible changes are done by bumping the version number in
     the protocol and interface names and resetting the interface version.
-    Once the protocol is to be declared stable, the 'z' prefix and the
-    version number in the protocol and interface names are removed and the
-    interface version number is reset.
+    Once the protocol is declared stable, the version number in the protocol
+    and interface names is removed and the interface version is reset.
   </description>
 
-  <interface name="ext_brightness_control_manager_v1" version="1">
+  <interface name="wsm_brightness_control_manager_v1" version="1">
     <description summary="manager to create per-output brightness management">
       This interface is a manager that allows creating per-output brightness
       management controls.
@@ -52,11 +51,11 @@
         Create a output brightness management control that can be used to
         adjust the brightness management for a given output.
 
-        If the given output does not support brightness control, the compositor
-        may return a null object (i.e., the new_id will be NULL). Clients should
-        handle this gracefully.
+        The compositor sends the initial state followed by a done event. If the
+        output does not support hardware brightness control, the method is none
+        and all brightness values are zero.
       </description>
-      <arg name="id" type="new_id" interface="ext_brightness_control_v1"/>
+      <arg name="id" type="new_id" interface="wsm_brightness_control_v1"/>
       <arg name="output" type="object" interface="wl_output"/>
     </request>
 
@@ -68,16 +67,29 @@
     </request>
   </interface>
 
-  <interface name="ext_brightness_control_v1" version="1">
+  <interface name="wsm_brightness_control_v1" version="1">
     <description summary="adjust brightness management for an output">
       This object offers requests to set the brightness management value of
       an output.
     </description>
 
+    <enum name="method">
+      <description summary="brightness adjustment method">
+        Describes the mechanism used by the compositor to adjust the output's
+        brightness.
+      </description>
+      <entry name="none" value="0"
+             summary="brightness adjustment is unavailable"/>
+      <entry name="backlight" value="1"
+             summary="brightness is adjusted through a backlight device"/>
+      <entry name="ddcutil" value="2"
+             summary="brightness is adjusted through ddcutil"/>
+    </enum>
+
     <request name="set_brightness">
-      <description summary="Set an outputs brightness">
-        Set an output's brightnessvalue save. If the output does not support the given
-        value a failed event is sent.
+      <description summary="set an output's brightness">
+        Set the output's brightness. If the output does not support the given
+        value, a failed event is sent.
       </description>
       <arg name="value" type="uint" summary="the brightness value to set"/>
     </request>
@@ -89,19 +101,48 @@
     </request>
 
     <event name="brightness">
-      <description summary="Report a brightness  value change">
-        This event is sent immediately when the ext_brightness_control_v1 object is created.
+      <description summary="initial brightness value">
+        This event reports the current brightness once when the
+        wsm_brightness_control_v1 object is initialized. It is not sent for
+        subsequent brightness changes.
       </description>
       <arg name="value" type="uint"
-           summary="the output's new brightness value"/>
+           summary="the output's current brightness value"/>
+    </event>
+
+    <event name="min_brightness">
+      <description summary="initial minimum brightness value">
+        This event reports the minimum supported brightness once when the
+        wsm_brightness_control_v1 object is initialized. It is not sent again.
+      </description>
+      <arg name="value" type="uint"
+           summary="the output's minimum brightness value"/>
     </event>
 
     <event name="max_brightness">
-      <description summary="Report a max_brightness value change">
-        This event is sent immediately when the ext_brightness_control_v1 object is created.
+      <description summary="initial maximum brightness value">
+        This event reports the maximum supported brightness once when the
+        wsm_brightness_control_v1 object is initialized. It is not sent again.
       </description>
       <arg name="value" type="uint"
-           summary="the output's new max_brightness value"/>
+           summary="the output's maximum brightness value"/>
+    </event>
+
+    <event name="method">
+      <description summary="initial brightness adjustment method">
+        This event reports the brightness adjustment method once when the
+        wsm_brightness_control_v1 object is initialized. It is not sent again.
+      </description>
+      <arg name="method" type="uint" enum="method"
+           summary="the output's brightness adjustment method"/>
+    </event>
+
+    <event name="done">
+      <description summary="initial state is complete">
+        This event is sent once after the brightness, min_brightness,
+        max_brightness, and method events have been sent. No initialization
+        event is sent after this event.
+      </description>
     </event>
 
     <event name="failed">

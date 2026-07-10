@@ -92,6 +92,7 @@ struct wsm_server {
 	struct wl_listener drm_lease_request; /**< Listener for DRM lease requests */
 	struct wl_listener icon_theme_change; /**< Listener for icon theme changes */
 	struct wl_listener color_theme_change; /**< Listener for color theme changes */
+	struct wl_listener brightness_session_active; /**< Restores brightness when the session becomes active */
 
 	struct {
 		struct wl_listener new_lock; /**< Listener for new session lock events */

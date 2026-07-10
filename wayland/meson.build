@@ -1,7 +1,7 @@
 wsm_wayland = static_library(
 	'wsm_wayland',
 	files(
-		'wsm_brightness_control_v1.c',
+		'wsm_brightness_management_unstable_v1.c',
 	),
 	dependencies: [
 		wlroots,

@@ -16,7 +16,8 @@
 #include "wsm_cursor.h"
 #include "wsm_session_lock.h"
 #include "wsm_desktop.h"
-#include "wsm_brightness_control_v1.h"
+#include "wsm_brightness_management_unstable_v1.h"
+#include "wsm_brightness.h"
 #include "wsm_transaction.h"
 #include "wsm_workspace.h"
 
@@ -32,6 +33,7 @@
 #include <wlr/config.h>
 #include <wlr/types/wlr_drm.h>
 #include <wlr/backend/multi.h>
+#include <wlr/backend/session.h>
 #if HAVE_XWAYLAND
 #include <wlr/xwayland/shell.h>
 #include <wlr/xwayland/xwayland.h>
@@ -78,6 +80,21 @@
 #include <wlr/types/wlr_text_input_v3.h>
 
 #define WSM_XDG_SHELL_VERSION 5
+
+static void handle_brightness_session_active(struct wl_listener *listener,
+		void *data) {
+	struct wsm_server *server = wl_container_of(listener, server,
+		brightness_session_active);
+	if (!server->wlr_session || !server->wlr_session->active || !server->scene) {
+		return;
+	}
+	struct wsm_output *output;
+	wl_list_for_each(output, &server->scene->all_outputs, link) {
+		if (output->brightness) {
+			wsm_brightness_restore(output->brightness);
+		}
+	}
+}
 #define WSM_LAYER_SHELL_VERSION 4
 #define WSM_WLR_FRACTIONAL_SCALE_V1_VERSION 1
 #define WSM_FOREIGN_TOPLEVEL_LIST_VERSION 1
@@ -401,10 +418,20 @@ bool wsm_server_init(struct wsm_server *server)
 		wlr_primary_selection_v1_device_manager_create(server->wl_display);
 	
 	wsm_brightness_control_manager_v1_create(server->wl_display);
+	if (server->wlr_session) {
+		server->brightness_session_active.notify =
+			handle_brightness_session_active;
+		wl_signal_add(&server->wlr_session->events.active,
+			&server->brightness_session_active);
+	}
 	return true;
 }
 
 void server_finish(struct wsm_server *server) {
+	if (server->brightness_session_active.link.next) {
+		wl_list_remove(&server->brightness_session_active.link);
+		wl_list_init(&server->brightness_session_active.link);
+	}
 	if (server->icon_theme_change.link.next) {
 		wl_list_remove(&server->icon_theme_change.link);
 		wl_list_init(&server->icon_theme_change.link);

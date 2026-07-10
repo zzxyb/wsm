@@ -78,6 +78,7 @@ xpm = dependency('xpm')
 jpeg = dependency('libjpeg')
 svg = dependency('librsvg-2.0')
 pangocairo = dependency('pangocairo')
+ddcutil = dependency('ddcutil', required: get_option('ddcutil'))
 math = cc.find_library('m')
 rt = cc.find_library('rt')
 
@@ -175,6 +176,7 @@ wsm_deps = [
 	svg,
 	xcb,
 	xcb_icccm,
+	ddcutil,
 ]
 
 dir_prefix = get_option('prefix')
@@ -185,6 +187,7 @@ version_wsm = meson.project_version()
 conf = configuration_data()
 conf.set10('HAVE_XWAYLAND', have_xwayland)
 conf.set10('IS_MOBILE', get_option('mobile').enabled())
+conf.set10('HAVE_DDCUTIL', ddcutil.found())
 conf.set_quoted('VERSION', version_wsm)
 conf.set_quoted('BINDIR', dir_bin)
 conf.set_quoted('DATADIR', dir_data)

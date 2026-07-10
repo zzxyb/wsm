@@ -1,5 +1,5 @@
-#ifndef WSM_BRIGHTNESS_CONTROL_V1_H
-#define WSM_BRIGHTNESS_CONTROL_V1_H
+#ifndef WSM_BRIGHTNESS_MANAGEMENT_UNSTABLE_V1_H
+#define WSM_BRIGHTNESS_MANAGEMENT_UNSTABLE_V1_H
 
 #include <wayland-server-core.h>
 #include <wayland-util.h>
@@ -16,7 +16,7 @@ struct wsm_brightness_control_manager_v1 {
 	} events;
 
 	void *data;
-	struct wl_listener display_destroy;    
+	struct wl_listener display_destroy;
 };
 
 struct wsm_brightness_control_v1 {
