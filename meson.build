@@ -142,6 +142,7 @@ wayland_inc = include_directories('wayland')
 drm_inc = include_directories('drm')
 
 subdir('protocols')
+subdir('client-examples')
 subdir('wayland')
 subdir('common')
 subdir('compositor')
