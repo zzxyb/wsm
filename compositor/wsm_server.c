@@ -19,6 +19,7 @@
 #include "wsm_brightness_control_v1.h"
 #include "wsm_transaction.h"
 #include "wsm_workspace.h"
+#include "wsm_output_memory.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -442,4 +443,5 @@ void server_finish(struct wsm_server *server) {
 		wsm_list_destroy(server->dirty_nodes);
 		server->dirty_nodes = NULL;
 	}
+	wsm_output_memory_finish();
 }

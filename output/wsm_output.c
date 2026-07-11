@@ -15,6 +15,7 @@
 #include "wsm_workspace_manager.h"
 #include "wsm_layer_shell.h"
 #include "wsm_output_config.h"
+#include "wsm_output_memory.h"
 #include "node/wsm_node_descriptor.h"
 #include "wsm_backlight_device.h"
 
@@ -91,11 +92,13 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 	if (event->state->committed & (
 			WLR_OUTPUT_STATE_MODE |
 			WLR_OUTPUT_STATE_TRANSFORM |
-			WLR_OUTPUT_STATE_SCALE)) {
+			WLR_OUTPUT_STATE_SCALE |
+			WLR_OUTPUT_STATE_ADAPTIVE_SYNC_ENABLED)) {
 		wsm_arrange_layers(output);
 		wsm_arrange_output_auto(output);
 
 		update_output_manager_config(&global_server);
+		wsm_output_memory_store_all();
 	}
 
 	if ((event->state->committed & WLR_OUTPUT_STATE_ENABLED) && !output->wlr_output->enabled) {

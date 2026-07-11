@@ -4,6 +4,7 @@ wsm_common = static_library(
 		'wsm_common.c',
 		'wsm_log.c',
 		'wsm_parser.c',
+		'wsm_toml.c',
 		'wsm_list.c',
 		'wsm_cairo.c',
 		'wsm_pango.c',

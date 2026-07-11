@@ -139,6 +139,7 @@ decoration_inc = include_directories('decoration')
 shell_inc = include_directories('shell')
 wayland_inc = include_directories('wayland')
 drm_inc = include_directories('drm')
+data_inc = include_directories('data')
 
 subdir('protocols')
 subdir('wayland')
@@ -153,6 +154,7 @@ subdir('decoration')
 subdir('shell')
 subdir('man')
 subdir('drm')
+subdir('data')
 
 if get_option('documentation').enabled()
 	subdir('doc')
@@ -198,7 +200,7 @@ executable(
 	'wsm',
 	wsm_sources,
 	dependencies: wsm_deps,
-	link_with: [wsm_common, wsm_compositor, wsm_input, wsm_config, wsm_xwl, wsm_output, wsm_scene, wsm_decoration, wsm_shell, wsm_wayland, wsm_drm],
-	include_directories:[common_inc, compositor_inc, xwl_inc, output_inc, config_inc, scene_inc, decoration_inc, wayland_inc, drm_inc],
+	link_with: [wsm_common, wsm_compositor, wsm_input, wsm_config, wsm_xwl, wsm_output, wsm_scene, wsm_decoration, wsm_shell, wsm_wayland, wsm_drm, wsm_data],
+	include_directories:[common_inc, compositor_inc, xwl_inc, output_inc, config_inc, scene_inc, decoration_inc, wayland_inc, drm_inc, data_inc],
 	install: true
 )

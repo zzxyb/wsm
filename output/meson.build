@@ -11,5 +11,5 @@ wsm_output = static_library(
 		drm,
 		systemd,
 	],
-	include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, input_inc, config_inc, decoration_inc, shell_inc, drm_inc]
+	include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, input_inc, config_inc, decoration_inc, shell_inc, drm_inc, data_inc]
 )
