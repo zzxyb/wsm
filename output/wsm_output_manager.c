@@ -7,6 +7,7 @@
 #include "wsm_output_manager.h"
 #include "wsm_output_config.h"
 #include "wsm_output_manager_config.h"
+#include "wsm_output_memory.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -228,6 +229,7 @@ static void handle_output_power_manager_set_mode(struct wl_listener *listener, v
 
 static void handle_output_layout_change(struct wl_listener *listener, void *data) {
 	update_output_manager_config(&global_server);
+	wsm_output_memory_store_all();
 }
 
 static void handle_gamma_control_set_gamma(struct wl_listener *listener, void *data) {

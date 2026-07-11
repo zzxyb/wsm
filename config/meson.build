@@ -22,5 +22,5 @@ wsm_config = static_library(
 		pango,
 		pangocairo,
 	],
-	include_directories:[common_inc, compositor_inc, scene_inc, output_inc, xwl_inc, input_inc, decoration_inc]
+	include_directories:[common_inc, compositor_inc, scene_inc, output_inc, xwl_inc, input_inc, decoration_inc, data_inc]
 )

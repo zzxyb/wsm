@@ -6,6 +6,8 @@
 #include "wsm_output.h"
 #include "wsm_output_config.h"
 #include "wsm_input_manager.h"
+#include "wsm_output_memory.h"
+#include "wsm_common.h"
 
 #include <stdlib.h>
 #include <limits.h>
@@ -27,8 +29,8 @@ struct search_context {
 	bool degrade_to_off;
 };
 
-static void default_output_config(struct output_config *oc,
-		struct wlr_output *wlr_output) {
+static void default_output_config(
+	struct output_config *oc, struct wlr_output *wlr_output) {
 	oc->enabled = 1;
 	oc->power = 1;
 	struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
@@ -50,7 +52,8 @@ static bool output_config_is_disabling(struct output_config *oc) {
 	return oc && (!oc->enabled || oc->power == 0);
 }
 
-static int compare_matched_output_config_priority(const void *a, const void *b) {
+static int compare_matched_output_config_priority(
+	const void *a, const void *b) {
 	const struct matched_output_config *amc = a;
 	const struct matched_output_config *bmc = b;
 	bool a_disabling = output_config_is_disabling(amc->config);
@@ -70,16 +73,178 @@ static int compare_matched_output_config_priority(const void *a, const void *b) 
 	return 0;
 }
 
-void sort_output_configs_by_priority(struct matched_output_config *configs,
-		size_t configs_len) {
-	qsort(configs, configs_len, sizeof(*configs), compare_matched_output_config_priority);
+void sort_output_configs_by_priority(
+	struct matched_output_config *configs, size_t configs_len) {
+	qsort(configs, configs_len, sizeof(*configs),
+		compare_matched_output_config_priority);
+}
+
+static bool output_config_is_active(
+	const struct matched_output_config *config) {
+	return config->config != NULL &&
+		!output_config_is_disabling(config->config);
+}
+
+static void get_config_size(
+	const struct matched_output_config *config, int *width, int *height) {
+	const struct output_config *oc = config->config;
+	struct wlr_output *output = config->output->wlr_output;
+	int mode_width = oc->width > 0 ? oc->width : output->width;
+	int mode_height = oc->height > 0 ? oc->height : output->height;
+	int transform =
+		oc->transform >= 0 ? oc->transform : (int)output->transform;
+	if (transform & 1) {
+		int tmp = mode_width;
+		mode_width = mode_height;
+		mode_height = tmp;
+	}
+	float scale = oc->scale > 0 ? oc->scale : output->scale;
+	if (scale <= 0) {
+		scale = 1;
+	}
+	*width = ceilf(mode_width / scale);
+	*height = ceilf(mode_height / scale);
+}
+
+static bool output_supports_mode(
+	struct wlr_output *output, int width, int height, int refresh) {
+	struct wlr_output_mode *mode;
+	wl_list_for_each(mode, &output->modes, link) {
+		if (mode->width == width && mode->height == height &&
+			mode->refresh == refresh) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static void arrange_outputs_horizontally(
+	struct matched_output_config *configs, size_t configs_len) {
+	int x = 0;
+	for (size_t pass = 0; pass < 2; pass++) {
+		for (size_t i = 0; i < configs_len; i++) {
+			struct matched_output_config *config = &configs[i];
+			if (!output_config_is_active(config) ||
+				config->output->enabled == (pass == 1)) {
+				continue;
+			}
+			config->config->x = x;
+			config->config->y = 0;
+			int width, height;
+			get_config_size(config, &width, &height);
+			x += width;
+		}
+	}
+}
+
+void smart_layout_output_configs(
+	struct matched_output_config *configs, size_t configs_len) {
+	struct wlr_box bounds = {0};
+	struct wlr_box clone_box = {0};
+	int clone_width = 0, clone_height = 0, clone_refresh = 0;
+	size_t existing_count = 0;
+	bool clone = true;
+
+	for (size_t i = 0; i < configs_len; i++) {
+		struct matched_output_config *config = &configs[i];
+		if (!config->output->enabled ||
+			!output_config_is_active(config)) {
+			continue;
+		}
+		struct wlr_output *output = config->output->wlr_output;
+		struct wlr_box box;
+		wlr_output_layout_get_box(
+			global_server.scene->output_layout, output, &box);
+		if (existing_count == 0) {
+			bounds = clone_box = box;
+			if (output->current_mode != NULL) {
+				clone_width = output->current_mode->width;
+				clone_height = output->current_mode->height;
+				clone_refresh = output->current_mode->refresh;
+			} else {
+				clone = false;
+			}
+		} else {
+			int x1 = MIN(bounds.x, box.x);
+			int y1 = MIN(bounds.y, box.y);
+			int x2 =
+				MAX(bounds.x + bounds.width, box.x + box.width);
+			int y2 = MAX(
+				bounds.y + bounds.height, box.y + box.height);
+			bounds = (struct wlr_box){x1, y1, x2 - x1, y2 - y1};
+			if (output->current_mode == NULL ||
+				box.x != clone_box.x || box.y != clone_box.y ||
+				output->current_mode->width != clone_width ||
+				output->current_mode->height != clone_height) {
+				clone = false;
+			}
+		}
+		existing_count++;
+	}
+	clone = clone && existing_count >= 2;
+	if (existing_count == 0) {
+		size_t new_count = 0;
+		size_t remembered_count = 0;
+		for (size_t i = 0; i < configs_len; i++) {
+			struct matched_output_config *config = &configs[i];
+			if (!output_config_is_active(config)) {
+				continue;
+			}
+			new_count++;
+			if (config->config->has_persistent_config) {
+				remembered_count++;
+			}
+		}
+		if (new_count > 1 && remembered_count == new_count) {
+			return;
+		}
+	}
+
+	for (size_t i = 0; i < configs_len; i++) {
+		struct matched_output_config *config = &configs[i];
+		if (config->output->enabled ||
+			!output_config_is_active(config)) {
+			continue;
+		}
+		struct output_config *oc = config->config;
+		if (existing_count == 0) {
+			oc->x = 0;
+			oc->y = 0;
+			get_config_size(config, &bounds.width, &bounds.height);
+			bounds.x = bounds.y = 0;
+		} else if (clone &&
+			output_supports_mode(config->output->wlr_output,
+				clone_width, clone_height, clone_refresh)) {
+			oc->x = clone_box.x;
+			oc->y = clone_box.y;
+			oc->width = clone_width;
+			oc->height = clone_height;
+			oc->refresh_rate = clone_refresh / 1000.f;
+		} else {
+			if (clone) {
+				arrange_outputs_horizontally(
+					configs, configs_len);
+				return;
+			}
+			oc->x = bounds.x + bounds.width;
+			oc->y = bounds.y;
+			int width, height;
+			get_config_size(config, &width, &height);
+			bounds.width += width;
+			bounds.height = MAX(bounds.height, height);
+		}
+		existing_count++;
+	}
 }
 
 void apply_all_output_configs(void) {
 	size_t configs_len = wl_list_length(&global_server.scene->all_outputs);
-	struct matched_output_config *configs = calloc(configs_len, sizeof(*configs));
+	struct matched_output_config *configs =
+		calloc(configs_len, sizeof(*configs));
 	if (!configs) {
-		wsm_log(WSM_ERROR, "Could not create matched_output_config: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create matched_output_config: allocation "
+			"failed!");
 		return;
 	}
 
@@ -96,6 +261,7 @@ void apply_all_output_configs(void) {
 		config->config = find_output_config(wsm_output);
 	}
 
+	smart_layout_output_configs(configs, configs_len);
 	sort_output_configs_by_priority(configs, configs_len);
 	apply_output_configs(configs, configs_len, false, true);
 	for (size_t idx = 0; idx < configs_len; idx++) {
@@ -110,6 +276,7 @@ struct output_config *find_output_config(struct wsm_output *output) {
 
 	struct output_config *result = new_output_config(name);
 	default_output_config(result, output->wlr_output);
+	result->has_persistent_config = wsm_output_memory_load(output, result);
 
 	return result;
 }
@@ -117,7 +284,8 @@ struct output_config *find_output_config(struct wsm_output *output) {
 struct output_config *new_output_config(const char *name) {
 	struct output_config *oc = calloc(1, sizeof(struct output_config));
 	if (!oc) {
-		wsm_log(WSM_ERROR, "Could not create output_config: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create output_config: allocation failed!");
 		return NULL;
 	}
 	oc->name = strdup(name);
@@ -145,7 +313,6 @@ struct output_config *new_output_config(const char *name) {
 }
 
 void store_output_config(struct output_config *oc) {
-
 }
 
 void free_output_config(struct output_config *oc) {
@@ -159,7 +326,8 @@ void free_output_config(struct output_config *oc) {
 	free(oc);
 }
 
-const char *wsm_output_scale_filter_to_string(enum scale_filter_mode scale_filter) {
+const char *wsm_output_scale_filter_to_string(
+	enum scale_filter_mode scale_filter) {
 	switch (scale_filter) {
 	case SCALE_FILTER_DEFAULT:
 		return "smart";
@@ -174,7 +342,8 @@ const char *wsm_output_scale_filter_to_string(enum scale_filter_mode scale_filte
 	return NULL;
 }
 
-static bool finalize_output_config(struct output_config *oc, struct wsm_output *output) {
+static bool finalize_output_config(
+	struct output_config *oc, struct wsm_output *output) {
 	if (output == global_server.scene->fallback_output) {
 		return false;
 	}
@@ -184,7 +353,8 @@ static bool finalize_output_config(struct output_config *oc, struct wsm_output *
 		wsm_log(WSM_DEBUG, "Disabling output %s", oc->name);
 		if (output->enabled) {
 			output_disable(output);
-			wlr_output_layout_remove(global_server.scene->output_layout, wlr_output);
+			wlr_output_layout_remove(
+				global_server.scene->output_layout, wlr_output);
 		}
 		return true;
 	}
@@ -194,8 +364,10 @@ static bool finalize_output_config(struct output_config *oc, struct wsm_output *
 		switch (oc->scale_filter) {
 		case SCALE_FILTER_DEFAULT:
 		case SCALE_FILTER_SMART:
-			output->scale_filter = ceilf(wlr_output->scale) == wlr_output->scale ?
-										   SCALE_FILTER_NEAREST : SCALE_FILTER_LINEAR;
+			output->scale_filter =
+				ceilf(wlr_output->scale) == wlr_output->scale
+				? SCALE_FILTER_NEAREST
+				: SCALE_FILTER_LINEAR;
 			break;
 		case SCALE_FILTER_LINEAR:
 		case SCALE_FILTER_NEAREST:
@@ -203,21 +375,28 @@ static bool finalize_output_config(struct output_config *oc, struct wsm_output *
 			break;
 		}
 		if (scale_filter_old != output->scale_filter) {
-			wsm_log(WSM_DEBUG, "Set %s scale_filter to %s", oc->name,
-					wsm_output_scale_filter_to_string(output->scale_filter));
-			wlr_damage_ring_add_whole(&output->scene_output->damage_ring);
+			wsm_log(WSM_DEBUG, "Set %s scale_filter to %s",
+				oc->name,
+				wsm_output_scale_filter_to_string(
+					output->scale_filter));
+			wlr_damage_ring_add_whole(
+				&output->scene_output->damage_ring);
 		}
 	}
 
 	if (oc && (oc->x != -1 || oc->y != -1)) {
-		wsm_log(WSM_DEBUG, "Set %s position to %d, %d", oc->name, oc->x, oc->y);
-		wlr_output_layout_add(global_server.scene->output_layout, wlr_output, oc->x, oc->y);
+		wsm_log(WSM_DEBUG, "Set %s position to %d, %d", oc->name, oc->x,
+			oc->y);
+		wlr_output_layout_add(global_server.scene->output_layout,
+			wlr_output, oc->x, oc->y);
 	} else {
-		wlr_output_layout_add_auto(global_server.scene->output_layout, wlr_output);
+		wlr_output_layout_add_auto(
+			global_server.scene->output_layout, wlr_output);
 	}
 
 	struct wlr_box output_box;
-	wlr_output_layout_get_box(global_server.scene->output_layout, wlr_output, &output_box);
+	wlr_output_layout_get_box(
+		global_server.scene->output_layout, wlr_output, &output_box);
 	output->lx = output_box.x;
 	output->ly = output_box.y;
 	output->width = output_box.width;
@@ -228,8 +407,8 @@ static bool finalize_output_config(struct output_config *oc, struct wsm_output *
 	}
 
 	if (oc && oc->max_render_time >= 0) {
-		wsm_log(WSM_DEBUG, "Set %s max render time to %d",
-			oc->name, oc->max_render_time);
+		wsm_log(WSM_DEBUG, "Set %s max render time to %d", oc->name,
+			oc->max_render_time);
 		output->max_render_time = oc->max_render_time;
 	}
 
@@ -244,14 +423,15 @@ static bool finalize_output_config(struct output_config *oc, struct wsm_output *
 }
 
 static void set_modeline(struct wlr_output *output,
-		struct wlr_output_state *pending, drmModeModeInfo *drm_mode) {
+	struct wlr_output_state *pending, drmModeModeInfo *drm_mode) {
 #if WLR_HAS_DRM_BACKEND
 	if (!wlr_output_is_drm(output)) {
 		wsm_log(WSM_ERROR, "Modeline can only be set to DRM output");
 		return;
 	}
 	wsm_log(WSM_DEBUG, "Assigning custom modeline to %s", output->name);
-	struct wlr_output_mode *mode = wlr_drm_connector_add_mode(output, drm_mode);
+	struct wlr_output_mode *mode =
+		wlr_drm_connector_add_mode(output, drm_mode);
 	if (mode) {
 		wlr_output_state_set_mode(pending, mode);
 	}
@@ -260,15 +440,16 @@ static void set_modeline(struct wlr_output *output,
 #endif
 }
 
-static void set_mode(struct wlr_output *output, struct wlr_output_state *pending,
-		int width, int height, float refresh_rate, bool custom) {
+static void set_mode(struct wlr_output *output,
+	struct wlr_output_state *pending, int width, int height,
+	float refresh_rate, bool custom) {
 	int mhz = (int)roundf(refresh_rate * 1000);
 	mhz = mhz <= 0 ? INT_MAX : mhz;
 
 	if (wl_list_empty(&output->modes) || custom) {
 		wsm_log(WSM_DEBUG, "Assigning custom mode to %s", output->name);
-		wlr_output_state_set_custom_mode(pending, width, height,
-			refresh_rate > 0 ? mhz : 0);
+		wlr_output_state_set_custom_mode(
+			pending, width, height, refresh_rate > 0 ? mhz : 0);
 		return;
 	}
 
@@ -287,14 +468,17 @@ static void set_mode(struct wlr_output *output, struct wlr_output_state *pending
 		}
 	}
 	if (best) {
-		wsm_log(WSM_INFO, "Assigning configured mode (%dx%d@%.3fHz) to %s",
-			best->width, best->height, best->refresh / 1000.f, output->name);
+		wsm_log(WSM_INFO,
+			"Assigning configured mode (%dx%d@%.3fHz) to %s",
+			best->width, best->height, best->refresh / 1000.f,
+			output->name);
 	} else {
 		best = wlr_output_preferred_mode(output);
-		wsm_log(WSM_INFO, "Configured mode (%dx%d@%.3fHz) not available, "
+		wsm_log(WSM_INFO,
+			"Configured mode (%dx%d@%.3fHz) not available, "
 			"applying preferred mode (%dx%d@%.3fHz)",
-			width, height, refresh_rate,
-			best->width, best->height, best->refresh / 1000.f);
+			width, height, refresh_rate, best->width, best->height,
+			best->refresh / 1000.f);
 	}
 	wlr_output_state_set_mode(pending, best);
 }
@@ -327,16 +511,16 @@ const char *wl_output_subpixel_to_string(enum wl_output_subpixel subpixel) {
 
 static bool phys_size_is_aspect_ratio(struct wlr_output *output) {
 	return (output->phys_width == 1600 && output->phys_height == 900) ||
-		   (output->phys_width == 1600 && output->phys_height == 1000) ||
-		   (output->phys_width == 160 && output->phys_height == 90) ||
-		   (output->phys_width == 160 && output->phys_height == 100) ||
-		   (output->phys_width == 16 && output->phys_height == 9) ||
-		   (output->phys_width == 16 && output->phys_height == 10);
+		(output->phys_width == 1600 && output->phys_height == 1000) ||
+		(output->phys_width == 160 && output->phys_height == 90) ||
+		(output->phys_width == 160 && output->phys_height == 100) ||
+		(output->phys_width == 16 && output->phys_height == 9) ||
+		(output->phys_width == 16 && output->phys_height == 10);
 }
 
-static int compute_default_scale(struct wlr_output *output,
-		struct wlr_output_state *pending) {
-	struct wlr_box box = { .width = output->width, .height = output->height };
+static int compute_default_scale(
+	struct wlr_output *output, struct wlr_output_state *pending) {
+	struct wlr_box box = {.width = output->width, .height = output->height};
 	if (pending->committed & WLR_OUTPUT_STATE_MODE) {
 		switch (pending->mode_type) {
 		case WLR_OUTPUT_STATE_MODE_FIXED:
@@ -370,8 +554,8 @@ static int compute_default_scale(struct wlr_output *output,
 		return 1;
 	}
 
-	double dpi_x = (double) width / (output->phys_width / MM_PER_INCH);
-	double dpi_y = (double) height / (output->phys_height / MM_PER_INCH);
+	double dpi_x = (double)width / (output->phys_width / MM_PER_INCH);
+	double dpi_y = (double)height / (output->phys_height / MM_PER_INCH);
 	wsm_log(WSM_DEBUG, "Output DPI: %fx%f", dpi_x, dpi_y);
 	if (dpi_x <= HIDPI_DPI_LIMIT || dpi_y <= HIDPI_DPI_LIMIT) {
 		return 1;
@@ -382,11 +566,11 @@ static int compute_default_scale(struct wlr_output *output,
 
 static bool render_format_is_10bit(uint32_t render_format) {
 	return render_format == DRM_FORMAT_XRGB2101010 ||
-		   render_format == DRM_FORMAT_XBGR2101010;
+		render_format == DRM_FORMAT_XBGR2101010;
 }
 
 static void queue_output_config(struct output_config *oc,
-		struct wsm_output *output, struct wlr_output_state *pending) {
+	struct wsm_output *output, struct wlr_output_state *pending) {
 	if (output == global_server.scene->fallback_output) {
 		return;
 	}
@@ -402,15 +586,15 @@ static void queue_output_config(struct output_config *oc,
 	wsm_log(WSM_DEBUG, "Turning on output %s", wlr_output->name);
 	wlr_output_state_set_enabled(pending, true);
 
-	if (oc && oc->drm_mode.type != 0 && oc->drm_mode.type != (uint32_t) -1) {
-		wsm_log(WSM_DEBUG, "Set %s modeline",
-			wlr_output->name);
+	if (oc && oc->drm_mode.type != 0 && oc->drm_mode.type != (uint32_t)-1) {
+		wsm_log(WSM_DEBUG, "Set %s modeline", wlr_output->name);
 		set_modeline(wlr_output, pending, &oc->drm_mode);
 	} else if (oc && oc->width > 0 && oc->height > 0) {
 		wsm_log(WSM_DEBUG, "Set %s mode to %dx%d (%f Hz)",
-			wlr_output->name, oc->width, oc->height, oc->refresh_rate);
+			wlr_output->name, oc->width, oc->height,
+			oc->refresh_rate);
 		set_mode(wlr_output, pending, oc->width, oc->height,
-				oc->refresh_rate, oc->custom_mode == 1);
+			oc->refresh_rate, oc->custom_mode == 1);
 	} else if (!wl_list_empty(&wlr_output->modes)) {
 		wsm_log(WSM_DEBUG, "Set preferred mode");
 		struct wlr_output_mode *preferred_mode =
@@ -434,7 +618,8 @@ static void queue_output_config(struct output_config *oc,
 #endif
 	}
 	if (wlr_output->transform != tr) {
-		wsm_log(WSM_DEBUG, "Set %s transform to %d", wlr_output->name, tr);
+		wsm_log(WSM_DEBUG, "Set %s transform to %d", wlr_output->name,
+			tr);
 		wlr_output_state_set_transform(pending, tr);
 	}
 
@@ -443,8 +628,9 @@ static void queue_output_config(struct output_config *oc,
 		scale = oc->scale;
 		float adjusted_scale = round(scale * 120) / 120;
 		if (scale != adjusted_scale) {
-			wsm_log(WSM_INFO, "Adjusting output scale from %f to %f",
-				scale, adjusted_scale);
+			wsm_log(WSM_INFO,
+				"Adjusting output scale from %f to %f", scale,
+				adjusted_scale);
 			scale = adjusted_scale;
 		}
 	} else {
@@ -452,49 +638,61 @@ static void queue_output_config(struct output_config *oc,
 		wsm_log(WSM_DEBUG, "Auto-detected output scale: %f", scale);
 	}
 	if (scale != wlr_output->scale) {
-		wsm_log(WSM_DEBUG, "Set %s scale to %f", wlr_output->name, scale);
+		wsm_log(WSM_DEBUG, "Set %s scale to %f", wlr_output->name,
+			scale);
 		wlr_output_state_set_scale(pending, scale);
 	}
-	
+
 	if (oc && oc->adaptive_sync != -1) {
-		wsm_log(WSM_DEBUG, "Set %s adaptive sync to %d", wlr_output->name,
-			oc->adaptive_sync);
-		wlr_output_state_set_adaptive_sync_enabled(pending, oc->adaptive_sync == 1);
+		wsm_log(WSM_DEBUG, "Set %s adaptive sync to %d",
+			wlr_output->name, oc->adaptive_sync);
+		wlr_output_state_set_adaptive_sync_enabled(
+			pending, oc->adaptive_sync == 1);
 	}
 
 	if (oc && oc->render_bit_depth != RENDER_BIT_DEPTH_DEFAULT) {
 		if (oc->render_bit_depth == RENDER_BIT_DEPTH_10 &&
-			render_format_is_10bit(output->wlr_output->render_format)) {
-			wlr_output_state_set_render_format(pending, output->wlr_output->render_format);
+			render_format_is_10bit(
+				output->wlr_output->render_format)) {
+			wlr_output_state_set_render_format(
+				pending, output->wlr_output->render_format);
 		} else if (oc->render_bit_depth == RENDER_BIT_DEPTH_10) {
-			wlr_output_state_set_render_format(pending, DRM_FORMAT_XRGB2101010);
+			wlr_output_state_set_render_format(
+				pending, DRM_FORMAT_XRGB2101010);
 		} else {
-			wlr_output_state_set_render_format(pending, DRM_FORMAT_XRGB8888);
+			wlr_output_state_set_render_format(
+				pending, DRM_FORMAT_XRGB8888);
 		}
 	}
 }
 
-static void dump_output_state(struct wlr_output *wlr_output, struct wlr_output_state *state) {
+static void dump_output_state(
+	struct wlr_output *wlr_output, struct wlr_output_state *state) {
 	wsm_log(WSM_DEBUG, "Output state for %s", wlr_output->name);
 	if (state->committed & WLR_OUTPUT_STATE_ENABLED) {
-		wsm_log(WSM_DEBUG, "    enabled:       %s", state->enabled ? "yes" : "no");
+		wsm_log(WSM_DEBUG, "    enabled:       %s",
+			state->enabled ? "yes" : "no");
 	}
 	if (state->committed & WLR_OUTPUT_STATE_RENDER_FORMAT) {
-		wsm_log(WSM_DEBUG, "    render_format: %d", state->render_format);
+		wsm_log(WSM_DEBUG, "    render_format: %d",
+			state->render_format);
 	}
 	if (state->committed & WLR_OUTPUT_STATE_MODE) {
 		if (state->mode_type == WLR_OUTPUT_STATE_MODE_CUSTOM) {
 			wsm_log(WSM_DEBUG, "    custom mode:   %dx%d@%dmHz",
-				state->custom_mode.width, state->custom_mode.height, state->custom_mode.refresh);
+				state->custom_mode.width,
+				state->custom_mode.height,
+				state->custom_mode.refresh);
 		} else {
 			wsm_log(WSM_DEBUG, "    mode:          %dx%d@%dmHz%s",
-				state->mode->width, state->mode->height, state->mode->refresh,
+				state->mode->width, state->mode->height,
+				state->mode->refresh,
 				state->mode->preferred ? " (preferred)" : "");
 		}
 	}
 	if (state->committed & WLR_OUTPUT_STATE_ADAPTIVE_SYNC_ENABLED) {
 		wsm_log(WSM_DEBUG, "    adaptive_sync: %s",
-			state->adaptive_sync_enabled ? "enabled": "disabled");
+			state->adaptive_sync_enabled ? "enabled" : "disabled");
 	}
 }
 
@@ -507,8 +705,8 @@ static void reset_output_state(struct wlr_output_state *state) {
 }
 
 static void clear_later_output_states(struct wlr_backend_output_state *states,
-		size_t configs_len, size_t output_idx) {
-	for (size_t idx = output_idx+1; idx < configs_len; idx++) {
+	size_t configs_len, size_t output_idx) {
+	for (size_t idx = output_idx + 1; idx < configs_len; idx++) {
 		struct wlr_backend_output_state *backend_state = &states[idx];
 		struct wlr_output_state *state = &backend_state->base;
 
@@ -518,23 +716,27 @@ static void clear_later_output_states(struct wlr_backend_output_state *states,
 }
 
 static bool search_finish(struct search_context *ctx, size_t output_idx) {
-	struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+	struct wlr_backend_output_state *backend_state =
+		&ctx->states[output_idx];
 	struct wlr_output_state *state = &backend_state->base;
 	struct wlr_output *wlr_output = backend_state->output;
 
 	clear_later_output_states(ctx->states, ctx->configs_len, output_idx);
 	dump_output_state(wlr_output, state);
-	return wlr_output_swapchain_manager_prepare(ctx->swapchain_mgr, ctx->states, ctx->configs_len) &&
-		search_valid_config(ctx, output_idx+1);
+	return wlr_output_swapchain_manager_prepare(
+		       ctx->swapchain_mgr, ctx->states, ctx->configs_len) &&
+		search_valid_config(ctx, output_idx + 1);
 }
 
 static bool render_format_is_bgr(uint32_t fmt) {
 	return fmt == DRM_FORMAT_XBGR2101010 || fmt == DRM_FORMAT_XBGR8888;
 }
 
-static bool search_adaptive_sync(struct search_context *ctx, size_t output_idx) {
+static bool search_adaptive_sync(
+	struct search_context *ctx, size_t output_idx) {
 	struct matched_output_config *cfg = &ctx->configs[output_idx];
-	struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+	struct wlr_backend_output_state *backend_state =
+		&ctx->states[output_idx];
 	struct wlr_output_state *state = &backend_state->base;
 
 	if (!backend_state->output->adaptive_sync_supported) {
@@ -566,7 +768,8 @@ static bool config_has_auto_mode(struct output_config *oc) {
 
 static bool search_mode(struct search_context *ctx, size_t output_idx) {
 	struct matched_output_config *cfg = &ctx->configs[output_idx];
-	struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+	struct wlr_backend_output_state *backend_state =
+		&ctx->states[output_idx];
 	struct wlr_output_state *state = &backend_state->base;
 	struct wlr_output *wlr_output = backend_state->output;
 
@@ -574,7 +777,8 @@ static bool search_mode(struct search_context *ctx, size_t output_idx) {
 		return search_adaptive_sync(ctx, output_idx);
 	}
 
-	struct wlr_output_mode *preferred_mode = wlr_output_preferred_mode(wlr_output);
+	struct wlr_output_mode *preferred_mode =
+		wlr_output_preferred_mode(wlr_output);
 	if (preferred_mode) {
 		wlr_output_state_set_mode(state, preferred_mode);
 		if (search_adaptive_sync(ctx, output_idx)) {
@@ -601,9 +805,11 @@ static bool search_mode(struct search_context *ctx, size_t output_idx) {
 	return false;
 }
 
-static bool search_render_format(struct search_context *ctx, size_t output_idx) {
+static bool search_render_format(
+	struct search_context *ctx, size_t output_idx) {
 	struct matched_output_config *cfg = &ctx->configs[output_idx];
-	struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+	struct wlr_backend_output_state *backend_state =
+		&ctx->states[output_idx];
 	struct wlr_output_state *state = &backend_state->base;
 	struct wlr_output *wlr_output = backend_state->output;
 
@@ -620,8 +826,10 @@ static bool search_render_format(struct search_context *ctx, size_t output_idx) 
 	}
 
 	const struct wlr_drm_format_set *primary_formats =
-			wlr_output_get_primary_formats(wlr_output, WLR_BUFFER_CAP_DMABUF);
-	bool need_10bit = cfg->config && cfg->config->render_bit_depth == RENDER_BIT_DEPTH_10;
+		wlr_output_get_primary_formats(
+			wlr_output, WLR_BUFFER_CAP_DMABUF);
+	bool need_10bit = cfg->config &&
+		cfg->config->render_bit_depth == RENDER_BIT_DEPTH_10;
 	for (size_t idx = 0; fmts[idx] != DRM_FORMAT_INVALID; idx++) {
 		if (!need_10bit && render_format_is_10bit(fmts[idx])) {
 			continue;
@@ -645,7 +853,8 @@ static bool search_valid_config(struct search_context *ctx, size_t output_idx) {
 	}
 
 	struct matched_output_config *cfg = &ctx->configs[output_idx];
-	struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+	struct wlr_backend_output_state *backend_state =
+		&ctx->states[output_idx];
 	struct wlr_output_state *state = &backend_state->base;
 	struct wlr_output *wlr_output = backend_state->output;
 
@@ -653,26 +862,31 @@ static bool search_valid_config(struct search_context *ctx, size_t output_idx) {
 		// Search through our possible configurations, doing a depth-first
 		// through render_format, modes, adaptive_sync and the next output's
 		// config.
-		queue_output_config(cfg->config, cfg->output, &backend_state->base);
+		queue_output_config(
+			cfg->config, cfg->output, &backend_state->base);
 		if (search_render_format(ctx, output_idx)) {
 			return true;
 		} else if (!ctx->degrade_to_off) {
 			return false;
 		}
-		wsm_log(WSM_DEBUG, "Unable to find valid config with output %s, disabling",
-				wlr_output->name);
+		wsm_log(WSM_DEBUG,
+			"Unable to find valid config with output %s, disabling",
+			wlr_output->name);
 		reset_output_state(state);
 	}
-	
+
 	wlr_output_state_set_enabled(state, false);
 	return search_finish(ctx, output_idx);
 }
 
 bool apply_output_configs(struct matched_output_config *configs,
-		size_t configs_len, bool test_only, bool degrade_to_off) {
-	struct wlr_backend_output_state *states = calloc(configs_len, sizeof(struct wlr_backend_output_state));
+	size_t configs_len, bool test_only, bool degrade_to_off) {
+	struct wlr_backend_output_state *states =
+		calloc(configs_len, sizeof(struct wlr_backend_output_state));
 	if (!states) {
-		wsm_log(WSM_ERROR, "Could not create wlr_backend_output_state: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create wlr_backend_output_state: allocation "
+			"failed!");
 		return false;
 	}
 
@@ -686,15 +900,20 @@ bool apply_output_configs(struct matched_output_config *configs,
 
 		wsm_log(WSM_DEBUG, "Preparing config for %s",
 			cfg->output->wlr_output->name);
-		queue_output_config(cfg->config, cfg->output, &backend_state->base);
+		queue_output_config(
+			cfg->config, cfg->output, &backend_state->base);
 	}
-	
-	struct wlr_output_swapchain_manager swapchain_mgr;
-	wlr_output_swapchain_manager_init(&swapchain_mgr, global_server.backend);
 
-	bool ok = wlr_output_swapchain_manager_prepare(&swapchain_mgr, states, configs_len);
+	struct wlr_output_swapchain_manager swapchain_mgr;
+	wlr_output_swapchain_manager_init(
+		&swapchain_mgr, global_server.backend);
+
+	bool ok = wlr_output_swapchain_manager_prepare(
+		&swapchain_mgr, states, configs_len);
 	if (!ok) {
-		wsm_log(WSM_ERROR, "Requested backend configuration failed, searching for valid fallbacks");
+		wsm_log(WSM_ERROR,
+			"Requested backend configuration failed, searching for "
+			"valid fallbacks");
 		struct search_context ctx = {
 			.swapchain_mgr = &swapchain_mgr,
 			.states = states,
@@ -721,10 +940,12 @@ bool apply_output_configs(struct matched_output_config *configs,
 				&swapchain_mgr, backend_state->output),
 			.color_transform = cfg->output->color_transform,
 		};
-		struct wlr_scene_output *scene_output = cfg->output->scene_output;
+		struct wlr_scene_output *scene_output =
+			cfg->output->scene_output;
 		struct wlr_output_state *state = &backend_state->base;
 		if (!wlr_scene_output_build_state(scene_output, state, &opts)) {
-			wsm_log(WSM_ERROR, "Building output state for '%s' failed",
+			wsm_log(WSM_ERROR,
+				"Building output state for '%s' failed",
 				backend_state->output->name);
 			goto out;
 		}
@@ -741,9 +962,10 @@ bool apply_output_configs(struct matched_output_config *configs,
 	for (size_t idx = 0; idx < configs_len; idx++) {
 		struct matched_output_config *cfg = &configs[idx];
 		wsm_log(WSM_DEBUG, "Finalizing config for %s",
-				cfg->output->wlr_output->name);
+			cfg->output->wlr_output->name);
 		finalize_output_config(cfg->config, cfg->output);
 	}
+	wsm_output_memory_store_all();
 
 out:
 	wlr_output_swapchain_manager_finish(&swapchain_mgr);
@@ -765,11 +987,11 @@ out:
 	return ok;
 }
 
-void output_get_identifier(char *identifier, size_t len,
-		struct wsm_output *output) {
+void output_get_identifier(
+	char *identifier, size_t len, struct wsm_output *output) {
 	struct wlr_output *wlr_output = output->wlr_output;
 	snprintf(identifier, len, "%s %s %s",
-			 wlr_output->make ? wlr_output->make : "Unknown",
-			 wlr_output->model ? wlr_output->model : "Unknown",
-			 wlr_output->serial ? wlr_output->serial : "Unknown");
+		wlr_output->make ? wlr_output->make : "Unknown",
+		wlr_output->model ? wlr_output->model : "Unknown",
+		wlr_output->serial ? wlr_output->serial : "Unknown");
 }

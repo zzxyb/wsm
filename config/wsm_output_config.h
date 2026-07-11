@@ -14,8 +14,8 @@
  */
 enum render_bit_depth {
 	RENDER_BIT_DEPTH_DEFAULT, /**< Default render bit depth (currently 8) */
-	RENDER_BIT_DEPTH_8, /**< 8-bit render depth */
-	RENDER_BIT_DEPTH_10, /**< 10-bit render depth */
+	RENDER_BIT_DEPTH_8,	  /**< 8-bit render depth */
+	RENDER_BIT_DEPTH_10,	  /**< 10-bit render depth */
 };
 
 /**
@@ -23,28 +23,31 @@ enum render_bit_depth {
  */
 struct output_config {
 	drmModeModeInfo drm_mode; /**< DRM mode information for the output */
-	struct wlr_color_transform *color_transform; /**< Pointer to the color transformation settings */
-	char *name; /**< Name of the output */
-	int enabled; /**< Flag indicating if the output is enabled */
-	int power; /**< Power state of the output */
-	int width; /**< Width of the output */
-	int height; /**< Height of the output */
+	struct wlr_color_transform *
+		color_transform; /**< Pointer to the color transformation settings */
+	char *name;		 /**< Name of the output */
+	int enabled;	    /**< Flag indicating if the output is enabled */
+	int power;	    /**< Power state of the output */
+	int width;	    /**< Width of the output */
+	int height;	    /**< Height of the output */
 	float refresh_rate; /**< Refresh rate of the output */
-	int custom_mode; /**< Custom mode identifier */
-	int x; /**< X position of the output */
-	int y; /**< Y position of the output */
-	float scale; /**< Scale factor for the output */
-	enum scale_filter_mode scale_filter; /**< Scale filter mode for the output */
-	int32_t transform; /**< Transformation applied to the output */
+	int custom_mode;    /**< Custom mode identifier */
+	int x;		    /**< X position of the output */
+	int y;		    /**< Y position of the output */
+	float scale;	    /**< Scale factor for the output */
+	enum scale_filter_mode
+		scale_filter; /**< Scale filter mode for the output */
+	int32_t transform;    /**< Transformation applied to the output */
 	enum wl_output_subpixel subpixel; /**< Subpixel layout for the output */
 	int max_render_time; /**< Maximum render time in milliseconds */
-	int adaptive_sync; /**< Flag for adaptive sync support */
+	int adaptive_sync;   /**< Flag for adaptive sync support */
 	enum render_bit_depth render_bit_depth; /**< Render bit depth setting */
 
-	char *background; /**< Background image for the output */
-	char *background_option; /**< Options for the background */
+	char *background;	   /**< Background image for the output */
+	char *background_option;   /**< Options for the background */
 	char *background_fallback; /**< Fallback background image */
 	bool set_color_transform; /**< Flag indicating if color transform is set */
+	bool has_persistent_config; /**< Loaded from output memory */
 };
 
 /**
@@ -52,13 +55,23 @@ struct output_config {
  */
 struct matched_output_config {
 	struct wsm_output *output; /**< Pointer to the associated WSM output */
-	struct output_config *config; /**< Pointer to the associated output configuration */
+	struct output_config
+		*config; /**< Pointer to the associated output configuration */
 };
 
 /**
  * @brief Applies all output configurations
  */
 void apply_all_output_configs(void);
+
+/**
+ * Adjust newly connected outputs to fit the current output topology.
+ *
+ * This is applied after persistent configuration has been loaded and before
+ * the configuration is committed.
+ */
+void smart_layout_output_configs(
+	struct matched_output_config *configs, size_t configs_len);
 
 /**
  * @brief Finds the output configuration for the specified output
@@ -79,8 +92,8 @@ struct output_config *new_output_config(const char *name);
  * @param configs Pointer to the matched_output_config array to sort
  * @param configs_len Length of the matched_output_config array
  */
-void sort_output_configs_by_priority(struct matched_output_config *configs,
-	size_t configs_len);
+void sort_output_configs_by_priority(
+	struct matched_output_config *configs, size_t configs_len);
 
 /**
  * @brief Stores the specified output configuration
@@ -111,7 +124,7 @@ bool apply_output_configs(struct matched_output_config *configs,
  * @param len Length of the identifier buffer
  * @param output Pointer to the WSM output to get the identifier for
  */
-void output_get_identifier(char *identifier, size_t len,
-	struct wsm_output *output);
+void output_get_identifier(
+	char *identifier, size_t len, struct wsm_output *output);
 
 #endif

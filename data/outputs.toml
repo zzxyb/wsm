@@ -1,0 +1,2 @@
+# ID of the primary output. Empty until primary-output logic selects one.
+primary_output = ""
