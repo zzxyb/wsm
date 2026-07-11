@@ -163,7 +163,9 @@ void wsm_button_node_set_size(struct wsm_button_node *button,
 
 	button->width = width;
 	button->height = height;
-	wsm_image_node_set_size(button->image, width, height);
+	wlr_scene_node_set_position(button->image->node_wlr,
+		(width - button->image->width) / 2,
+		(height - button->image->height) / 2);
 	wlr_scene_rect_set_size(button->hover_rect, width, height);
 }
 

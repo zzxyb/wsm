@@ -18,6 +18,8 @@
 
 #include <wlr/types/wlr_scene.h>
 
+#define TITLEBAR_ICON_SOURCE_SIZE 64
+
 void arrange_root_auto(void) {
 	struct wlr_box layout_box;
 	wlr_output_layout_get_box(global_server.scene->output_layout, NULL, &layout_box);
@@ -491,9 +493,9 @@ void container_arrange_title_bar_node(struct wsm_container *con) {
 	if (!con->title_bar->icon && con->view && con->current.border == B_NORMAL) {
 		char *icon_path = con->view->app_icon_path;
 		if (icon_path) {
-			int size = height - global_config.titlebar_v_padding;
 			con->title_bar->icon = wsm_image_node_create(con->title_bar->tree,
-				size, size, icon_path, con->alpha);
+				TITLEBAR_ICON_SOURCE_SIZE, TITLEBAR_ICON_SOURCE_SIZE,
+				icon_path, con->alpha);
 		}
 	}
 
