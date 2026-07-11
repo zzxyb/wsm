@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <math.h>
 
 #include <cairo.h>
 #include <librsvg/rsvg.h>
@@ -33,11 +34,16 @@ struct image_buffer {
 	char *path;
 
 	enum wl_output_subpixel subpixel;
+	float scale;
 
 	bool visible;
 	int image_width;
 	int image_height;
+	int dest_width;
+	int dest_height;
 };
+
+static bool reload_image_buffer(struct image_buffer *buffer);
 
 static void cairo_buffer_handle_destroy(struct wlr_buffer *wlr_buffer) {
 	struct cairo_buffer *buffer = wl_container_of(wlr_buffer, buffer, base);
@@ -89,19 +95,6 @@ static void update_source_box(struct image_buffer *buffer) {
 	wlr_scene_buffer_set_source_box(buffer->buffer_node, &source_box);
 }
 
-static void render_backing_buffer(struct image_buffer *buffer) {
-	if (!buffer->visible || !buffer->path) {
-		return;
-	}
-
-	struct cairo_buffer *cairo_buffer =  buffer->buffer;
-	if (!cairo_buffer || !cairo_buffer->surface) {
-		return;
-	}
-
-	update_source_box(buffer);
-}
-
 static void handle_destroy(struct wl_listener *listener, void *data) {
 	struct image_buffer *buffer = wl_container_of(listener, buffer, destroy);
 
@@ -138,9 +131,10 @@ static void handle_outputs_update(struct wl_listener *listener, void *data) {
 
 	buffer->visible = event->size > 0;
 
-	if (subpixel != buffer->subpixel) {
+	if (scale != buffer->scale || subpixel != buffer->subpixel) {
+		buffer->scale = scale;
 		buffer->subpixel = subpixel;
-		render_backing_buffer(buffer);
+		reload_image_buffer(buffer);
 	}
 }
 
@@ -159,6 +153,7 @@ struct wsm_image_node *wsm_image_node_create(struct wlr_scene_tree *parent,
 	}
 
 	buffer->buffer_node = node;
+	wlr_scene_buffer_set_filter_mode(node, WLR_SCALE_FILTER_BILINEAR);
 	buffer->props.node_wlr = &node->node;
 	if (!path) {
 		free(buffer);
@@ -168,6 +163,8 @@ struct wsm_image_node *wsm_image_node_create(struct wlr_scene_tree *parent,
 
 	buffer->props.width = width;
 	buffer->props.height = height;
+	buffer->dest_width = width;
+	buffer->dest_height = height;
 	buffer->props.alpha = alpha;
 
 	buffer->destroy.notify = handle_destroy;
@@ -190,7 +187,8 @@ void handle_jpeg_error(j_common_ptr cinfo) {
 	wsm_log(WSM_ERROR, "read jpg file error");
 }
 
-cairo_surface_t *create_cairo_surface_frome_file(const char *file_path) {
+static cairo_surface_t *create_cairo_surface_from_file_at_size(
+		const char *file_path, int requested_width, int requested_height) {
 	cairo_surface_t *surface = NULL;
 	if (is_target_image(file_path, ".png", ".PNG")) {
 		// PNG image
@@ -266,9 +264,14 @@ cairo_surface_t *create_cairo_surface_frome_file(const char *file_path) {
 			g_object_unref(handle);
 			return NULL;
 		}
+		if (requested_width > 0 && requested_height > 0) {
+			out_width = requested_width;
+			out_height = requested_height;
+		}
 
 		surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, out_width, out_height);
 		cairo_t *cr = cairo_create(surface);
+		cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
 		error = NULL;
 		RsvgRectangle vieport = {
 			.x = 0,
@@ -276,9 +279,18 @@ cairo_surface_t *create_cairo_surface_frome_file(const char *file_path) {
 			.width = out_width,
 			.height= out_height,
 		};
-		rsvg_handle_render_document(handle, cr, &vieport, &error);
+		if (!rsvg_handle_render_document(handle, cr, &vieport, &error)) {
+			wsm_log(WSM_ERROR, "Unable to render SVG file: %s, error: %s",
+				file_path, error ? error->message : "unknown error");
+			g_clear_error(&error);
+			cairo_destroy(cr);
+			cairo_surface_destroy(surface);
+			g_object_unref(handle);
+			return NULL;
+		}
 		g_object_unref(handle);
 		cairo_destroy(cr);
+		cairo_surface_flush(surface);
 	} else if (is_target_image(file_path, ".xpm", ".XPM")) {
 		XpmImage image;
 		XpmInfo info;
@@ -327,6 +339,10 @@ cairo_surface_t *create_cairo_surface_frome_file(const char *file_path) {
 	return surface;
 }
 
+cairo_surface_t *create_cairo_surface_frome_file(const char *file_path) {
+	return create_cairo_surface_from_file_at_size(file_path, 0, 0);
+}
+
 struct wlr_texture *create_texture_from_cairo_surface(struct wlr_renderer *renderer, cairo_surface_t *surface) {
 	int width = cairo_image_surface_get_width(surface);
 	int height = cairo_image_surface_get_height(surface);
@@ -369,22 +385,41 @@ void wsm_image_node_load(struct wsm_image_node *node, const char *file_path) {
 
 	free(image_buffer->path);
 	image_buffer->path = new_path;
+	reload_image_buffer(image_buffer);
+}
+
+static bool reload_image_buffer(struct image_buffer *image_buffer) {
+	if (!image_buffer->path) {
+		return false;
+	}
 
 	struct cairo_buffer *buffer = calloc(1, sizeof(struct cairo_buffer));
 	if (!buffer) {
 		wsm_log(WSM_ERROR, "Could not create cairo_buffer: allocation failed!");
-		return;
+		return false;
 	}
 
-	buffer->surface = create_cairo_surface_frome_file(new_path);
+	float scale = image_buffer->scale > 0 ? image_buffer->scale : 1.0f;
+	int requested_width = image_buffer->props.width > 0 ?
+		ceil(image_buffer->props.width * scale) : 0;
+	int requested_height = image_buffer->props.height > 0 ?
+		ceil(image_buffer->props.height * scale) : 0;
+	buffer->surface = create_cairo_surface_from_file_at_size(image_buffer->path,
+		requested_width, requested_height);
 	if (!buffer->surface) {
 		free(buffer);
-		return;
+		return false;
 	}
 
 	image_buffer->buffer = buffer;
 	image_buffer->image_width = cairo_image_surface_get_width(buffer->surface);
 	image_buffer->image_height = cairo_image_surface_get_height(buffer->surface);
+	if (image_buffer->props.width <= 0) {
+		image_buffer->props.width = image_buffer->image_width / scale;
+	}
+	if (image_buffer->props.height <= 0) {
+		image_buffer->props.height = image_buffer->image_height / scale;
+	}
 	cairo_surface_flush(buffer->surface);
 
 	wlr_buffer_init(&buffer->base, &cairo_buffer_impl,
@@ -392,6 +427,13 @@ void wsm_image_node_load(struct wsm_image_node *node, const char *file_path) {
 		cairo_image_surface_get_height(buffer->surface));
 	wlr_scene_buffer_set_buffer(image_buffer->buffer_node, &buffer->base);
 	wlr_buffer_drop(&buffer->base);
+	update_source_box(image_buffer);
+	wlr_scene_buffer_set_dest_size(image_buffer->buffer_node,
+		image_buffer->dest_width > 0 ? image_buffer->dest_width :
+			image_buffer->props.width,
+		image_buffer->dest_height > 0 ? image_buffer->dest_height :
+			image_buffer->props.height);
+	return true;
 }
 
 void wsm_image_node_set_size(struct wsm_image_node *node, int width, int height) {
@@ -401,6 +443,8 @@ void wsm_image_node_set_size(struct wsm_image_node *node, int width, int height)
 		image_buffer->buffer_node->dst_height == height) {
 		return;
 	}
+	image_buffer->dest_width = width;
+	image_buffer->dest_height = height;
 	wlr_scene_buffer_set_dest_size(image_buffer->buffer_node,
 		width, height);
 }
