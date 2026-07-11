@@ -20,6 +20,7 @@
 #include "wsm_transaction.h"
 #include "wsm_workspace.h"
 #include "wsm_output_memory.h"
+#include "wsm_input_memory.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -89,7 +90,8 @@ static void mark_container_dirty(struct wsm_container *con, void *data) {
 	node_set_dirty(&con->node);
 }
 
-static void handle_desktop_theme_change(struct wl_listener *listener, void *data) {
+static void handle_desktop_theme_change(
+	struct wl_listener *listener, void *data) {
 	if (!global_server.scene) {
 		return;
 	}
@@ -100,14 +102,15 @@ static void handle_desktop_theme_change(struct wl_listener *listener, void *data
 
 static int handle_theme_check_timer(void *data) {
 	struct wsm_server *server = data;
-	wsm_desktop_interface_refresh_system_settings(server->desktop_interface);
-	wl_event_source_timer_update(server->theme_check_timer,
-		THEME_CHECK_INTERVAL_MS);
+	wsm_desktop_interface_refresh_system_settings(
+		server->desktop_interface);
+	wl_event_source_timer_update(
+		server->theme_check_timer, THEME_CHECK_INTERVAL_MS);
 	return 0;
 }
 
-static void handle_pointer_constraint_set_region(struct wl_listener *listener,
-		void *data) {
+static void handle_pointer_constraint_set_region(
+	struct wl_listener *listener, void *data) {
 	struct wsm_pointer_constraint *wsm_constraint =
 		wl_container_of(listener, wsm_constraint, set_region);
 	struct wsm_cursor *cursor = wsm_constraint->cursor;
@@ -143,20 +146,25 @@ void handle_pointer_constraint(struct wl_listener *listener, void *data) {
 	struct wsm_pointer_constraint *wsm_constraint =
 		calloc(1, sizeof(struct wsm_pointer_constraint));
 	if (!wsm_constraint) {
-		wsm_log(WSM_ERROR, "Unable to allocate wsm_pointer_constraint: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Unable to allocate wsm_pointer_constraint: allocation "
+			"failed!");
 		return;
 	}
 
 	wsm_constraint->cursor = seat->cursor;
 	wsm_constraint->constraint = constraint;
 
-	wsm_constraint->set_region.notify = handle_pointer_constraint_set_region;
-	wl_signal_add(&constraint->events.set_region, &wsm_constraint->set_region);
+	wsm_constraint->set_region.notify =
+		handle_pointer_constraint_set_region;
+	wl_signal_add(
+		&constraint->events.set_region, &wsm_constraint->set_region);
 
 	wsm_constraint->destroy.notify = handle_constraint_destroy;
 	wl_signal_add(&constraint->events.destroy, &wsm_constraint->destroy);
 
-	struct wlr_surface *surface = seat->seat->keyboard_state.focused_surface;
+	struct wlr_surface *surface =
+		seat->seat->keyboard_state.focused_surface;
 	if (surface && surface == constraint->surface) {
 		wsm_cursor_constrain(seat->cursor, constraint);
 	}
@@ -173,11 +181,13 @@ static void handle_drm_lease_request(struct wl_listener *listener, void *data) {
 }
 #endif
 
-static bool is_privileged(const struct wl_global *global, const struct wsm_server *server) {
+static bool is_privileged(
+	const struct wl_global *global, const struct wsm_server *server) {
 #if WLR_HAS_DRM_BACKEND
 	if (server->drm_lease_manager != NULL) {
 		struct wlr_drm_lease_device_v1 *drm_lease_dev;
-		wl_list_for_each(drm_lease_dev, &server->drm_lease_manager->devices, link) {
+		wl_list_for_each(drm_lease_dev,
+			&server->drm_lease_manager->devices, link) {
 			if (drm_lease_dev->global == global) {
 				return true;
 			}
@@ -189,20 +199,22 @@ static bool is_privileged(const struct wl_global *global, const struct wsm_serve
 }
 
 static bool filter_global(const struct wl_client *client,
-		const struct wl_global *global, void *data) {
+	const struct wl_global *global, void *data) {
 	struct wsm_server *server = data;
 #if HAVE_XWAYLAND
 	if (global_server.xwayland_enabled) {
 		struct wlr_xwayland *xwayland = server->xwayland.xwayland_wlr;
 		if (xwayland && global == xwayland->shell_v1->global) {
-			return xwayland->server != NULL && client == xwayland->server->client;
+			return xwayland->server != NULL &&
+				client == xwayland->server->client;
 		}
 	}
 #endif
 
 	const struct wlr_security_context_v1_state *security_context =
 		wlr_security_context_manager_v1_lookup_client(
-			server->security_context_manager_v1, (struct wl_client *)client);
+			server->security_context_manager_v1,
+			(struct wl_client *)client);
 
 	if (is_privileged(global, server)) {
 		return security_context == NULL;
@@ -226,19 +238,23 @@ static void detect_proprietary(struct wlr_backend *backend, void *data) {
 	bool is_unsupported = false;
 	if (strcmp(version->name, "nvidia-drm") == 0) {
 		is_unsupported = true;
-		wsm_log(WSM_ERROR, "!!! Proprietary Nvidia drivers are in use !!!");
+		wsm_log(WSM_ERROR,
+			"!!! Proprietary Nvidia drivers are in use !!!");
 		wsm_log(WSM_ERROR, "Use drivers Nouveau instead");
 	}
 
 	if (strcmp(version->name, "evdi") == 0) {
 		is_unsupported = true;
-		wsm_log(WSM_ERROR, "!!! Proprietary DisplayLink drivers are in use !!!");
+		wsm_log(WSM_ERROR,
+			"!!! Proprietary DisplayLink drivers are in use !!!");
 	}
 
 	if (is_unsupported) {
 		wsm_log(WSM_ERROR,
-			"Proprietary drivers are NOT supported. To launch wsm anyway, "
-			"launch with --unsupported-gpu and DO NOT report issues.");
+			"Proprietary drivers are NOT supported. To launch wsm "
+			"anyway, "
+			"launch with --unsupported-gpu and DO NOT report "
+			"issues.");
 		exit(EXIT_FAILURE);
 	}
 
@@ -250,8 +266,7 @@ static void detect_proprietary(struct wlr_backend *backend, void *data) {
  * @param server
  * @return successed return true
  */
-bool wsm_server_init(struct wsm_server *server)
-{
+bool wsm_server_init(struct wsm_server *server) {
 	server->desktop_interface = wsm_desktop_interface_create();
 	wsm_config_init();
 
@@ -260,7 +275,8 @@ bool wsm_server_init(struct wsm_server *server)
 
 	wl_display_set_global_filter(server->wl_display, filter_global, server);
 
-	server->backend = wlr_backend_autocreate(server->wl_event_loop, &server->wlr_session);
+	server->backend = wlr_backend_autocreate(
+		server->wl_event_loop, &server->wlr_session);
 	if (server->backend == NULL) {
 		wsm_log(WSM_ERROR, "failed to create wlr_backend");
 		return false;
@@ -276,19 +292,23 @@ bool wsm_server_init(struct wsm_server *server)
 
 	wlr_renderer_init_wl_shm(server->wlr_renderer, server->wl_display);
 
-	if (wlr_renderer_get_texture_formats(server->wlr_renderer, WLR_BUFFER_CAP_DMABUF) != NULL) {
-		server->linux_dmabuf_v1 = wlr_linux_dmabuf_v1_create_with_renderer(
-			server->wl_display, 4, server->wlr_renderer);
+	if (wlr_renderer_get_texture_formats(
+		    server->wlr_renderer, WLR_BUFFER_CAP_DMABUF) != NULL) {
+		server->linux_dmabuf_v1 =
+			wlr_linux_dmabuf_v1_create_with_renderer(
+				server->wl_display, 4, server->wlr_renderer);
 		// wlr_drm_create(server->wl_display, server->wlr_renderer);
 	}
 
-	server->wlr_allocator = wlr_allocator_autocreate(server->backend, server->wlr_renderer);
+	server->wlr_allocator =
+		wlr_allocator_autocreate(server->backend, server->wlr_renderer);
 	if (!server->wlr_allocator) {
 		wsm_log(WSM_ERROR, "Failed to create allocator");
 		return false;
 	}
 
-	server->wlr_compositor = wlr_compositor_create(server->wl_display, 6, server->wlr_renderer);
+	server->wlr_compositor = wlr_compositor_create(
+		server->wl_display, 6, server->wlr_renderer);
 	wlr_subcompositor_create(server->wl_display);
 	server->scene = wsm_scene_create(server);
 	server->icon_theme_change.notify = handle_desktop_theme_change;
@@ -297,23 +317,26 @@ bool wsm_server_init(struct wsm_server *server)
 	server->color_theme_change.notify = handle_desktop_theme_change;
 	wl_signal_add(&server->desktop_interface->events.color_theme_change,
 		&server->color_theme_change);
-	server->theme_check_timer = wl_event_loop_add_timer(server->wl_event_loop,
-		handle_theme_check_timer, server);
+	server->theme_check_timer = wl_event_loop_add_timer(
+		server->wl_event_loop, handle_theme_check_timer, server);
 	if (server->theme_check_timer) {
-		wl_event_source_timer_update(server->theme_check_timer,
-			THEME_CHECK_INTERVAL_MS);
+		wl_event_source_timer_update(
+			server->theme_check_timer, THEME_CHECK_INTERVAL_MS);
 	}
 
 	server->xcursor_manager = wlr_xcursor_manager_create(NULL, 24);
-	server->data_device_manager = wlr_data_device_manager_create(server->wl_display);
+	server->data_device_manager =
+		wlr_data_device_manager_create(server->wl_display);
 	server->output_manager = wsm_output_manager_create(server);
 
 	wsm_idle_inhibit_manager_v1_init();
 
 	server->layer_shell = wsm_layer_shell_create(server);
 	server->xdg_shell = wsm_xdg_shell_create(server);
-	server->idle_notifier_v1 = wlr_idle_notifier_v1_create(server->wl_display);
-	server->server_decoration_manager = wsm_server_decoration_manager_create(server);
+	server->idle_notifier_v1 =
+		wlr_idle_notifier_v1_create(server->wl_display);
+	server->server_decoration_manager =
+		wsm_server_decoration_manager_create(server);
 	server->xdg_decoration_manager = xdg_decoration_manager_create(server);
 	server->wlr_relative_pointer_manager =
 		wlr_relative_pointer_manager_v1_create(server->wl_display);
@@ -324,18 +347,21 @@ bool wsm_server_init(struct wsm_server *server)
 	wl_signal_add(&server->pointer_constraints->events.new_constraint,
 		&server->pointer_constraint);
 
-	server->presentation = wlr_presentation_create(server->wl_display, server->backend);
-	server->input_method = wlr_input_method_manager_v2_create(server->wl_display);
-	server->text_input = wlr_text_input_manager_v3_create(server->wl_display);
-	server->foreign_toplevel_list =
-		wlr_ext_foreign_toplevel_list_v1_create(server->wl_display, WSM_FOREIGN_TOPLEVEL_LIST_VERSION);
+	server->presentation =
+		wlr_presentation_create(server->wl_display, server->backend);
+	server->input_method =
+		wlr_input_method_manager_v2_create(server->wl_display);
+	server->text_input =
+		wlr_text_input_manager_v3_create(server->wl_display);
+	server->foreign_toplevel_list = wlr_ext_foreign_toplevel_list_v1_create(
+		server->wl_display, WSM_FOREIGN_TOPLEVEL_LIST_VERSION);
 	server->foreign_toplevel_manager =
 		wlr_foreign_toplevel_manager_v1_create(server->wl_display);
 
 	wsm_session_lock_init();
 #if WLR_HAS_DRM_BACKEND
-	server->drm_lease_manager=
-		wlr_drm_lease_v1_manager_create(server->wl_display, server->backend);
+	server->drm_lease_manager = wlr_drm_lease_v1_manager_create(
+		server->wl_display, server->backend);
 	if (server->drm_lease_manager) {
 		server->drm_lease_request.notify = handle_drm_lease_request;
 		wl_signal_add(&server->drm_lease_manager->events.request,
@@ -346,13 +372,16 @@ bool wsm_server_init(struct wsm_server *server)
 	}
 #endif
 
-	server->export_dmabuf_manager_v1 = wlr_export_dmabuf_manager_v1_create(server->wl_display);
-	server->screencopy_manager_v1 = wlr_screencopy_manager_v1_create(server->wl_display);
-	server->data_control_manager_v1 = wlr_data_control_manager_v1_create(server->wl_display);
+	server->export_dmabuf_manager_v1 =
+		wlr_export_dmabuf_manager_v1_create(server->wl_display);
+	server->screencopy_manager_v1 =
+		wlr_screencopy_manager_v1_create(server->wl_display);
+	server->data_control_manager_v1 =
+		wlr_data_control_manager_v1_create(server->wl_display);
 	wlr_viewporter_create(server->wl_display);
 	wlr_single_pixel_buffer_manager_v1_create(server->wl_display);
-	wlr_fractional_scale_manager_v1_create(server->wl_display,
-		WSM_WLR_FRACTIONAL_SCALE_V1_VERSION);
+	wlr_fractional_scale_manager_v1_create(
+		server->wl_display, WSM_WLR_FRACTIONAL_SCALE_V1_VERSION);
 	server->content_type_manager_v1 =
 		wlr_content_type_manager_v1_create(server->wl_display, 1);
 
@@ -363,8 +392,10 @@ bool wsm_server_init(struct wsm_server *server)
 
 	char name_candidate[16];
 	for (unsigned int i = 1; i <= 32; ++i) {
-		snprintf(name_candidate, sizeof(name_candidate), "wayland-%u", i);
-		if (wl_display_add_socket(server->wl_display, name_candidate) >= 0) {
+		snprintf(name_candidate, sizeof(name_candidate), "wayland-%u",
+			i);
+		if (wl_display_add_socket(server->wl_display, name_candidate) >=
+			0) {
 			server->socket = strdup(name_candidate);
 			break;
 		}
@@ -376,13 +407,16 @@ bool wsm_server_init(struct wsm_server *server)
 		return false;
 	}
 
-	server->headless_backend = wlr_headless_backend_create(server->wl_event_loop);
+	server->headless_backend =
+		wlr_headless_backend_create(server->wl_event_loop);
 	if (!server->headless_backend) {
-		wsm_log(WSM_ERROR, "Failed to create secondary headless backend");
+		wsm_log(WSM_ERROR,
+			"Failed to create secondary headless backend");
 		wlr_backend_destroy(server->backend);
 		return false;
 	} else {
-		wlr_multi_backend_add(server->backend, server->headless_backend);
+		wlr_multi_backend_add(
+			server->backend, server->headless_backend);
 	}
 
 	struct wlr_output *wlr_output =
@@ -399,8 +433,9 @@ bool wsm_server_init(struct wsm_server *server)
 	input_manager_get_default_seat();
 
 	if (global_config.primary_selection)
-		wlr_primary_selection_v1_device_manager_create(server->wl_display);
-	
+		wlr_primary_selection_v1_device_manager_create(
+			server->wl_display);
+
 	wsm_brightness_control_manager_v1_create(server->wl_display);
 	return true;
 }
@@ -444,4 +479,5 @@ void server_finish(struct wsm_server *server) {
 		server->dirty_nodes = NULL;
 	}
 	wsm_output_memory_finish();
+	wsm_input_memory_finish();
 }

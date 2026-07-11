@@ -98,6 +98,16 @@ static char *output_prefix(const struct wlr_output *output) {
 	return prefix;
 }
 
+char *wsm_output_memory_get_output_id(struct wsm_output *output) {
+	char *prefix = output_prefix(output->wlr_output);
+	if (prefix == NULL) {
+		return NULL;
+	}
+	char *output_id = strdup(prefix + strlen("output."));
+	free(prefix);
+	return output_id;
+}
+
 char *wsm_output_memory_get_primary_output(void) {
 	if (!initialize()) {
 		return NULL;

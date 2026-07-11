@@ -8,11 +8,15 @@
 #include "wsm_input_config.h"
 #include "wsm_input_manager.h"
 #include "wsm_xwayland.h"
+#include "wsm_input_memory.h"
 
 #include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <libinput.h>
+#include <libudev.h>
 
 #include <wlr/config.h>
 #include <wlr/backend/libinput.h>
@@ -44,6 +48,7 @@ static void handle_new_input(struct wl_listener *listener, void *data) {
 
 	input_device->input_device_wlr = device;
 	input_device->identifier = input_device_get_identifier(device);
+	wsm_input_memory_configure(input_device);
 	wl_list_insert(&input_manager->devices, &input_device->link);
 
 	struct wsm_seat *seat = NULL;
@@ -51,59 +56,66 @@ static void handle_new_input(struct wl_listener *listener, void *data) {
 		seat_add_device(seat, input_device);
 	}
 
-	wsm_log(WSM_DEBUG, "adding device: '%s'",
-		input_device->identifier);
+	wsm_log(WSM_DEBUG, "adding device: '%s'", input_device->identifier);
 
 	input_device->device_destroy.notify = handle_device_destroy;
 	wl_signal_add(&device->events.destroy, &input_device->device_destroy);
 }
 
-static void handle_new_virtual_keyboard(struct wl_listener *listener, void *data) {
-
+static void handle_new_virtual_keyboard(
+	struct wl_listener *listener, void *data) {
 }
 
-static void handle_new_virtual_pointer(struct wl_listener *listener, void *data) {
-
+static void handle_new_virtual_pointer(
+	struct wl_listener *listener, void *data) {
 }
 
 static void handle_keyboard_shortcuts_inhibit_new_inhibitor(
 	struct wl_listener *listener, void *data) {
-
 }
 
-
-struct wsm_input_manager *wsm_input_manager_create(const struct wsm_server* server) {
-	struct wsm_input_manager *input_manager = calloc(1, sizeof(struct wsm_input_manager));
+struct wsm_input_manager *wsm_input_manager_create(
+	const struct wsm_server *server) {
+	struct wsm_input_manager *input_manager =
+		calloc(1, sizeof(struct wsm_input_manager));
 	if (!input_manager) {
-		wsm_log(WSM_ERROR, "Could not create wsm_input_manager: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create wsm_input_manager: allocation "
+			"failed!");
 		return NULL;
 	}
 
 	wl_list_init(&input_manager->devices);
 	wl_list_init(&input_manager->seats);
 
-	input_manager->pointer_gestures_wlr = wlr_pointer_gestures_v1_create(server->wl_display);
+	input_manager->pointer_gestures_wlr =
+		wlr_pointer_gestures_v1_create(server->wl_display);
 
 	input_manager->new_input.notify = handle_new_input;
-	wl_signal_add(&server->backend->events.new_input, &input_manager->new_input);
+	wl_signal_add(
+		&server->backend->events.new_input, &input_manager->new_input);
 
 	input_manager->virtual_keyboard_manager_wlr =
 		wlr_virtual_keyboard_manager_v1_create(server->wl_display);
-	input_manager->virtual_keyboard_new.notify = handle_new_virtual_keyboard;
-	wl_signal_add(&input_manager->virtual_keyboard_manager_wlr->events.new_virtual_keyboard,
+	input_manager->virtual_keyboard_new.notify =
+		handle_new_virtual_keyboard;
+	wl_signal_add(&input_manager->virtual_keyboard_manager_wlr->events
+			      .new_virtual_keyboard,
 		&input_manager->virtual_keyboard_new);
 
 	input_manager->virtual_pointer_manager_wlr =
 		wlr_virtual_pointer_manager_v1_create(server->wl_display);
 	input_manager->virtual_pointer_new.notify = handle_new_virtual_pointer;
-	wl_signal_add(&input_manager->virtual_pointer_manager_wlr->events.new_virtual_pointer,
+	wl_signal_add(&input_manager->virtual_pointer_manager_wlr->events
+			      .new_virtual_pointer,
 		&input_manager->virtual_pointer_new);
 
 	input_manager->keyboard_shortcuts_inhibit_wlr =
 		wlr_keyboard_shortcuts_inhibit_v1_create(server->wl_display);
 	input_manager->keyboard_shortcuts_inhibit_new_inhibitor.notify =
 		handle_keyboard_shortcuts_inhibit_new_inhibitor;
-	wl_signal_add(&input_manager->keyboard_shortcuts_inhibit_wlr->events.new_inhibitor,
+	wl_signal_add(&input_manager->keyboard_shortcuts_inhibit_wlr->events
+			      .new_inhibitor,
 		&input_manager->keyboard_shortcuts_inhibit_new_inhibitor);
 
 	return input_manager;
@@ -144,23 +156,51 @@ char *input_device_get_identifier(struct wlr_input_device *device) {
 	int vendor = 0, product = 0;
 #if WLR_HAS_LIBINPUT_BACKEND
 	if (wlr_input_device_is_libinput(device)) {
-		struct libinput_device *libinput_dev = wlr_libinput_get_device_handle(device);
+		struct libinput_device *libinput_dev =
+			wlr_libinput_get_device_handle(device);
 		vendor = libinput_device_get_id_vendor(libinput_dev);
 		product = libinput_device_get_id_product(libinput_dev);
 	}
 #endif
-	char *name = strdup(device->name ? device->name : "");
-	strip_whitespace(name);
-
-	char *p = name;
-	for (; *p; ++p) {
-		if (*p == ' ' || !isprint(*p)) {
-			*p = '_';
+	const char *identity = device->name ? device->name : "unknown";
+#if WLR_HAS_LIBINPUT_BACKEND
+	if (wlr_input_device_is_libinput(device)) {
+		struct libinput_device *libinput =
+			wlr_libinput_get_device_handle(device);
+		struct udev_device *udev =
+			libinput_device_get_udev_device(libinput);
+		const char *serial =
+			udev_device_get_property_value(udev, "ID_SERIAL_SHORT");
+		const char *path =
+			udev_device_get_property_value(udev, "ID_PATH");
+		if (serial != NULL && *serial != '\0') {
+			identity = serial;
+		} else if (path != NULL && *path != '\0') {
+			identity = path;
 		}
 	}
-
-	char *identifier = format_str("%d:%d:%s", vendor, product, name);
-	free(name);
+#endif
+	char *raw = format_str(
+		"%u-%04x-%04x-%s", device->type, vendor, product, identity);
+	if (raw == NULL) {
+		return NULL;
+	}
+	char *identifier = malloc(strlen(raw) * 3 + 1);
+	if (identifier == NULL) {
+		free(raw);
+		return NULL;
+	}
+	char *out = identifier;
+	for (const unsigned char *p = (const unsigned char *)raw; *p; p++) {
+		if (isalnum(*p) || *p == '-') {
+			*out++ = *p;
+		} else {
+			sprintf(out, "_%02X", *p);
+			out += 3;
+		}
+	}
+	*out = '\0';
+	free(raw);
 	return identifier;
 }
 
@@ -175,40 +215,49 @@ void input_manager_configure_xcursor(void) {
 	}
 
 	if (global_server.scene && global_server.scene->outputs &&
-			global_server.scene->outputs->length > 0) {
+		global_server.scene->outputs->length > 0) {
 		for (int i = 0; i < global_server.scene->outputs->length; ++i) {
 			struct wsm_output *output =
 				global_server.scene->outputs->items[i];
-			if (!wlr_xcursor_manager_load(global_server.xcursor_manager,
-					output->wlr_output->scale)) {
-				wsm_log(WSM_ERROR, "Could not load xcursor theme '%s' at scale %f",
-					global_server.xcursor_manager->name ?
-					global_server.xcursor_manager->name : "(default)",
+			if (!wlr_xcursor_manager_load(
+				    global_server.xcursor_manager,
+				    output->wlr_output->scale)) {
+				wsm_log(WSM_ERROR,
+					"Could not load xcursor theme '%s' at "
+					"scale %f",
+					global_server.xcursor_manager->name
+						? global_server.xcursor_manager
+							  ->name
+						: "(default)",
 					output->wlr_output->scale);
 			}
 		}
-	} else if (!wlr_xcursor_manager_load(global_server.xcursor_manager, 1.0f)) {
+	} else if (!wlr_xcursor_manager_load(
+			   global_server.xcursor_manager, 1.0f)) {
 		wsm_log(WSM_ERROR, "Could not load xcursor theme '%s'",
-			global_server.xcursor_manager->name ?
-			global_server.xcursor_manager->name : "(default)");
+			global_server.xcursor_manager->name
+				? global_server.xcursor_manager->name
+				: "(default)");
 	}
 
 #if HAVE_XWAYLAND
 	if (global_server.xwayland.xwayland_wlr) {
-		struct wlr_xcursor *xcursor =
-			wlr_xcursor_manager_get_xcursor(global_server.xcursor_manager,
-				"left_ptr", 1.0f);
+		struct wlr_xcursor *xcursor = wlr_xcursor_manager_get_xcursor(
+			global_server.xcursor_manager, "left_ptr", 1.0f);
 		if (!xcursor) {
 			xcursor = wlr_xcursor_manager_get_xcursor(
 				global_server.xcursor_manager, "default", 1.0f);
 		}
 		if (xcursor && xcursor->image_count > 0) {
 			struct wlr_xcursor_image *image = xcursor->images[0];
-			wlr_xwayland_set_cursor(global_server.xwayland.xwayland_wlr,
+			wlr_xwayland_set_cursor(
+				global_server.xwayland.xwayland_wlr,
 				image->buffer, image->width * 4, image->width,
-				image->height, image->hotspot_x, image->hotspot_y);
+				image->height, image->hotspot_x,
+				image->hotspot_y);
 		} else {
-			wsm_log(WSM_ERROR, "Could not load default XWayland cursor");
+			wsm_log(WSM_ERROR,
+				"Could not load default XWayland cursor");
 		}
 	}
 #endif
@@ -229,9 +278,11 @@ void input_manager_set_focus(struct wsm_node *node) {
 
 void input_manager_configure_all_input_mappings(void) {
 	struct wsm_input_device *input_device;
-	wl_list_for_each(input_device, &global_server.input_manager->devices, link) {
+	wl_list_for_each(
+		input_device, &global_server.input_manager->devices, link) {
 		struct wsm_seat *seat;
-		wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		wl_list_for_each(
+			seat, &global_server.input_manager->seats, link) {
 			seat_configure_device_mapping(seat, input_device);
 		}
 

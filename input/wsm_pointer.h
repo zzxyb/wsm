@@ -2,6 +2,7 @@
 #define WSM_POINTER_H
 
 struct wlr_pointer;
+struct wlr_input_device;
 
 struct wsm_seat;
 struct wsm_seat_device;
@@ -17,6 +18,9 @@ enum wsm_pointer_type {
 	WSM_POINTER_TYPE_JOYSTICK, /**< Joystick pointer type */
 	WSM_POINTER_TYPE_POINTING_STICK, /**< Pointing stick pointer type */
 };
+
+enum wsm_pointer_type wsm_pointer_get_type(
+	struct wlr_input_device *device);
 
 /**
  * @brief Structure representing a pointer in the WSM
