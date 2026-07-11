@@ -10,6 +10,33 @@
 #include <wlr/types/wlr_pointer.h>
 #include <wlr/backend/libinput.h>
 
+enum wsm_pointer_type wsm_pointer_get_type(
+	struct wlr_input_device *device) {
+	if (!wlr_input_device_is_libinput(device)) {
+		return WSM_POINTER_TYPE_UNKNOWN;
+	}
+
+	struct udev_device *udev_device = libinput_device_get_udev_device(
+		wlr_libinput_get_device_handle(device));
+	if (udev_device_get_property_value(udev_device, "ID_INPUT_TOUCHPAD")) {
+		return WSM_POINTER_TYPE_TOUCHPAD;
+	}
+	if (udev_device_get_property_value(udev_device, "ID_INPUT_TRACKBALL")) {
+		return WSM_POINTER_TYPE_TRACKBALL;
+	}
+	if (udev_device_get_property_value(
+			udev_device, "ID_INPUT_POINTINGSTICK")) {
+		return WSM_POINTER_TYPE_POINTING_STICK;
+	}
+	if (udev_device_get_property_value(udev_device, "ID_INPUT_JOYSTICK")) {
+		return WSM_POINTER_TYPE_JOYSTICK;
+	}
+	if (udev_device_get_property_value(udev_device, "ID_INPUT_MOUSE")) {
+		return WSM_POINTER_TYPE_MOUSE;
+	}
+	return WSM_POINTER_TYPE_UNKNOWN;
+}
+
 struct wsm_pointer *wsm_pointer_create(struct wsm_seat *seat,
 	struct wsm_seat_device *device) {
 	struct wsm_pointer *pointer =
@@ -24,23 +51,7 @@ struct wsm_pointer *wsm_pointer_create(struct wsm_seat *seat,
 	pointer->seat_device_wsm = device;
 	device->pointer = pointer;
 	
-	if (wlr_input_device_is_libinput(wlr_device)) {
-		struct udev_device *udev_device = 
-			libinput_device_get_udev_device(wlr_libinput_get_device_handle(wlr_device));
-		if (udev_device_get_property_value(udev_device, "ID_INPUT_MOUSE")) {
-			pointer->pointer_type = WSM_POINTER_TYPE_MOUSE;
-		} else if (udev_device_get_property_value(udev_device, "ID_INPUT_TOUCHPAD")) {
-			pointer->pointer_type = WSM_POINTER_TYPE_TOUCHPAD;
-		} else if (udev_device_get_property_value(udev_device, "ID_INPUT_TRACKBALL")) {
-			pointer->pointer_type = WSM_POINTER_TYPE_TRACKBALL;
-		} else if (udev_device_get_property_value(udev_device, "ID_INPUT_POINTINGSTICK")) {
-			pointer->pointer_type = WSM_POINTER_TYPE_POINTING_STICK;
-		} else if (udev_device_get_property_value(udev_device, "ID_INPUT_JOYSTICK")) {
-			pointer->pointer_type = WSM_POINTER_TYPE_JOYSTICK;
-		} else {
-			pointer->pointer_type = WSM_POINTER_TYPE_UNKNOWN;
-		}
-	}
+	pointer->pointer_type = wsm_pointer_get_type(wlr_device);
 
 	return pointer;
 }

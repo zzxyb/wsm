@@ -19,6 +19,7 @@
 #include "wsm_container.h"
 #include "wsm_keyboard.h"
 #include "wsm_pointer.h"
+#include "wsm_output_memory.h"
 #include "node/wsm_node_descriptor.h"
 
 #include <stdlib.h>
@@ -37,9 +38,28 @@
 #include <wlr/types/wlr_primary_selection.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 
-static void seat_apply_input_mapping(struct wsm_seat *seat,
-	struct wsm_seat_device *device) {
-
+static void seat_apply_input_mapping(
+	struct wsm_seat *seat, struct wsm_seat_device *device) {
+	const char *mapped_id = device->input_device->mapped_output_id;
+	if (mapped_id == NULL || *mapped_id == '\0') {
+		return;
+	}
+	struct wsm_output *output;
+	wl_list_for_each(output, &global_server.scene->all_outputs, link) {
+		if (output == global_server.scene->fallback_output) {
+			continue;
+		}
+		char *output_id = wsm_output_memory_get_output_id(output);
+		bool matches =
+			output_id != NULL && strcmp(output_id, mapped_id) == 0;
+		free(output_id);
+		if (matches) {
+			wlr_cursor_map_input_to_output(seat->cursor->cursor_wlr,
+				device->input_device->input_device_wlr,
+				output->wlr_output);
+			return;
+		}
+	}
 }
 
 static void seat_device_destroy(struct wsm_seat_device *seat_device) {
@@ -58,7 +78,8 @@ static void seat_device_destroy(struct wsm_seat_device *seat_device) {
 		seat_device->pointer = NULL;
 		break;
 	case WLR_INPUT_DEVICE_TOUCH:
-		wlr_cursor_detach_input_device(seat_device->seat->cursor->cursor_wlr,
+		wlr_cursor_detach_input_device(
+			seat_device->seat->cursor->cursor_wlr,
 			seat_device->input_device->input_device_wlr);
 		break;
 	case WLR_INPUT_DEVICE_TABLET:
@@ -97,7 +118,8 @@ static void handle_seat_destroy(struct wl_listener *listener, void *data) {
 		seat_device_destroy(seat_device);
 	}
 	struct wsm_seat_node *seat_node, *next_seat_node;
-	wl_list_for_each_safe(seat_node, next_seat_node, &seat->focus_stack, link) {
+	wl_list_for_each_safe(
+		seat_node, next_seat_node, &seat->focus_stack, link) {
 		seat_node_destroy(seat_node);
 	}
 
@@ -128,10 +150,12 @@ static void seat_send_activate(struct wsm_node *node, struct wsm_seat *seat) {
 	}
 }
 
-static void seat_keyboard_notify_enter(struct wsm_seat *seat, struct wlr_surface *surface) {
+static void seat_keyboard_notify_enter(
+	struct wsm_seat *seat, struct wlr_surface *surface) {
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->seat);
 	if (!keyboard) {
-		wlr_seat_keyboard_notify_enter(seat->seat, surface, NULL, 0, NULL);
+		wlr_seat_keyboard_notify_enter(
+			seat->seat, surface, NULL, 0, NULL);
 		return;
 	}
 
@@ -144,8 +168,8 @@ static void seat_keyboard_notify_enter(struct wsm_seat *seat, struct wlr_surface
 		state->pressed_keycodes, state->npressed, &keyboard->modifiers);
 }
 
-static void seat_tablet_pads_set_focus(struct wsm_seat *seat,
-	struct wlr_surface *surface) {
+static void seat_tablet_pads_set_focus(
+	struct wsm_seat *seat, struct wlr_surface *surface) {
 	struct wsm_seat_device *seat_device;
 	wl_list_for_each(seat_device, &seat->devices, link) {
 		wsm_tablet_pad_set_focus(seat_device->tablet_pad, surface);
@@ -155,24 +179,27 @@ static void seat_tablet_pads_set_focus(struct wsm_seat *seat,
 static void seat_send_focus(struct wsm_node *node, struct wsm_seat *seat) {
 	seat_send_activate(node, seat);
 
-	struct wsm_view *view = node->type == N_CONTAINER ?
-		node->container->view : NULL;
+	struct wsm_view *view =
+		node->type == N_CONTAINER ? node->container->view : NULL;
 
 	if (view) {
 #if HAVE_XWAYLAND
 		if (view->type == WSM_VIEW_XWAYLAND) {
-			struct wlr_xwayland *xwayland = global_server.xwayland.xwayland_wlr;
+			struct wlr_xwayland *xwayland =
+				global_server.xwayland.xwayland_wlr;
 			wlr_xwayland_set_seat(xwayland, seat->seat);
 		}
 #endif
 
 		seat_keyboard_notify_enter(seat, view->surface);
 		seat_tablet_pads_set_focus(seat, view->surface);
-		wsm_input_method_relay_set_focus(&seat->im_relay, view->surface);
+		wsm_input_method_relay_set_focus(
+			&seat->im_relay, view->surface);
 
 		struct wlr_pointer_constraint_v1 *constraint =
 			wlr_pointer_constraints_v1_constraint_for_surface(
-				global_server.pointer_constraints, view->surface, seat->seat);
+				global_server.pointer_constraints,
+				view->surface, seat->seat);
 		wsm_cursor_constrain(seat->cursor, constraint);
 	}
 }
@@ -188,7 +215,8 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 	if (node->type == N_WORKSPACE) {
 		seat_node_destroy(seat_node);
 		if (seat->workspace == node->workspace) {
-			struct wsm_node *node = seat_get_focus_inactive(seat, &global_server.scene->node);
+			struct wsm_node *node = seat_get_focus_inactive(
+				seat, &global_server.scene->node);
 			seat_set_focus(seat, NULL);
 			if (node) {
 				seat_set_focus(seat, node);
@@ -199,8 +227,8 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	bool needs_new_focus = focus &&
-		(focus == node || node_has_ancestor(focus, node));
+	bool needs_new_focus =
+		focus && (focus == node || node_has_ancestor(focus, node));
 
 	seat_node_destroy(seat_node);
 
@@ -211,14 +239,14 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 	struct wsm_node *next_focus = NULL;
 	while (next_focus == NULL && parent != NULL) {
 		struct wsm_container *con =
-				seat_get_focus_inactive_view(seat, parent);
+			seat_get_focus_inactive_view(seat, parent);
 		next_focus = con ? &con->node : NULL;
-		
+
 		if (next_focus == NULL && parent->type == N_WORKSPACE) {
 			next_focus = parent;
 			break;
 		}
-		
+
 		parent = node_get_parent(parent);
 	}
 
@@ -228,7 +256,7 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 			return;
 		}
 		struct wsm_container *con =
-				seat_get_focus_inactive_view(seat, &ws->node);
+			seat_get_focus_inactive_view(seat, &ws->node);
 		next_focus = con ? &(con->node) : &(ws->node);
 	}
 
@@ -248,17 +276,20 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 			seat_set_focus(seat, next_focus);
 		}
 	} else {
-		focus = seat_get_focus_inactive(seat, &global_server.scene->node);
+		focus = seat_get_focus_inactive(
+			seat, &global_server.scene->node);
 		seat_set_raw_focus(seat, next_focus);
-		if (focus->type == N_CONTAINER && focus->container->pending.workspace) {
-			seat_set_raw_focus(seat, &focus->container->pending.workspace->node);
+		if (focus->type == N_CONTAINER &&
+			focus->container->pending.workspace) {
+			seat_set_raw_focus(seat,
+				&focus->container->pending.workspace->node);
 		}
 		seat_set_raw_focus(seat, focus);
 	}
 }
 
 static struct wsm_seat_node *seat_node_from_node(
-		struct wsm_seat *seat, struct wsm_node *node) {
+	struct wsm_seat *seat, struct wsm_node *node) {
 	if (node->type == N_ROOT || node->type == N_OUTPUT) {
 		return NULL;
 	}
@@ -272,7 +303,8 @@ static struct wsm_seat_node *seat_node_from_node(
 
 	seat_node = calloc(1, sizeof(struct wsm_seat_node));
 	if (!seat_node) {
-		wsm_log(WSM_ERROR, "Could not create wsm_seat_node: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create wsm_seat_node: allocation failed!");
 		return NULL;
 	}
 
@@ -291,26 +323,31 @@ static void handle_new_node(struct wl_listener *listener, void *data) {
 	seat_node_from_node(seat, node);
 }
 
-static void handle_request_start_drag(struct wl_listener *listener, void *data) {
-	struct wsm_seat *seat = wl_container_of(listener, seat, request_start_drag);
+static void handle_request_start_drag(
+	struct wl_listener *listener, void *data) {
+	struct wsm_seat *seat =
+		wl_container_of(listener, seat, request_start_drag);
 	struct wlr_seat_request_start_drag_event *event = data;
 
-	if (wlr_seat_validate_pointer_grab_serial(seat->seat,
-			event->origin, event->serial)) {
-		wlr_seat_start_pointer_drag(seat->seat, event->drag, event->serial);
+	if (wlr_seat_validate_pointer_grab_serial(
+		    seat->seat, event->origin, event->serial)) {
+		wlr_seat_start_pointer_drag(
+			seat->seat, event->drag, event->serial);
 		return;
 	}
 
 	struct wlr_touch_point *point;
-	if (wlr_seat_validate_touch_grab_serial(seat->seat,
-			event->origin, event->serial, &point)) {
-		wlr_seat_start_touch_drag(seat->seat,
-			event->drag, event->serial, point);
+	if (wlr_seat_validate_touch_grab_serial(
+		    seat->seat, event->origin, event->serial, &point)) {
+		wlr_seat_start_touch_drag(
+			seat->seat, event->drag, event->serial, point);
 		return;
 	}
 
-	wsm_log(WSM_DEBUG, "Ignoring start_drag request: "
-		"could not validate pointer or touch serial %" PRIu32, event->serial);
+	wsm_log(WSM_DEBUG,
+		"Ignoring start_drag request: "
+		"could not validate pointer or touch serial %" PRIu32,
+		event->serial);
 	wlr_data_source_destroy(event->drag->source);
 }
 
@@ -326,18 +363,21 @@ static void handle_start_drag(struct wl_listener *listener, void *data) {
 	seatop_begin_default(seat);
 }
 
-static void handle_request_set_selection(struct wl_listener *listener, void *data) {
+static void handle_request_set_selection(
+	struct wl_listener *listener, void *data) {
 	struct wsm_seat *seat =
 		wl_container_of(listener, seat, request_set_selection);
 	struct wlr_seat_request_set_selection_event *event = data;
 	wlr_seat_set_selection(seat->seat, event->source, event->serial);
 }
 
-static void handle_request_set_primary_selection(struct wl_listener *listener, void *data) {
+static void handle_request_set_primary_selection(
+	struct wl_listener *listener, void *data) {
 	struct wsm_seat *seat =
 		wl_container_of(listener, seat, request_set_primary_selection);
 	struct wlr_seat_request_set_primary_selection_event *event = data;
-	wlr_seat_set_primary_selection(seat->seat, event->source, event->serial);
+	wlr_seat_set_primary_selection(
+		seat->seat, event->source, event->serial);
 }
 
 static void collect_focus_iter(struct wsm_node *node, void *data) {
@@ -350,23 +390,27 @@ static void collect_focus_iter(struct wsm_node *node, void *data) {
 	wl_list_insert(&seat->focus_stack, &seat_node->link);
 }
 
-static void collect_focus_workspace_iter(struct wsm_workspace *workspace, void *data) {
+static void collect_focus_workspace_iter(
+	struct wsm_workspace *workspace, void *data) {
 	collect_focus_iter(&workspace->node, data);
 }
 
-static void collect_focus_container_iter(struct wsm_container *container, void *data) {
+static void collect_focus_container_iter(
+	struct wsm_container *container, void *data) {
 	collect_focus_iter(&container->node, data);
 }
 
 struct wsm_seat *seat_create(const char *seat_name) {
 	struct wsm_seat *seat = calloc(1, sizeof(struct wsm_seat));
 	if (!seat) {
-		wsm_log(WSM_ERROR, "Could not create wsm_seat: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create wsm_seat: allocation failed!");
 		return NULL;
 	}
 
 	bool failed = false;
-	seat->scene_tree = alloc_scene_tree(global_server.scene->layers.seat, &failed);
+	seat->scene_tree =
+		alloc_scene_tree(global_server.scene->layers.seat, &failed);
 	seat->drag_icons = alloc_scene_tree(seat->scene_tree, &failed);
 
 	if (failed) {
@@ -394,11 +438,8 @@ struct wsm_seat *seat_create(const char *seat_name) {
 	seat->destroy.notify = handle_seat_destroy;
 	wl_signal_add(&seat->seat->events.destroy, &seat->destroy);
 	seat->idle_inhibit_sources = seat->idle_wake_sources =
-		IDLE_SOURCE_KEYBOARD |
-		IDLE_SOURCE_POINTER |
-		IDLE_SOURCE_TOUCH |
-		IDLE_SOURCE_TABLET_PAD |
-		IDLE_SOURCE_TABLET_TOOL |
+		IDLE_SOURCE_KEYBOARD | IDLE_SOURCE_POINTER | IDLE_SOURCE_TOUCH |
+		IDLE_SOURCE_TABLET_PAD | IDLE_SOURCE_TABLET_TOOL |
 		IDLE_SOURCE_SWITCH;
 
 	wl_list_init(&seat->focus_stack);
@@ -438,8 +479,8 @@ struct wsm_seat *seat_create(const char *seat_name) {
 
 	if (!first) {
 		struct wsm_seat *current_seat = input_manager_current_seat();
-		struct wsm_node *current_focus =
-			seat_get_focus_inactive(current_seat, &global_server.scene->node);
+		struct wsm_node *current_focus = seat_get_focus_inactive(
+			current_seat, &global_server.scene->node);
 		seat_set_focus(seat, current_focus);
 	}
 
@@ -448,8 +489,8 @@ struct wsm_seat *seat_create(const char *seat_name) {
 	return seat;
 }
 
-static struct wsm_seat_device *seat_get_device(struct wsm_seat *seat,
-		struct wsm_input_device *input_device) {
+static struct wsm_seat_device *seat_get_device(
+	struct wsm_seat *seat, struct wsm_input_device *input_device) {
 	struct wsm_seat_device *seat_device = NULL;
 	wl_list_for_each(seat_device, &seat->devices, link) {
 		if (seat_device->input_device == input_device) {
@@ -502,12 +543,14 @@ static void seat_update_capabilities(struct wsm_seat *seat) {
 	}
 }
 
-void seat_remove_device(struct wsm_seat *seat,
-		struct wsm_input_device *input_device) {
-	struct wsm_seat_device *seat_device = seat_get_device(seat, input_device);
+void seat_remove_device(
+	struct wsm_seat *seat, struct wsm_input_device *input_device) {
+	struct wsm_seat_device *seat_device =
+		seat_get_device(seat, input_device);
 
 	if (!seat_device) {
-		wsm_log(WSM_ERROR, "wsm_seat_device is NULL in seat_remove_device!");
+		wsm_log(WSM_ERROR,
+			"wsm_seat_device is NULL in seat_remove_device!");
 		return;
 	}
 
@@ -518,73 +561,74 @@ void seat_remove_device(struct wsm_seat *seat,
 	seat_update_capabilities(seat);
 }
 
-void seat_idle_notify_activity(struct wsm_seat *seat,
-		enum wlr_input_device_type source) {
+void seat_idle_notify_activity(
+	struct wsm_seat *seat, enum wlr_input_device_type source) {
 	if ((source & seat->idle_inhibit_sources) == 0) {
 		return;
 	}
-	wlr_idle_notifier_v1_notify_activity(global_server.idle_notifier_v1, seat->seat);
+	wlr_idle_notifier_v1_notify_activity(
+		global_server.idle_notifier_v1, seat->seat);
 }
 
-void seatop_tablet_tool_tip(struct wsm_seat *seat,
-		struct wsm_tablet_tool *tool, uint32_t time_msec,
-		enum wlr_tablet_tool_tip_state state) {
+void seatop_tablet_tool_tip(struct wsm_seat *seat, struct wsm_tablet_tool *tool,
+	uint32_t time_msec, enum wlr_tablet_tool_tip_state state) {
 	if (seat->seatop_impl->tablet_tool_tip) {
-		seat->seatop_impl->tablet_tool_tip(seat, tool, time_msec, state);
+		seat->seatop_impl->tablet_tool_tip(
+			seat, tool, time_msec, state);
 	}
 }
 
-void seatop_hold_begin(struct wsm_seat *seat,
-		struct wlr_pointer_hold_begin_event *event) {
+void seatop_hold_begin(
+	struct wsm_seat *seat, struct wlr_pointer_hold_begin_event *event) {
 	if (seat->seatop_impl->hold_begin) {
 		seat->seatop_impl->hold_begin(seat, event);
 	}
 }
 
-void seatop_hold_end(struct wsm_seat *seat,
-		struct wlr_pointer_hold_end_event *event) {
+void seatop_hold_end(
+	struct wsm_seat *seat, struct wlr_pointer_hold_end_event *event) {
 	if (seat->seatop_impl->hold_end) {
 		seat->seatop_impl->hold_end(seat, event);
 	}
 }
 
-void seatop_pinch_begin(struct wsm_seat *seat,
-		struct wlr_pointer_pinch_begin_event *event) {
+void seatop_pinch_begin(
+	struct wsm_seat *seat, struct wlr_pointer_pinch_begin_event *event) {
 	if (seat->seatop_impl->pinch_begin) {
 		seat->seatop_impl->pinch_begin(seat, event);
 	}
 }
 
-void seatop_pinch_update(struct wsm_seat *seat,
-		struct wlr_pointer_pinch_update_event *event) {
+void seatop_pinch_update(
+	struct wsm_seat *seat, struct wlr_pointer_pinch_update_event *event) {
 	if (seat->seatop_impl->pinch_update) {
 		seat->seatop_impl->pinch_update(seat, event);
 	}
 }
 
-void seatop_pinch_end(struct wsm_seat *seat,
-		struct wlr_pointer_pinch_end_event *event) {
+void seatop_pinch_end(
+	struct wsm_seat *seat, struct wlr_pointer_pinch_end_event *event) {
 	if (seat->seatop_impl->pinch_end) {
 		seat->seatop_impl->pinch_end(seat, event);
 	}
 }
 
-void seatop_swipe_begin(struct wsm_seat *seat,
-		struct wlr_pointer_swipe_begin_event *event) {
+void seatop_swipe_begin(
+	struct wsm_seat *seat, struct wlr_pointer_swipe_begin_event *event) {
 	if (seat->seatop_impl->swipe_begin) {
 		seat->seatop_impl->swipe_begin(seat, event);
 	}
 }
 
-void seatop_swipe_update(struct wsm_seat *seat,
-		struct wlr_pointer_swipe_update_event *event) {
+void seatop_swipe_update(
+	struct wsm_seat *seat, struct wlr_pointer_swipe_update_event *event) {
 	if (seat->seatop_impl->swipe_update) {
 		seat->seatop_impl->swipe_update(seat, event);
 	}
 }
 
-void seatop_swipe_end(struct wsm_seat *seat,
-		struct wlr_pointer_swipe_end_event *event) {
+void seatop_swipe_end(
+	struct wsm_seat *seat, struct wlr_pointer_swipe_end_event *event) {
 	if (seat->seatop_impl->swipe_end) {
 		seat->seatop_impl->swipe_end(seat, event);
 	}
@@ -596,23 +640,24 @@ void seatop_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 	}
 }
 
-void seatop_pointer_axis(struct wsm_seat *seat,
-		struct wlr_pointer_axis_event *event) {
+void seatop_pointer_axis(
+	struct wsm_seat *seat, struct wlr_pointer_axis_event *event) {
 	if (seat->seatop_impl->pointer_axis) {
 		seat->seatop_impl->pointer_axis(seat, event);
 	}
 }
 
 void seatop_button(struct wsm_seat *seat, uint32_t time_msec,
-		struct wlr_input_device *device, uint32_t button,
+	struct wlr_input_device *device, uint32_t button,
 	enum wl_pointer_button_state state) {
 	if (seat->seatop_impl->button) {
-		seat->seatop_impl->button(seat, time_msec, device, button, state);
+		seat->seatop_impl->button(
+			seat, time_msec, device, button, state);
 	}
 }
 
-void seatop_touch_motion(struct wsm_seat *seat, struct wlr_touch_motion_event *event,
-		double lx, double ly) {
+void seatop_touch_motion(struct wsm_seat *seat,
+	struct wlr_touch_motion_event *event, double lx, double ly) {
 	if (seat->seatop_impl->touch_motion) {
 		seat->seatop_impl->touch_motion(seat, event, lx, ly);
 	}
@@ -624,14 +669,15 @@ void seatop_touch_up(struct wsm_seat *seat, struct wlr_touch_up_event *event) {
 	}
 }
 
-void seatop_touch_down(struct wsm_seat *seat, struct wlr_touch_down_event *event,
-		double lx, double ly) {
+void seatop_touch_down(struct wsm_seat *seat,
+	struct wlr_touch_down_event *event, double lx, double ly) {
 	if (seat->seatop_impl->touch_down) {
 		seat->seatop_impl->touch_down(seat, event, lx, ly);
 	}
 }
 
-void seatop_touch_cancel(struct wsm_seat *seat, struct wlr_touch_cancel_event *event) {
+void seatop_touch_cancel(
+	struct wsm_seat *seat, struct wlr_touch_cancel_event *event) {
 	if (seat->seatop_impl->touch_cancel) {
 		seat->seatop_impl->touch_cancel(seat, event);
 	}
@@ -656,7 +702,7 @@ void seatop_end(struct wsm_seat *seat) {
 }
 
 void seatop_tablet_tool_motion(struct wsm_seat *seat,
-		struct wsm_tablet_tool *tool, uint32_t time_msec) {
+	struct wsm_tablet_tool *tool, uint32_t time_msec) {
 	if (seat->seatop_impl->tablet_tool_motion) {
 		seat->seatop_impl->tablet_tool_motion(seat, tool, time_msec);
 	} else {
@@ -668,8 +714,8 @@ bool seatop_allows_set_cursor(struct wsm_seat *seat) {
 	return seat->seatop_impl->allow_set_cursor;
 }
 
-void seat_add_device(struct wsm_seat *seat,
-		struct wsm_input_device *input_device) {
+void seat_add_device(
+	struct wsm_seat *seat, struct wsm_input_device *input_device) {
 	if (seat_get_device(seat, input_device)) {
 		wsm_log(WSM_ERROR, "device %s already exists in seat %s",
 			input_device->identifier, seat->seat->name);
@@ -679,7 +725,8 @@ void seat_add_device(struct wsm_seat *seat,
 	struct wsm_seat_device *seat_device =
 		calloc(1, sizeof(struct wsm_seat_device));
 	if (!seat_device) {
-		wsm_log(WSM_ERROR, "Could not create wsm_seat_device: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create wsm_seat_device: allocation failed!");
 		return;
 	}
 
@@ -694,8 +741,8 @@ void seat_add_device(struct wsm_seat *seat,
 	seat_update_capabilities(seat);
 }
 
-static void seat_configure_pointer(struct wsm_seat *seat,
-		struct wsm_seat_device *seat_device) {
+static void seat_configure_pointer(
+	struct wsm_seat *seat, struct wsm_seat_device *seat_device) {
 	if (!seat_device->pointer) {
 		wsm_pointer_create(seat, seat_device);
 	}
@@ -704,43 +751,45 @@ static void seat_configure_pointer(struct wsm_seat *seat,
 		seat_device->input_device->input_device_wlr);
 }
 
-static void seat_configure_keyboard(struct wsm_seat *seat,
-		struct wsm_seat_device *seat_device) {
+static void seat_configure_keyboard(
+	struct wsm_seat *seat, struct wsm_seat_device *seat_device) {
 	if (!seat_device->keyboard) {
 		wsm_keyboard_create(seat, seat_device);
 	}
 	wsm_keyboard_configure(seat_device->keyboard);
 
-	struct wlr_keyboard *wlr_keyboard =
-		wlr_keyboard_from_input_device(seat_device->input_device->input_device_wlr);
-	struct wlr_keyboard *current_keyboard = seat->seat->keyboard_state.keyboard;
+	struct wlr_keyboard *wlr_keyboard = wlr_keyboard_from_input_device(
+		seat_device->input_device->input_device_wlr);
+	struct wlr_keyboard *current_keyboard =
+		seat->seat->keyboard_state.keyboard;
 	if (wlr_keyboard != current_keyboard) {
 		return;
 	}
 
-	struct wlr_surface *surface = seat->seat->keyboard_state.focused_surface;
+	struct wlr_surface *surface =
+		seat->seat->keyboard_state.focused_surface;
 	if (surface) {
 		wlr_seat_keyboard_notify_clear_focus(seat->seat);
 		seat_keyboard_notify_enter(seat, surface);
 	}
 }
 
-static void seat_configure_switch(struct wsm_seat *seat,
-		struct wsm_seat_device *seat_device) {
+static void seat_configure_switch(
+	struct wsm_seat *seat, struct wsm_seat_device *seat_device) {
 	if (!seat_device->_switch) {
 		wsm_switch_create(seat, seat_device);
 	}
 	wsm_switch_configure(seat_device->_switch);
 }
 
-static void seat_configure_touch(struct wsm_seat *seat,
-		struct wsm_seat_device *wsm_device) {
+static void seat_configure_touch(
+	struct wsm_seat *seat, struct wsm_seat_device *wsm_device) {
 	wlr_cursor_attach_input_device(seat->cursor->cursor_wlr,
 		wsm_device->input_device->input_device_wlr);
 }
 
-static void seat_configure_tablet_tool(struct wsm_seat *seat,
-		struct wsm_seat_device *wsm_device) {
+static void seat_configure_tablet_tool(
+	struct wsm_seat *seat, struct wsm_seat_device *wsm_device) {
 	if (!wsm_device->tablet) {
 		wsm_tablet_create(seat, wsm_device);
 	}
@@ -749,15 +798,16 @@ static void seat_configure_tablet_tool(struct wsm_seat *seat,
 		wsm_device->input_device->input_device_wlr);
 }
 
-static void seat_configure_tablet_pad(struct wsm_seat *seat,
-		struct wsm_seat_device *wsm_device) {
+static void seat_configure_tablet_pad(
+	struct wsm_seat *seat, struct wsm_seat_device *wsm_device) {
 	if (!wsm_device->tablet_pad) {
 		wsm_tablet_pad_create(seat, wsm_device);
 	}
 	wsm_configure_tablet_pad(wsm_device->tablet_pad);
 }
 
-void seat_configure_device(struct wsm_seat *seat, struct wsm_input_device *device) {
+void seat_configure_device(
+	struct wsm_seat *seat, struct wsm_input_device *device) {
 	struct wsm_seat_device *seat_device = seat_get_device(seat, device);
 	if (!seat_device) {
 		wsm_log(WSM_ERROR, "seat_get_device is NULL!");
@@ -796,15 +846,16 @@ static void seat_send_unfocus(struct wsm_node *node, struct wsm_seat *seat) {
 	wsm_cursor_constrain(seat->cursor, NULL);
 	wlr_seat_keyboard_notify_clear_focus(seat->seat);
 	if (node->type == N_WORKSPACE) {
-		workspace_for_each_container(node->workspace, send_unfocus, seat);
+		workspace_for_each_container(
+			node->workspace, send_unfocus, seat);
 	} else {
 		send_unfocus(node->container, seat);
 		container_for_each_child(node->container, send_unfocus, seat);
 	}
 }
 
-void seat_set_focus_surface(struct wsm_seat *seat,
-		struct wlr_surface *surface, bool unfocus) {
+void seat_set_focus_surface(
+	struct wsm_seat *seat, struct wlr_surface *surface, bool unfocus) {
 	if (seat->has_focus && unfocus) {
 		struct wsm_node *focus = seat_get_focus(seat);
 		seat_send_unfocus(focus, seat);
@@ -821,8 +872,8 @@ void seat_set_focus_surface(struct wsm_seat *seat,
 	seat_tablet_pads_set_focus(seat, surface);
 }
 
-void seat_set_focus_layer(struct wsm_seat *seat,
-		struct wlr_layer_surface_v1 *layer) {
+void seat_set_focus_layer(
+	struct wsm_seat *seat, struct wlr_layer_surface_v1 *layer) {
 	if (!layer && seat->focused_layer_wlr) {
 		return;
 	} else if (!layer) {
@@ -830,8 +881,8 @@ void seat_set_focus_layer(struct wsm_seat *seat,
 	}
 	assert(layer->surface->mapped);
 	if (layer->current.layer >= ZWLR_LAYER_SHELL_V1_LAYER_TOP &&
-			layer->current.keyboard_interactive
-			== ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE) {
+		layer->current.keyboard_interactive ==
+			ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE) {
 		seat->has_exclusive_layer = true;
 	}
 	if (seat->focused_layer_wlr == layer) {
@@ -842,9 +893,9 @@ void seat_set_focus_layer(struct wsm_seat *seat,
 }
 
 void seat_pointer_notify_button(struct wsm_seat *seat, uint32_t time_msec,
-		uint32_t button, enum wl_pointer_button_state state) {
-	seat->last_button_serial = wlr_seat_pointer_notify_button(seat->seat,
-		time_msec, button, state);
+	uint32_t button, enum wl_pointer_button_state state) {
+	seat->last_button_serial = wlr_seat_pointer_notify_button(
+		seat->seat, time_msec, button, state);
 }
 
 void seat_set_focus_workspace(struct wsm_seat *seat, struct wsm_workspace *ws) {
@@ -860,14 +911,16 @@ static void set_workspace(struct wsm_seat *seat, struct wsm_workspace *new_ws) {
 		free(seat->prev_workspace_name);
 		seat->prev_workspace_name = strdup(seat->workspace->name);
 		if (!seat->prev_workspace_name) {
-			wsm_log(WSM_ERROR, "Unable to allocate previous workspace name");
+			wsm_log(WSM_ERROR,
+				"Unable to allocate previous workspace name");
 		}
 	}
 
 	seat->workspace = new_ws;
 }
 
-static void seat_set_workspace_focus(struct wsm_seat *seat, struct wsm_node *node) {
+static void seat_set_workspace_focus(
+	struct wsm_seat *seat, struct wsm_node *node) {
 	struct wsm_node *last_focus = seat_get_focus(seat);
 	if (last_focus == node) {
 		return;
@@ -885,16 +938,19 @@ static void seat_set_workspace_focus(struct wsm_seat *seat, struct wsm_node *nod
 		return;
 	}
 
-	struct wsm_workspace *new_workspace = node->type == N_WORKSPACE ?
-		node->workspace : node->container->pending.workspace;
-	struct wsm_container *container = node->type == N_CONTAINER ?
-		node->container : NULL;
+	struct wsm_workspace *new_workspace = node->type == N_WORKSPACE
+		? node->workspace
+		: node->container->pending.workspace;
+	struct wsm_container *container =
+		node->type == N_CONTAINER ? node->container : NULL;
 
-	if (container && container_obstructing_fullscreen_container(container)) {
+	if (container &&
+		container_obstructing_fullscreen_container(container)) {
 		return;
 	}
 
-	if (global_server.scene->fullscreen_global && !container && new_workspace) {
+	if (global_server.scene->fullscreen_global && !container &&
+		new_workspace) {
 		return;
 	}
 
@@ -933,11 +989,11 @@ static void seat_set_workspace_focus(struct wsm_seat *seat, struct wsm_node *nod
 	}
 
 	set_workspace(seat, new_workspace);
-	if (new_workspace && new_output_last_ws
-		&& new_workspace != new_output_last_ws) {
+	if (new_workspace && new_output_last_ws &&
+		new_workspace != new_output_last_ws) {
 		for (int i = 0; i < new_output_last_ws->floating->length; ++i) {
 			struct wsm_container *floater =
-					new_output_last_ws->floating->items[i];
+				new_output_last_ws->floating->items[i];
 			if (container_is_sticky(floater)) {
 				container_detach(floater);
 				workspace_add_floating(new_workspace, floater);
@@ -1000,7 +1056,8 @@ struct wsm_node *seat_get_focus(struct wsm_seat *seat) {
 }
 
 struct wsm_workspace *seat_get_focused_workspace(struct wsm_seat *seat) {
-	struct wsm_node *focus = seat_get_focus_inactive(seat, &global_server.scene->node);
+	struct wsm_node *focus =
+		seat_get_focus_inactive(seat, &global_server.scene->node);
 	if (!focus) {
 		return NULL;
 	}
@@ -1013,7 +1070,8 @@ struct wsm_workspace *seat_get_focused_workspace(struct wsm_seat *seat) {
 	return NULL;
 }
 
-struct wsm_node *seat_get_focus_inactive(struct wsm_seat *seat, struct wsm_node *node) {
+struct wsm_node *seat_get_focus_inactive(
+	struct wsm_seat *seat, struct wsm_node *node) {
 	if (node_is_view(node)) {
 		return node;
 	}
@@ -1029,8 +1087,8 @@ struct wsm_node *seat_get_focus_inactive(struct wsm_seat *seat, struct wsm_node 
 	return NULL;
 }
 
-struct wsm_container *seat_get_focus_inactive_view(struct wsm_seat *seat,
-	struct wsm_node *ancestor) {
+struct wsm_container *seat_get_focus_inactive_view(
+	struct wsm_seat *seat, struct wsm_node *ancestor) {
 	if (node_is_view(ancestor)) {
 		return ancestor->container;
 	}
@@ -1058,8 +1116,8 @@ struct wsm_workspace *seat_get_last_known_workspace(struct wsm_seat *seat) {
 	return NULL;
 }
 
-struct wsm_node *seat_get_active_tiling_child(struct wsm_seat *seat,
-	struct wsm_node *parent) {
+struct wsm_node *seat_get_active_tiling_child(
+	struct wsm_seat *seat, struct wsm_node *parent) {
 	if (node_is_view(parent)) {
 		return parent;
 	}
@@ -1093,7 +1151,6 @@ void seat_set_raw_focus(struct wsm_seat *seat, struct wsm_node *node) {
 }
 
 void seat_configure_xcursor(struct wsm_seat *seat) {
-	
 }
 
 struct wsm_container *seat_get_focused_container(struct wsm_seat *seat) {
@@ -1104,8 +1161,8 @@ struct wsm_container *seat_get_focused_container(struct wsm_seat *seat) {
 	return NULL;
 }
 
-void seat_set_focus_container(struct wsm_seat *seat,
-		struct wsm_container *con) {
+void seat_set_focus_container(
+	struct wsm_seat *seat, struct wsm_container *con) {
 	seat_set_focus(seat, con ? &con->node : NULL);
 }
 
@@ -1128,8 +1185,8 @@ void seat_consider_warp_to_focus(struct wsm_seat *seat) {
 	}
 }
 
-struct wsm_container *seat_get_focus_inactive_tiling(struct wsm_seat *seat,
-		struct wsm_workspace *workspace) {
+struct wsm_container *seat_get_focus_inactive_tiling(
+	struct wsm_seat *seat, struct wsm_workspace *workspace) {
 	if (!workspace->tiling->length) {
 		return NULL;
 	}
@@ -1145,29 +1202,34 @@ struct wsm_container *seat_get_focus_inactive_tiling(struct wsm_seat *seat,
 	return NULL;
 }
 
-bool seat_is_input_allowed(struct wsm_seat *seat,
-		struct wlr_surface *surface) {
+bool seat_is_input_allowed(struct wsm_seat *seat, struct wlr_surface *surface) {
 	if (global_server.session_lock.lock) {
-		return wsm_session_lock_has_surface(global_server.session_lock.lock, surface);
+		return wsm_session_lock_has_surface(
+			global_server.session_lock.lock, surface);
 	}
 	return true;
 }
 
-void seat_unfocus_unless_client(struct wsm_seat *seat, struct wl_client *client) {
+void seat_unfocus_unless_client(
+	struct wsm_seat *seat, struct wl_client *client) {
 	if (seat->focused_layer_wlr) {
-		if (wl_resource_get_client(seat->focused_layer_wlr->resource) != client) {
+		if (wl_resource_get_client(seat->focused_layer_wlr->resource) !=
+			client) {
 			seat_set_focus_layer(seat, NULL);
 		}
 	}
 	if (seat->has_focus) {
 		struct wsm_node *focus = seat_get_focus(seat);
-		if (node_is_view(focus) && wl_resource_get_client(
-					focus->container->view->surface->resource) != client) {
+		if (node_is_view(focus) &&
+			wl_resource_get_client(
+				focus->container->view->surface->resource) !=
+				client) {
 			seat_set_focus(seat, NULL);
 		}
 	}
 	if (seat->seat->pointer_state.focused_client) {
-		if (seat->seat->pointer_state.focused_client->client != client) {
+		if (seat->seat->pointer_state.focused_client->client !=
+			client) {
 			wlr_seat_pointer_notify_clear_focus(seat->seat);
 		}
 	}
@@ -1182,9 +1244,10 @@ void seat_unfocus_unless_client(struct wsm_seat *seat, struct wl_client *client)
 	}
 }
 
-void seat_configure_device_mapping(struct wsm_seat *seat,
-		struct wsm_input_device *input_device) {
-	struct wsm_seat_device *seat_device = seat_get_device(seat, input_device);
+void seat_configure_device_mapping(
+	struct wsm_seat *seat, struct wsm_input_device *input_device) {
+	struct wsm_seat_device *seat_device =
+		seat_get_device(seat, input_device);
 	if (!seat_device) {
 		return;
 	}

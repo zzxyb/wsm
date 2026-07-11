@@ -20,23 +20,23 @@
 
 struct seatop_touch_point_event {
 	struct wl_list link;
-	double ref_lx, ref_ly;         // touch's x/y at start of op
+	double ref_lx, ref_ly;	       // touch's x/y at start of op
 	double ref_con_lx, ref_con_ly; // container's x/y at start of op
 	int32_t touch_id;
 };
 
 struct seatop_down_event {
 	struct wl_listener surface_destroy;
-	struct wl_list point_events;   // seatop_touch_point_event::link
+	struct wl_list point_events; // seatop_touch_point_event::link
 	struct wsm_container *container;
 	struct wsm_seat *seat_wsm;
 	struct wlr_surface *surface;
-	double ref_lx, ref_ly;         // cursor's x/y at start of op
+	double ref_lx, ref_ly;	       // cursor's x/y at start of op
 	double ref_con_lx, ref_con_ly; // container's x/y at start of op
 };
 
 static void handle_touch_motion(struct wsm_seat *seat,
-		struct wlr_touch_motion_event *event, double lx, double ly) {
+	struct wlr_touch_motion_event *event, double lx, double ly) {
 	struct seatop_down_event *e = seat->seatop_data;
 
 	struct seatop_touch_point_event *point_event;
@@ -56,12 +56,12 @@ static void handle_touch_motion(struct wsm_seat *seat,
 	double sx = point_event->ref_con_lx + moved_x;
 	double sy = point_event->ref_con_ly + moved_y;
 
-	wlr_seat_touch_notify_motion(seat->seat, event->time_msec,
-		event->touch_id, sx, sy);
+	wlr_seat_touch_notify_motion(
+		seat->seat, event->time_msec, event->touch_id, sx, sy);
 }
 
-static void handle_touch_up(struct wsm_seat *seat,
-		struct wlr_touch_up_event *event) {
+static void handle_touch_up(
+	struct wsm_seat *seat, struct wlr_touch_up_event *event) {
 	struct seatop_down_event *e = seat->seatop_data;
 	struct seatop_touch_point_event *point_event, *tmp;
 
@@ -81,21 +81,24 @@ static void handle_touch_up(struct wsm_seat *seat,
 }
 
 static void handle_touch_down(struct wsm_seat *seat,
-		struct wlr_touch_down_event *event, double lx, double ly) {
+	struct wlr_touch_down_event *event, double lx, double ly) {
 	struct seatop_down_event *e = seat->seatop_data;
 	double sx, sy;
 	struct wlr_surface *surface = NULL;
-	struct wsm_node *focused_node = node_at_coords(seat, seat->touch_x,
-		seat->touch_y, &surface, &sx, &sy);
+	struct wsm_node *focused_node = node_at_coords(
+		seat, seat->touch_x, seat->touch_y, &surface, &sx, &sy);
 
-	if (!surface || surface != e->surface) { // Must start from the initial surface
+	if (!surface ||
+		surface != e->surface) { // Must start from the initial surface
 		return;
 	}
 
 	struct seatop_touch_point_event *point_event =
 		calloc(1, sizeof(struct seatop_touch_point_event));
 	if (!point_event) {
-		wsm_log(WSM_ERROR, "Could not create seatop_touch_point_event: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create seatop_touch_point_event: allocation "
+			"failed!");
 		return;
 	}
 	point_event->touch_id = event->touch_id;
@@ -106,16 +109,16 @@ static void handle_touch_down(struct wsm_seat *seat,
 
 	wl_list_insert(&e->point_events, &point_event->link);
 
-	wlr_seat_touch_notify_down(seat->seat, surface, event->time_msec,
-		event->touch_id, sx, sy);
+	wlr_seat_touch_notify_down(
+		seat->seat, surface, event->time_msec, event->touch_id, sx, sy);
 
 	if (focused_node) {
 		seat_set_focus(seat, focused_node);
 	}
 }
 
-static void handle_touch_cancel(struct wsm_seat *seat,
-		struct wlr_touch_cancel_event *event) {
+static void handle_touch_cancel(
+	struct wsm_seat *seat, struct wlr_touch_cancel_event *event) {
 	struct seatop_down_event *e = seat->seatop_data;
 	struct seatop_touch_point_event *point_event, *tmp;
 
@@ -128,8 +131,10 @@ static void handle_touch_cancel(struct wsm_seat *seat,
 	}
 
 	if (e->surface) {
-		struct wl_client *client = wl_resource_get_client(e->surface->resource);
-		struct wlr_seat_client *seat_client = wlr_seat_client_for_wl_client(seat->seat, client);
+		struct wl_client *client =
+			wl_resource_get_client(e->surface->resource);
+		struct wlr_seat_client *seat_client =
+			wlr_seat_client_for_wl_client(seat->seat, client);
 		if (seat_client != NULL) {
 			wlr_seat_touch_notify_cancel(seat->seat, seat_client);
 		}
@@ -140,9 +145,11 @@ static void handle_touch_cancel(struct wsm_seat *seat,
 	}
 }
 
-static void handle_pointer_axis(struct wsm_seat *seat,
-		struct wlr_pointer_axis_event *event) {
-	float scroll_factor = 1.0f;
+static void handle_pointer_axis(
+	struct wsm_seat *seat, struct wlr_pointer_axis_event *event) {
+	struct wsm_input_device *input_device =
+		event->pointer ? event->pointer->base.data : NULL;
+	float scroll_factor = input_device ? input_device->scroll_factor : 1.0f;
 
 	wlr_seat_pointer_notify_axis(seat->seat, event->time_msec,
 		event->orientation, scroll_factor * event->delta,
@@ -151,8 +158,8 @@ static void handle_pointer_axis(struct wsm_seat *seat,
 }
 
 static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
-		struct wlr_input_device *device, uint32_t button,
-		enum wl_pointer_button_state state) {
+	struct wlr_input_device *device, uint32_t button,
+	enum wl_pointer_button_state state) {
 	seat_pointer_notify_button(seat, time_msec, button, state);
 
 	if (seat->cursor->pressed_button_count == 0) {
@@ -172,8 +179,8 @@ static void handle_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 }
 
 static void handle_tablet_tool_tip(struct wsm_seat *seat,
-		struct wsm_tablet_tool *tool, uint32_t time_msec,
-		enum wlr_tablet_tool_tip_state state) {
+	struct wsm_tablet_tool *tool, uint32_t time_msec,
+	enum wlr_tablet_tool_tip_state state) {
 	if (state == WLR_TABLET_TOOL_TIP_UP) {
 		wlr_tablet_v2_tablet_tool_notify_up(tool->tablet_v2_tool);
 		seatop_begin_default(seat);
@@ -181,14 +188,15 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 }
 
 static void handle_tablet_tool_motion(struct wsm_seat *seat,
-		struct wsm_tablet_tool *tool, uint32_t time_msec) {
+	struct wsm_tablet_tool *tool, uint32_t time_msec) {
 	struct seatop_down_event *e = seat->seatop_data;
 	if (seat_is_input_allowed(seat, e->surface)) {
 		double moved_x = seat->cursor->cursor_wlr->x - e->ref_lx;
 		double moved_y = seat->cursor->cursor_wlr->y - e->ref_ly;
 		double sx = e->ref_con_lx + moved_x;
 		double sy = e->ref_con_ly + moved_y;
-		wlr_tablet_v2_tablet_tool_notify_motion(tool->tablet_v2_tool, sx, sy);
+		wlr_tablet_v2_tablet_tool_notify_motion(
+			tool->tablet_v2_tool, sx, sy);
 	}
 }
 
@@ -228,7 +236,7 @@ static const struct wsm_seatop_impl seatop_impl = {
 };
 
 void seatop_begin_down(struct wsm_seat *seat, struct wsm_container *con,
-		double sx, double sy) {
+	double sx, double sy) {
 	seatop_begin_down_on_surface(seat, con->view->surface, sx, sy);
 	struct seatop_down_event *e = seat->seatop_data;
 	e->container = con;
@@ -237,21 +245,23 @@ void seatop_begin_down(struct wsm_seat *seat, struct wsm_container *con,
 	transaction_commit_dirty();
 }
 
-void seatop_begin_touch_down(struct wsm_seat *seat,
-		struct wlr_surface *surface, struct wlr_touch_down_event *event,
-		double sx, double sy, double lx, double ly) {
+void seatop_begin_touch_down(struct wsm_seat *seat, struct wlr_surface *surface,
+	struct wlr_touch_down_event *event, double sx, double sy, double lx,
+	double ly) {
 	seatop_begin_down_on_surface(seat, surface, sx, sy);
 	handle_touch_down(seat, event, lx, ly);
 }
 
 void seatop_begin_down_on_surface(struct wsm_seat *seat,
-		struct wlr_surface *surface, double sx, double sy) {
+	struct wlr_surface *surface, double sx, double sy) {
 	seatop_end(seat);
 
 	struct seatop_down_event *e =
 		calloc(1, sizeof(struct seatop_down_event));
 	if (!e) {
-		wsm_log(WSM_ERROR, "Could not create seatop_down_event: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create seatop_down_event: allocation "
+			"failed!");
 		return;
 	}
 	e->container = NULL;

@@ -6,6 +6,7 @@
 struct output_config;
 struct wsm_output;
 
+char *wsm_output_memory_get_output_id(struct wsm_output *output);
 /** The returned string must be freed by the caller. */
 char *wsm_output_memory_get_primary_output(void);
 bool wsm_output_memory_set_primary_output(struct wsm_output *output);

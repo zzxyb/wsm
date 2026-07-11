@@ -3,6 +3,7 @@
 #include "wsm_server.h"
 #include "wsm_config.h"
 #include "wsm_input_config.h"
+#include "wsm_input_memory.h"
 #include "wsm_keyboard.h"
 #include "wsm_text_input.h"
 #include "wsm_input_manager.h"
@@ -32,22 +33,23 @@ static struct modifier_key {
 	char *name;
 	uint32_t mod;
 } modifiers[] = {
-	{ XKB_MOD_NAME_SHIFT, WLR_MODIFIER_SHIFT },
-	{ XKB_MOD_NAME_CAPS, WLR_MODIFIER_CAPS },
-	{ XKB_MOD_NAME_CTRL, WLR_MODIFIER_CTRL },
-	{ "Ctrl", WLR_MODIFIER_CTRL },
-	{ XKB_MOD_NAME_ALT, WLR_MODIFIER_ALT },
-	{ "Alt", WLR_MODIFIER_ALT },
-	{ XKB_MOD_NAME_NUM, WLR_MODIFIER_MOD2 },
-	{ "Mod3", WLR_MODIFIER_MOD3 },
-	{ XKB_MOD_NAME_LOGO, WLR_MODIFIER_LOGO },
-	{ "Super", WLR_MODIFIER_LOGO },
-	{ "Mod5", WLR_MODIFIER_MOD5 },
+	{XKB_MOD_NAME_SHIFT, WLR_MODIFIER_SHIFT},
+	{XKB_MOD_NAME_CAPS, WLR_MODIFIER_CAPS},
+	{XKB_MOD_NAME_CTRL, WLR_MODIFIER_CTRL},
+	{"Ctrl", WLR_MODIFIER_CTRL},
+	{XKB_MOD_NAME_ALT, WLR_MODIFIER_ALT},
+	{"Alt", WLR_MODIFIER_ALT},
+	{XKB_MOD_NAME_NUM, WLR_MODIFIER_MOD2},
+	{"Mod3", WLR_MODIFIER_MOD3},
+	{XKB_MOD_NAME_LOGO, WLR_MODIFIER_LOGO},
+	{"Super", WLR_MODIFIER_LOGO},
+	{"Mod5", WLR_MODIFIER_MOD5},
 };
 
 uint32_t get_modifier_mask_by_name(const char *name) {
 	int i;
-	for (i = 0; i < (int)(sizeof(modifiers) / sizeof(struct modifier_key)); ++i) {
+	for (i = 0; i < (int)(sizeof(modifiers) / sizeof(struct modifier_key));
+		++i) {
 		if (strcasecmp(modifiers[i].name, name) == 0) {
 			return modifiers[i].mod;
 		}
@@ -58,7 +60,8 @@ uint32_t get_modifier_mask_by_name(const char *name) {
 
 const char *get_modifier_name_by_mask(uint32_t modifier) {
 	int i;
-	for (i = 0; i < (int)(sizeof(modifiers) / sizeof(struct modifier_key)); ++i) {
+	for (i = 0; i < (int)(sizeof(modifiers) / sizeof(struct modifier_key));
+		++i) {
 		if (modifiers[i].mod == modifier) {
 			return modifiers[i].name;
 		}
@@ -70,7 +73,8 @@ const char *get_modifier_name_by_mask(uint32_t modifier) {
 int get_modifier_names(const char **names, uint32_t modifier_masks) {
 	int length = 0;
 	int i;
-	for (i = 0; i < (int)(sizeof(modifiers) / sizeof(struct modifier_key)); ++i) {
+	for (i = 0; i < (int)(sizeof(modifiers) / sizeof(struct modifier_key));
+		++i) {
 		if ((modifier_masks & modifiers[i].mod) != 0) {
 			names[length] = modifiers[i].name;
 			++length;
@@ -81,7 +85,8 @@ int get_modifier_names(const char **names, uint32_t modifier_masks) {
 	return length;
 }
 
-static bool state_erase_key(struct wsm_shortcut_state *state, uint32_t keycode) {
+static bool state_erase_key(
+	struct wsm_shortcut_state *state, uint32_t keycode) {
 	bool found = false;
 	size_t j = 0;
 	for (size_t i = 0; i < state->npressed; ++i) {
@@ -95,7 +100,7 @@ static bool state_erase_key(struct wsm_shortcut_state *state, uint32_t keycode) 
 			found = true;
 		}
 	}
-	while(state->npressed > j) {
+	while (state->npressed > j) {
 		--state->npressed;
 		state->pressed_keys[state->npressed] = 0;
 		state->pressed_keycodes[state->npressed] = 0;
@@ -104,8 +109,8 @@ static bool state_erase_key(struct wsm_shortcut_state *state, uint32_t keycode) 
 	return found;
 }
 
-static void state_add_key(struct wsm_shortcut_state *state,
-		uint32_t keycode, uint32_t key_id) {
+static void state_add_key(
+	struct wsm_shortcut_state *state, uint32_t keycode, uint32_t key_id) {
 	if (state->npressed >= WSM_KEYBOARD_PRESSED_KEYS_CAP) {
 		return;
 	}
@@ -126,9 +131,10 @@ static void state_add_key(struct wsm_shortcut_state *state,
 }
 
 static bool update_shortcut_state(struct wsm_shortcut_state *state,
-		uint32_t keycode, enum wl_keyboard_key_state keystate, uint32_t new_key,
-		uint32_t raw_modifiers) {
-	bool last_key_was_a_modifier = raw_modifiers != state->last_raw_modifiers;
+	uint32_t keycode, enum wl_keyboard_key_state keystate, uint32_t new_key,
+	uint32_t raw_modifiers) {
+	bool last_key_was_a_modifier =
+		raw_modifiers != state->last_raw_modifiers;
 	state->last_raw_modifiers = raw_modifiers;
 
 	if (last_key_was_a_modifier && state->last_keycode) {
@@ -248,15 +254,18 @@ static bool update_shortcut_state(struct wsm_shortcut_state *state,
 // }
 
 static bool keyboard_execute_compositor_binding(struct wsm_keyboard *keyboard,
-		const xkb_keysym_t *pressed_keysyms, uint32_t modifiers, size_t keysyms_len) {
+	const xkb_keysym_t *pressed_keysyms, uint32_t modifiers,
+	size_t keysyms_len) {
 	for (size_t i = 0; i < keysyms_len; ++i) {
 		xkb_keysym_t keysym = pressed_keysyms[i];
 		if (keysym >= XKB_KEY_XF86Switch_VT_1 &&
 			keysym <= XKB_KEY_XF86Switch_VT_12) {
 #if WLR_HAS_SESSION
 			if (global_server.wlr_session) {
-				unsigned vt = keysym - XKB_KEY_XF86Switch_VT_1 + 1;
-				wlr_session_change_vt(global_server.wlr_session, vt);
+				unsigned vt =
+					keysym - XKB_KEY_XF86Switch_VT_1 + 1;
+				wlr_session_change_vt(
+					global_server.wlr_session, vt);
 			}
 #endif
 			return true;
@@ -267,18 +276,21 @@ static bool keyboard_execute_compositor_binding(struct wsm_keyboard *keyboard,
 }
 
 static size_t keyboard_keysyms_translated(struct wsm_keyboard *keyboard,
-		xkb_keycode_t keycode, const xkb_keysym_t **keysyms, uint32_t *modifiers) {
+	xkb_keycode_t keycode, const xkb_keysym_t **keysyms,
+	uint32_t *modifiers) {
 	*modifiers = wlr_keyboard_get_modifiers(keyboard->keyboard_wlr);
 	xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods2(
-		keyboard->keyboard_wlr->xkb_state, keycode, XKB_CONSUMED_MODE_XKB);
+		keyboard->keyboard_wlr->xkb_state, keycode,
+		XKB_CONSUMED_MODE_XKB);
 	*modifiers = *modifiers & ~consumed;
 
-	return xkb_state_key_get_syms(keyboard->keyboard_wlr->xkb_state,
-		keycode, keysyms);
+	return xkb_state_key_get_syms(
+		keyboard->keyboard_wlr->xkb_state, keycode, keysyms);
 }
 
 static size_t keyboard_keysyms_raw(struct wsm_keyboard *keyboard,
-		xkb_keycode_t keycode, const xkb_keysym_t **keysyms, uint32_t *modifiers) {
+	xkb_keycode_t keycode, const xkb_keysym_t **keysyms,
+	uint32_t *modifiers) {
 	*modifiers = wlr_keyboard_get_modifiers(keyboard->keyboard_wlr);
 
 	xkb_layout_index_t layout_index = xkb_state_key_get_layout(
@@ -311,22 +323,26 @@ struct key_info {
 };
 
 static void update_keyboard_state(struct wsm_keyboard *keyboard,
-		uint32_t raw_keycode, enum wl_keyboard_key_state keystate, struct key_info *keyinfo) {
+	uint32_t raw_keycode, enum wl_keyboard_key_state keystate,
+	struct key_info *keyinfo) {
 	keyinfo->keycode = raw_keycode + 8;
 
-	keyinfo->raw_keysyms_len = keyboard_keysyms_raw(keyboard, keyinfo->keycode,
-		&keyinfo->raw_keysyms, &keyinfo->raw_modifiers);
-	
-	keyinfo->translated_keysyms_len = keyboard_keysyms_translated(keyboard,
-		keyinfo->keycode, &keyinfo->translated_keysyms, &keyinfo->translated_modifiers);
+	keyinfo->raw_keysyms_len =
+		keyboard_keysyms_raw(keyboard, keyinfo->keycode,
+			&keyinfo->raw_keysyms, &keyinfo->raw_modifiers);
 
-	keyinfo->code_modifiers = wlr_keyboard_get_modifiers(keyboard->keyboard_wlr);
+	keyinfo->translated_keysyms_len = keyboard_keysyms_translated(keyboard,
+		keyinfo->keycode, &keyinfo->translated_keysyms,
+		&keyinfo->translated_modifiers);
+
+	keyinfo->code_modifiers =
+		wlr_keyboard_get_modifiers(keyboard->keyboard_wlr);
 
 	update_shortcut_state(&keyboard->state_keycodes, raw_keycode, keystate,
 		keyinfo->keycode, keyinfo->code_modifiers);
 	for (size_t i = 0; i < keyinfo->raw_keysyms_len; ++i) {
-		update_shortcut_state(&keyboard->state_keysyms_raw,
-			raw_keycode, keystate, keyinfo->raw_keysyms[i],
+		update_shortcut_state(&keyboard->state_keysyms_raw, raw_keycode,
+			keystate, keyinfo->raw_keysyms[i],
 			keyinfo->code_modifiers);
 	}
 	for (size_t i = 0; i < keyinfo->translated_keysyms_len; ++i) {
@@ -337,21 +353,24 @@ static void update_keyboard_state(struct wsm_keyboard *keyboard,
 }
 
 static struct wlr_input_method_keyboard_grab_v2 *keyboard_get_im_grab(
-		struct wsm_keyboard *keyboard) {
-	struct wlr_input_method_v2 *input_method = keyboard->device_wsm->
-		seat->im_relay.input_method;
+	struct wsm_keyboard *keyboard) {
+	struct wlr_input_method_v2 *input_method =
+		keyboard->device_wsm->seat->im_relay.input_method;
 	struct wlr_virtual_keyboard_v1 *virtual_keyboard =
-		wlr_input_device_get_virtual_keyboard(keyboard->device_wsm->input_device->input_device_wlr);
-	if (!input_method || !input_method->keyboard_grab || (virtual_keyboard &&
+		wlr_input_device_get_virtual_keyboard(
+			keyboard->device_wsm->input_device->input_device_wlr);
+	if (!input_method || !input_method->keyboard_grab ||
+		(virtual_keyboard &&
 			wl_resource_get_client(virtual_keyboard->resource) ==
-			wl_resource_get_client(input_method->keyboard_grab->resource))) {
+				wl_resource_get_client(input_method
+						->keyboard_grab->resource))) {
 		return NULL;
 	}
 	return input_method->keyboard_grab;
 }
 
-static void handle_key_event(struct wsm_keyboard *keyboard,
-		struct wlr_keyboard_key_event *event) {
+static void handle_key_event(
+	struct wsm_keyboard *keyboard, struct wlr_keyboard_key_event *event) {
 	struct wsm_seat *seat = keyboard->device_wsm->seat;
 	struct wlr_seat *wlr_seat = seat->seat;
 	struct wlr_input_device *wlr_device =
@@ -364,10 +383,10 @@ static void handle_key_event(struct wsm_keyboard *keyboard,
 	bool handled = false;
 	struct wsm_binding *binding = NULL;
 	if (binding && !(binding->flags & BINDING_NOREPEAT) &&
-			keyboard->keyboard_wlr->repeat_info.delay > 0) {
-			keyboard->repeat_binding = binding;
+		keyboard->keyboard_wlr->repeat_info.delay > 0) {
+		keyboard->repeat_binding = binding;
 		if (wl_event_source_timer_update(keyboard->key_repeat_source,
-				keyboard->keyboard_wlr->repeat_info.delay) < 0) {
+			    keyboard->keyboard_wlr->repeat_info.delay) < 0) {
 			wsm_log(WSM_DEBUG, "failed to set key repeat timer");
 		}
 	} else if (keyboard->repeat_binding) {
@@ -380,21 +399,23 @@ static void handle_key_event(struct wsm_keyboard *keyboard,
 	}
 
 	if (!handled && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
-		handled = keyboard_execute_compositor_binding(
-			keyboard, keyinfo.translated_keysyms,
-			keyinfo.translated_modifiers, keyinfo.translated_keysyms_len);
+		handled = keyboard_execute_compositor_binding(keyboard,
+			keyinfo.translated_keysyms,
+			keyinfo.translated_modifiers,
+			keyinfo.translated_keysyms_len);
 	}
 	if (!handled && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
-		handled = keyboard_execute_compositor_binding(
-			keyboard, keyinfo.raw_keysyms, keyinfo.raw_modifiers,
+		handled = keyboard_execute_compositor_binding(keyboard,
+			keyinfo.raw_keysyms, keyinfo.raw_modifiers,
 			keyinfo.raw_keysyms_len);
 	}
-	
+
 	if (event->state == WL_KEYBOARD_KEY_STATE_RELEASED) {
 		bool pressed_sent = update_shortcut_state(
-				&keyboard->state_pressed_sent, event->keycode,
-				event->state, keyinfo.keycode, 0);
-		if (pressed_sent && seat->seat->keyboard_state.focused_surface) {
+			&keyboard->state_pressed_sent, event->keycode,
+			event->state, keyinfo.keycode, 0);
+		if (pressed_sent &&
+			seat->seat->keyboard_state.focused_surface) {
 			wlr_seat_set_keyboard(wlr_seat, keyboard->keyboard_wlr);
 			wlr_seat_keyboard_notify_key(wlr_seat, event->time_msec,
 				event->keycode, event->state);
@@ -403,10 +424,12 @@ static void handle_key_event(struct wsm_keyboard *keyboard,
 	}
 
 	if (!handled) {
-		struct wlr_input_method_keyboard_grab_v2 *kb_grab = keyboard_get_im_grab(keyboard);
+		struct wlr_input_method_keyboard_grab_v2 *kb_grab =
+			keyboard_get_im_grab(keyboard);
 
 		if (kb_grab) {
-			wlr_input_method_keyboard_grab_v2_set_keyboard(kb_grab, keyboard->keyboard_wlr);
+			wlr_input_method_keyboard_grab_v2_set_keyboard(
+				kb_grab, keyboard->keyboard_wlr);
 			wlr_input_method_keyboard_grab_v2_send_key(kb_grab,
 				event->time_msec, event->keycode, event->state);
 			handled = true;
@@ -414,9 +437,8 @@ static void handle_key_event(struct wsm_keyboard *keyboard,
 	}
 
 	if (!handled && event->state != WL_KEYBOARD_KEY_STATE_RELEASED) {
-		update_shortcut_state(
-			&keyboard->state_pressed_sent, event->keycode, event->state,
-			keyinfo.keycode, 0);
+		update_shortcut_state(&keyboard->state_pressed_sent,
+			event->keycode, event->state, keyinfo.keycode, 0);
 		wlr_seat_set_keyboard(wlr_seat, keyboard->keyboard_wlr);
 		wlr_seat_keyboard_notify_key(wlr_seat, event->time_msec,
 			event->keycode, event->state);
@@ -431,13 +453,15 @@ static void handle_keyboard_key(struct wl_listener *listener, void *data) {
 	handle_key_event(keyboard, data);
 }
 
-static void handle_keyboard_group_key(struct wl_listener *listener, void *data) {
+static void handle_keyboard_group_key(
+	struct wl_listener *listener, void *data) {
 	struct wsm_keyboard_group *wsm_group =
 		wl_container_of(listener, wsm_group, keyboard_key);
 	handle_key_event(wsm_group->seat_device->keyboard, data);
 }
 
-static void handle_keyboard_group_enter(struct wl_listener *listener, void *data) {
+static void handle_keyboard_group_enter(
+	struct wl_listener *listener, void *data) {
 	struct wsm_keyboard_group *wsm_group =
 		wl_container_of(listener, wsm_group, enter);
 	struct wsm_keyboard *keyboard = wsm_group->seat_device->keyboard;
@@ -446,11 +470,13 @@ static void handle_keyboard_group_enter(struct wl_listener *listener, void *data
 	uint32_t *keycode;
 	wl_array_for_each(keycode, keycodes) {
 		struct key_info keyinfo;
-		update_keyboard_state(keyboard, *keycode, WL_KEYBOARD_KEY_STATE_PRESSED, &keyinfo);
+		update_keyboard_state(keyboard, *keycode,
+			WL_KEYBOARD_KEY_STATE_PRESSED, &keyinfo);
 	}
 }
 
-static void handle_keyboard_group_leave(struct wl_listener *listener, void *data) {
+static void handle_keyboard_group_leave(
+	struct wl_listener *listener, void *data) {
 	struct wsm_keyboard_group *wsm_group =
 		wl_container_of(listener, wsm_group, leave);
 	struct wsm_keyboard *keyboard = wsm_group->seat_device->keyboard;
@@ -461,10 +487,12 @@ static void handle_keyboard_group_leave(struct wl_listener *listener, void *data
 	uint32_t *keycode;
 	wl_array_for_each(keycode, keycodes) {
 		struct key_info keyinfo;
-		update_keyboard_state(keyboard, *keycode, WL_KEYBOARD_KEY_STATE_RELEASED, &keyinfo);
+		update_keyboard_state(keyboard, *keycode,
+			WL_KEYBOARD_KEY_STATE_RELEASED, &keyinfo);
 
-		pressed_sent |= update_shortcut_state(&keyboard->state_pressed_sent,
-			*keycode, WL_KEYBOARD_KEY_STATE_RELEASED, keyinfo.keycode, 0);
+		pressed_sent |= update_shortcut_state(
+			&keyboard->state_pressed_sent, *keycode,
+			WL_KEYBOARD_KEY_STATE_RELEASED, keyinfo.keycode, 0);
 	}
 
 	if (!pressed_sent) {
@@ -481,7 +509,8 @@ static void handle_keyboard_group_leave(struct wl_listener *listener, void *data
 		seat_set_focus_layer(seat, NULL);
 		seat_set_focus_layer(seat, layer);
 	} else {
-		struct wlr_surface *unmanaged = seat->seat->keyboard_state.focused_surface;
+		struct wlr_surface *unmanaged =
+			seat->seat->keyboard_state.focused_surface;
 		seat_set_focus_surface(seat, NULL, false);
 		seat_set_focus_surface(seat, unmanaged, false);
 	}
@@ -491,9 +520,13 @@ static int handle_keyboard_repeat(void *data) {
 	struct wsm_keyboard *keyboard = data;
 	if (keyboard->repeat_binding) {
 		if (keyboard->keyboard_wlr->repeat_info.rate > 0) {
-			if (wl_event_source_timer_update(keyboard->key_repeat_source,
-					1000 / keyboard->keyboard_wlr->repeat_info.rate) < 0) {
-				wsm_log(WSM_DEBUG, "failed to update key repeat timer");
+			if (wl_event_source_timer_update(
+				    keyboard->key_repeat_source,
+				    1000 /
+					    keyboard->keyboard_wlr->repeat_info
+						    .rate) < 0) {
+				wsm_log(WSM_DEBUG,
+					"failed to update key repeat timer");
 			}
 		}
 	}
@@ -502,54 +535,63 @@ static int handle_keyboard_repeat(void *data) {
 
 static void handle_modifier_event(struct wsm_keyboard *keyboard) {
 	if (!keyboard->keyboard_wlr->group) {
-		struct wlr_input_method_keyboard_grab_v2 *kb_grab = keyboard_get_im_grab(keyboard);
+		struct wlr_input_method_keyboard_grab_v2 *kb_grab =
+			keyboard_get_im_grab(keyboard);
 
 		if (kb_grab) {
-			wlr_input_method_keyboard_grab_v2_set_keyboard(kb_grab, keyboard->keyboard_wlr);
-			wlr_input_method_keyboard_grab_v2_send_modifiers(kb_grab,
-				&keyboard->keyboard_wlr->modifiers);
+			wlr_input_method_keyboard_grab_v2_set_keyboard(
+				kb_grab, keyboard->keyboard_wlr);
+			wlr_input_method_keyboard_grab_v2_send_modifiers(
+				kb_grab, &keyboard->keyboard_wlr->modifiers);
 		} else {
-			struct wlr_seat *wlr_seat = keyboard->device_wsm->seat->seat;
+			struct wlr_seat *wlr_seat =
+				keyboard->device_wsm->seat->seat;
 			wlr_seat_set_keyboard(wlr_seat, keyboard->keyboard_wlr);
-			wlr_seat_keyboard_notify_modifiers(wlr_seat,
-				&keyboard->keyboard_wlr->modifiers);
+			wlr_seat_keyboard_notify_modifiers(
+				wlr_seat, &keyboard->keyboard_wlr->modifiers);
 		}
 	}
 
-	if (keyboard->keyboard_wlr->modifiers.group != keyboard->effective_layout) {
-		keyboard->effective_layout = keyboard->keyboard_wlr->modifiers.group;
+	if (keyboard->keyboard_wlr->modifiers.group !=
+		keyboard->effective_layout) {
+		keyboard->effective_layout =
+			keyboard->keyboard_wlr->modifiers.group;
 	}
 }
 
-static void handle_keyboard_modifiers(struct wl_listener *listener, void *data) {
+static void handle_keyboard_modifiers(
+	struct wl_listener *listener, void *data) {
 	struct wsm_keyboard *keyboard =
 		wl_container_of(listener, keyboard, keyboard_modifiers);
 	handle_modifier_event(keyboard);
 }
 
-static void handle_keyboard_group_modifiers(struct wl_listener *listener, void *data) {
+static void handle_keyboard_group_modifiers(
+	struct wl_listener *listener, void *data) {
 	struct wsm_keyboard_group *group =
 		wl_container_of(listener, group, keyboard_modifiers);
 	handle_modifier_event(group->seat_device->keyboard);
 }
 
-struct wsm_keyboard *wsm_keyboard_create(struct wsm_seat *seat, struct wsm_seat_device *device) {
-	struct wsm_keyboard *keyboard =
-		calloc(1, sizeof(struct wsm_keyboard));
+struct wsm_keyboard *wsm_keyboard_create(
+	struct wsm_seat *seat, struct wsm_seat_device *device) {
+	struct wsm_keyboard *keyboard = calloc(1, sizeof(struct wsm_keyboard));
 	if (!keyboard) {
-		wsm_log(WSM_ERROR, "Could not create wsm_keyboard: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create wsm_keyboard: allocation failed!");
 		return NULL;
 	}
 
 	keyboard->device_wsm = device;
-	keyboard->keyboard_wlr = wlr_keyboard_from_input_device(device->input_device->input_device_wlr);
+	keyboard->keyboard_wlr = wlr_keyboard_from_input_device(
+		device->input_device->input_device_wlr);
 	device->keyboard = keyboard;
 
 	wl_list_init(&keyboard->keyboard_key.link);
 	wl_list_init(&keyboard->keyboard_modifiers.link);
 
-	keyboard->key_repeat_source = wl_event_loop_add_timer(global_server.wl_event_loop,
-		handle_keyboard_repeat, keyboard);
+	keyboard->key_repeat_source = wl_event_loop_add_timer(
+		global_server.wl_event_loop, handle_keyboard_repeat, keyboard);
 
 	return keyboard;
 }
@@ -611,8 +653,10 @@ static char *format_str(const char *fmt, ...) {
 	return str;
 }
 
-struct xkb_keymap *wsm_keyboard_compile_keymap(struct input_config *ic, char **error) {
-	struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_SECURE_GETENV);
+struct xkb_keymap *wsm_keyboard_compile_keymap(
+	struct input_config *ic, char **error) {
+	struct xkb_context *context =
+		xkb_context_new(XKB_CONTEXT_NO_SECURE_GETENV);
 	if (!wsm_assert(context, "cannot create XKB context")) {
 		return NULL;
 	}
@@ -624,9 +668,11 @@ struct xkb_keymap *wsm_keyboard_compile_keymap(struct input_config *ic, char **e
 	if (ic && ic->xkb_file) {
 		FILE *keymap_file = fopen(ic->xkb_file, "r");
 		if (!keymap_file) {
-			wsm_log_errno(WSM_ERROR, "cannot read xkb file %s", ic->xkb_file);
+			wsm_log_errno(WSM_ERROR, "cannot read xkb file %s",
+				ic->xkb_file);
 			if (error) {
-				*error = format_str("cannot read xkb file %s: %s",
+				*error = format_str(
+					"cannot read xkb file %s: %s",
 					ic->xkb_file, strerror(errno));
 			}
 			goto cleanup;
@@ -634,7 +680,7 @@ struct xkb_keymap *wsm_keyboard_compile_keymap(struct input_config *ic, char **e
 
 		keymap = xkb_keymap_new_from_file(context, keymap_file,
 			XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
-		
+
 		if (fclose(keymap_file) != 0) {
 			wsm_log_errno(WSM_ERROR, "Failed to close xkb file %s",
 				ic->xkb_file);
@@ -644,8 +690,8 @@ struct xkb_keymap *wsm_keyboard_compile_keymap(struct input_config *ic, char **e
 		if (ic) {
 			input_config_fill_rule_names(ic, &rules);
 		}
-		keymap = xkb_keymap_new_from_names(context, &rules,
-			XKB_KEYMAP_COMPILE_NO_FLAGS);
+		keymap = xkb_keymap_new_from_names(
+			context, &rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
 	}
 
 cleanup:
@@ -670,7 +716,8 @@ static void wsm_keyboard_group_remove(struct wsm_keyboard *keyboard) {
 	wsm_log(WSM_DEBUG, "Removing keyboard %s from group %p",
 		device->identifier, wlr_group);
 
-	wlr_keyboard_group_remove_keyboard(keyboard->keyboard_wlr->group, keyboard->keyboard_wlr);
+	wlr_keyboard_group_remove_keyboard(
+		keyboard->keyboard_wlr->group, keyboard->keyboard_wlr);
 
 	if (wl_list_empty(&wlr_group->devices)) {
 		wsm_log(WSM_DEBUG, "Destroying empty keyboard group %p",
@@ -701,7 +748,7 @@ static void wsm_keyboard_group_remove_invalid(struct wsm_keyboard *keyboard) {
 static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 	struct wsm_input_device *device = keyboard->device_wsm->input_device;
 	struct wsm_seat *seat = keyboard->device_wsm->seat;
-	
+
 	if (device->is_virtual) {
 		// Virtual devices should not be grouped
 		return;
@@ -714,13 +761,17 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 			return;
 		case KEYBOARD_GROUP_DEFAULT:
 		case KEYBOARD_GROUP_SMART:;
-			struct wlr_keyboard_group *wlr_group = group->keyboard_group_wlr;
+			struct wlr_keyboard_group *wlr_group =
+				group->keyboard_group_wlr;
 			if (wlr_keyboard_keymaps_match(keyboard->keymap,
-					wlr_group->keyboard.keymap) &&
-				repeat_info_match(keyboard, &wlr_group->keyboard)) {
-				wsm_log(WSM_DEBUG, "Adding keyboard %s to group %p",
+				    wlr_group->keyboard.keymap) &&
+				repeat_info_match(
+					keyboard, &wlr_group->keyboard)) {
+				wsm_log(WSM_DEBUG,
+					"Adding keyboard %s to group %p",
 					device->identifier, wlr_group);
-				wlr_keyboard_group_add_keyboard(wlr_group, keyboard->keyboard_wlr);
+				wlr_keyboard_group_add_keyboard(
+					wlr_group, keyboard->keyboard_wlr);
 				return;
 			}
 			break;
@@ -730,7 +781,9 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 	struct wsm_keyboard_group *wsm_group =
 		calloc(1, sizeof(struct wsm_keyboard_group));
 	if (!wsm_group) {
-		wsm_log(WSM_ERROR, "Could not create wsm_keyboard_group: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create wsm_keyboard_group: allocation "
+			"failed!");
 		return;
 	}
 
@@ -740,14 +793,18 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 		goto cleanup;
 	}
 	wsm_group->keyboard_group_wlr->data = wsm_group;
-	wlr_keyboard_set_keymap(&wsm_group->keyboard_group_wlr->keyboard, keyboard->keymap);
+	wlr_keyboard_set_keymap(
+		&wsm_group->keyboard_group_wlr->keyboard, keyboard->keymap);
 	wlr_keyboard_set_repeat_info(&wsm_group->keyboard_group_wlr->keyboard,
 		keyboard->repeat_rate, keyboard->repeat_delay);
-	wsm_log(WSM_DEBUG, "Created keyboard group %p", wsm_group->keyboard_group_wlr);
+	wsm_log(WSM_DEBUG, "Created keyboard group %p",
+		wsm_group->keyboard_group_wlr);
 
 	wsm_group->seat_device = calloc(1, sizeof(struct wsm_seat_device));
 	if (!wsm_group->seat_device) {
-		wsm_log(WSM_ERROR, "Could not create wsm_seat_device for group: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create wsm_seat_device for group: "
+			"allocation failed!");
 		goto cleanup;
 	}
 	wsm_group->seat_device->seat = seat;
@@ -755,20 +812,25 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 	wsm_group->seat_device->input_device =
 		calloc(1, sizeof(struct wsm_input_device));
 	if (!wsm_group->seat_device->input_device) {
-		wsm_log(WSM_ERROR, "Could not create wsm_input_device for group: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create wsm_input_device for group: "
+			"allocation failed!");
 		goto cleanup;
 	}
 	wsm_group->seat_device->input_device->input_device_wlr =
 		&wsm_group->keyboard_group_wlr->keyboard.base;
 
 	if (!wsm_keyboard_create(seat, wsm_group->seat_device)) {
-		wsm_log(WSM_ERROR, "Could not create wsm_keyboard for group: allocation failed!");
+		wsm_log(WSM_ERROR,
+			"Could not create wsm_keyboard for group: allocation "
+			"failed!");
 		goto cleanup;
 	}
 
-	wsm_log(WSM_DEBUG, "Adding keyboard %s to group %p",
-		device->identifier, wsm_group->keyboard_group_wlr);
-	wlr_keyboard_group_add_keyboard(wsm_group->keyboard_group_wlr, keyboard->keyboard_wlr);
+	wsm_log(WSM_DEBUG, "Adding keyboard %s to group %p", device->identifier,
+		wsm_group->keyboard_group_wlr);
+	wlr_keyboard_group_add_keyboard(
+		wsm_group->keyboard_group_wlr, keyboard->keyboard_wlr);
 
 	wl_list_insert(&seat->keyboard_groups, &wsm_group->link);
 
@@ -780,10 +842,12 @@ static void wsm_keyboard_group_add(struct wsm_keyboard *keyboard) {
 		&wsm_group->keyboard_modifiers);
 	wsm_group->keyboard_modifiers.notify = handle_keyboard_group_modifiers;
 
-	wl_signal_add(&wsm_group->keyboard_group_wlr->events.enter, &wsm_group->enter);
+	wl_signal_add(&wsm_group->keyboard_group_wlr->events.enter,
+		&wsm_group->enter);
 	wsm_group->enter.notify = handle_keyboard_group_enter;
 
-	wl_signal_add(&wsm_group->keyboard_group_wlr->events.leave, &wsm_group->leave);
+	wl_signal_add(&wsm_group->keyboard_group_wlr->events.leave,
+		&wsm_group->leave);
 	wsm_group->leave.notify = handle_keyboard_group_leave;
 	return;
 
@@ -797,21 +861,25 @@ cleanup:
 	free(wsm_group);
 }
 
-static void wsm_keyboard_set_layout(struct wsm_keyboard *keyboard,
-		struct input_config *input_config) {
-	struct xkb_keymap *keymap = wsm_keyboard_compile_keymap(input_config, NULL);
+static void wsm_keyboard_set_layout(
+	struct wsm_keyboard *keyboard, struct input_config *input_config) {
+	struct xkb_keymap *keymap =
+		wsm_keyboard_compile_keymap(input_config, NULL);
 	if (!keymap) {
-		wsm_log(WSM_ERROR, "Failed to compile keymap. Attempting defaults");
+		wsm_log(WSM_ERROR,
+			"Failed to compile keymap. Attempting defaults");
 		keymap = wsm_keyboard_compile_keymap(NULL, NULL);
 		if (!keymap) {
 			wsm_log(WSM_ERROR,
-				"Failed to compile default keymap. Aborting configure");
+				"Failed to compile default keymap. Aborting "
+				"configure");
 			return;
 		}
 	}
 
-	bool keymap_changed = keyboard->keymap ?
-		!wlr_keyboard_keymaps_match(keyboard->keymap, keymap) : true;
+	bool keymap_changed = keyboard->keymap
+		? !wlr_keyboard_keymaps_match(keyboard->keymap, keymap)
+		: true;
 
 	if (keymap_changed || global_config.reloading) {
 		xkb_keymap_unref(keyboard->keymap);
@@ -819,39 +887,48 @@ static void wsm_keyboard_set_layout(struct wsm_keyboard *keyboard,
 		keyboard->effective_layout = 0;
 
 		wsm_keyboard_group_remove_invalid(keyboard);
-		wlr_keyboard_set_keymap(keyboard->keyboard_wlr, keyboard->keymap);
+		wlr_keyboard_set_keymap(
+			keyboard->keyboard_wlr, keyboard->keymap);
 		if (!keyboard->keyboard_wlr->group) {
 			wsm_keyboard_group_add(keyboard);
 		}
 
 		xkb_mod_mask_t locked_mods = 0;
-		if (input_config && input_config->xkb_numlock > 0) {
-			xkb_mod_index_t mod_index = xkb_map_mod_get_index(keymap,
-				XKB_MOD_NAME_NUM);
+		if ((input_config && input_config->xkb_numlock > 0) ||
+			wsm_input_memory_get_numlock()) {
+			xkb_mod_index_t mod_index =
+				xkb_map_mod_get_index(keymap, XKB_MOD_NAME_NUM);
 			if (mod_index != XKB_MOD_INVALID) {
 				locked_mods |= (uint32_t)1 << mod_index;
 			}
 		}
 		if (input_config && input_config->xkb_capslock > 0) {
-			xkb_mod_index_t mod_index = xkb_map_mod_get_index(keymap,
-				XKB_MOD_NAME_CAPS);
+			xkb_mod_index_t mod_index = xkb_map_mod_get_index(
+				keymap, XKB_MOD_NAME_CAPS);
 			if (mod_index != XKB_MOD_INVALID) {
 				locked_mods |= (uint32_t)1 << mod_index;
 			}
 		}
 		if (locked_mods) {
-			wlr_keyboard_notify_modifiers(keyboard->keyboard_wlr, 0, 0, locked_mods, 0);
+			wlr_keyboard_notify_modifiers(
+				keyboard->keyboard_wlr, 0, 0, locked_mods, 0);
 			uint32_t leds = 0;
 			for (uint32_t i = 0; i < WLR_LED_COUNT; ++i) {
-				if (xkb_state_led_index_is_active(keyboard->keyboard_wlr->xkb_state,
-						keyboard->keyboard_wlr->led_indexes[i])) {
+				if (xkb_state_led_index_is_active(
+					    keyboard->keyboard_wlr->xkb_state,
+					    keyboard->keyboard_wlr
+						    ->led_indexes[i])) {
 					leds |= (1 << i);
 				}
 			}
 			if (keyboard->keyboard_wlr->group) {
-				wlr_keyboard_led_update(&keyboard->keyboard_wlr->group->keyboard, leds);
+				wlr_keyboard_led_update(
+					&keyboard->keyboard_wlr->group
+						->keyboard,
+					leds);
 			} else {
-				wlr_keyboard_led_update(keyboard->keyboard_wlr, leds);
+				wlr_keyboard_led_update(
+					keyboard->keyboard_wlr, leds);
 			}
 		}
 	} else {
@@ -873,24 +950,25 @@ void wsm_keyboard_configure(struct wsm_keyboard *keyboard) {
 	struct input_config *input_config =
 		input_device_get_config(keyboard->device_wsm->input_device);
 
-	if (!wsm_assert(!wlr_keyboard_group_from_wlr_keyboard(keyboard->keyboard_wlr),
-			"wsm_keyboard_configure should not be called with a "
-			"keyboard group's keyboard")) {
+	if (!wsm_assert(!wlr_keyboard_group_from_wlr_keyboard(
+				keyboard->keyboard_wlr),
+		    "wsm_keyboard_configure should not be called with a "
+		    "keyboard group's keyboard")) {
 		return;
 	}
 
-	int repeat_rate = 25;
+	int repeat_rate = wsm_input_memory_get_repeat_rate();
 	if (input_config && input_config->repeat_rate != INT_MIN) {
 		repeat_rate = input_config->repeat_rate;
 	}
-	int repeat_delay = 600;
+	int repeat_delay = wsm_input_memory_get_repeat_delay();
 	if (input_config && input_config->repeat_delay != INT_MIN) {
 		repeat_delay = input_config->repeat_delay;
 	}
 
 	bool repeat_info_changed = keyboard->repeat_rate != repeat_rate ||
 		keyboard->repeat_delay != repeat_delay;
-	
+
 	if (repeat_info_changed || global_config.reloading) {
 		keyboard->repeat_rate = repeat_rate;
 		keyboard->repeat_delay = repeat_delay;
@@ -903,7 +981,8 @@ void wsm_keyboard_configure(struct wsm_keyboard *keyboard) {
 	}
 
 	wl_list_remove(&keyboard->keyboard_key.link);
-	wl_signal_add(&keyboard->keyboard_wlr->events.key, &keyboard->keyboard_key);
+	wl_signal_add(
+		&keyboard->keyboard_wlr->events.key, &keyboard->keyboard_key);
 	keyboard->keyboard_key.notify = handle_keyboard_key;
 
 	wl_list_remove(&keyboard->keyboard_modifiers.link);
@@ -935,9 +1014,10 @@ void wsm_keyboard_destroy(struct wsm_keyboard *keyboard) {
 
 struct wsm_keyboard_shortcuts_inhibitor *
 keyboard_shortcuts_inhibitor_get_for_surface(
-		const struct wsm_seat *seat, const struct wlr_surface *surface) {
+	const struct wsm_seat *seat, const struct wlr_surface *surface) {
 	struct wsm_keyboard_shortcuts_inhibitor *wsm_inhibitor = NULL;
-	wl_list_for_each(wsm_inhibitor, &seat->keyboard_shortcuts_inhibitors, link) {
+	wl_list_for_each(
+		wsm_inhibitor, &seat->keyboard_shortcuts_inhibitors, link) {
 		if (wsm_inhibitor->inhibitor_wlr->surface == surface) {
 			return wsm_inhibitor;
 		}
@@ -947,11 +1027,13 @@ keyboard_shortcuts_inhibitor_get_for_surface(
 }
 
 struct wsm_keyboard *wsm_keyboard_for_wlr_keyboard(
-		struct wsm_seat *seat, struct wlr_keyboard *wlr_keyboard) {
+	struct wsm_seat *seat, struct wlr_keyboard *wlr_keyboard) {
 	struct wsm_seat_device *seat_device;
 	wl_list_for_each(seat_device, &seat->devices, link) {
-		struct wsm_input_device *input_device = seat_device->input_device;
-		if (input_device->input_device_wlr->type != WLR_INPUT_DEVICE_KEYBOARD) {
+		struct wsm_input_device *input_device =
+			seat_device->input_device;
+		if (input_device->input_device_wlr->type !=
+			WLR_INPUT_DEVICE_KEYBOARD) {
 			continue;
 		}
 		if (input_device->input_device_wlr == &wlr_keyboard->base) {
