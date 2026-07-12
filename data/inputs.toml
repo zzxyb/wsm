@@ -1,5 +1,5 @@
 [keyboard_group]
-num_lock_on_startup = false
+num_lock_on_startup = true
 
 [keyboard_group.repeat_info]
 rate = 25

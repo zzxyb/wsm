@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include <libinput.h>
 #include <wlr/backend/libinput.h>
@@ -17,6 +18,25 @@
 static struct wsm_toml *config;
 static char *config_path;
 static bool initialized;
+
+static bool ensure_config_directory(const char *home) {
+	const char config_suffix[] = "/.config";
+	const char wsm_suffix[] = "/.config/wsm";
+	char *config_dir = malloc(strlen(home) + sizeof(config_suffix));
+	char *wsm_dir = malloc(strlen(home) + sizeof(wsm_suffix));
+	if (config_dir == NULL || wsm_dir == NULL) {
+		free(config_dir);
+		free(wsm_dir);
+		return false;
+	}
+	sprintf(config_dir, "%s%s", home, config_suffix);
+	sprintf(wsm_dir, "%s%s", home, wsm_suffix);
+	bool ok = (mkdir(config_dir, 0700) == 0 || errno == EEXIST) &&
+		(mkdir(wsm_dir, 0700) == 0 || errno == EEXIST);
+	free(config_dir);
+	free(wsm_dir);
+	return ok;
+}
 
 static bool ensure_keyboard_group(void) {
 	bool changed = false;
@@ -51,7 +71,7 @@ static bool ensure_keyboard_group(void) {
 			config, "keyboard_group.num_lock_on_startup", &boolean)) {
 		if (!wsm_toml_get_bool(
 				config, "keyboard_group.numlock", &boolean)) {
-			boolean = false;
+			boolean = true;
 		}
 		if (!wsm_toml_set_bool(config,
 				"keyboard_group.num_lock_on_startup", boolean)) {
@@ -91,6 +111,11 @@ static bool initialize(void) {
 	sprintf(config_path, "%s%s", home, suffix);
 	char error[256];
 	config = wsm_toml_load(config_path, error, sizeof(error));
+	if (config == NULL && errno == ENOENT) {
+		if (ensure_config_directory(home)) {
+			config = wsm_toml_create();
+		}
+	}
 	if (config == NULL) {
 		wsm_log(WSM_ERROR, "Cannot load input configuration %s: %s",
 			config_path, error);
@@ -134,7 +159,7 @@ int wsm_input_memory_get_repeat_rate(void) {
 	}
 	int64_t value;
 	get_int("keyboard_group.repeat_info.rate", 25, &value);
-	return value > 0 && value <= 1000 ? value : 25;
+	return value >= 0 && value <= 1000 ? value : 25;
 }
 
 int wsm_input_memory_get_repeat_delay(void) {
@@ -148,11 +173,55 @@ int wsm_input_memory_get_repeat_delay(void) {
 
 bool wsm_input_memory_get_numlock(void) {
 	if (!initialize()) {
-		return false;
+		return true;
 	}
 	bool value;
-	get_bool("keyboard_group.num_lock_on_startup", false, &value);
+	get_bool("keyboard_group.num_lock_on_startup", true, &value);
 	return value;
+}
+
+bool wsm_input_memory_set_repeat_info(int rate, int delay) {
+	if (rate < 0 || rate > 1000 || delay < 0 || delay > 10000 ||
+			!initialize()) {
+		errno = EINVAL;
+		return false;
+	}
+	int64_t old_rate = wsm_input_memory_get_repeat_rate();
+	int64_t old_delay = wsm_input_memory_get_repeat_delay();
+	if (!wsm_toml_set_int(config, "keyboard_group.repeat_info.rate", rate) ||
+			!wsm_toml_set_int(config,
+				"keyboard_group.repeat_info.delay", delay) ||
+			!wsm_toml_save(config, config_path)) {
+		int saved_errno = errno;
+		wsm_toml_set_int(config,
+			"keyboard_group.repeat_info.rate", old_rate);
+		wsm_toml_set_int(config,
+			"keyboard_group.repeat_info.delay", old_delay);
+		wsm_log(WSM_ERROR, "Cannot save keyboard repeat configuration %s: %s",
+			config_path, strerror(saved_errno));
+		errno = saved_errno;
+		return false;
+	}
+	return true;
+}
+
+bool wsm_input_memory_set_numlock(bool enabled) {
+	if (!initialize()) {
+		return false;
+	}
+	bool old_enabled = wsm_input_memory_get_numlock();
+	if (!wsm_toml_set_bool(config,
+			"keyboard_group.num_lock_on_startup", enabled) ||
+			!wsm_toml_save(config, config_path)) {
+		int saved_errno = errno;
+		wsm_toml_set_bool(config,
+			"keyboard_group.num_lock_on_startup", old_enabled);
+		wsm_log(WSM_ERROR, "Cannot save keyboard Num Lock configuration %s: %s",
+			config_path, strerror(saved_errno));
+		errno = saved_errno;
+		return false;
+	}
+	return true;
 }
 
 static bool copy_double(const char *type, const char *id, const char *field,
