@@ -23,16 +23,18 @@ wsm_input = static_library(
 		'wsm_seatop_down.c',
 		'wsm_text_input.c',
 		'wsm_pointer.c',
-	),
+	) + switcher_sources,
 	dependencies: [
 		wayland_server,
 		wlroots,
 		server_protos,
 		libinput,
 		xkbcommon,
+		pango,
+		pangocairo,
 		xcb,
 		xcb_icccm,
 		udev,
 	],
-	include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc, shell_inc, decoration_inc, config_inc, data_inc]
+	include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc, shell_inc, decoration_inc, config_inc, data_inc, switcher_inc]
 )

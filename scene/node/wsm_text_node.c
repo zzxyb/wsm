@@ -92,7 +92,7 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 	}
 
 	float scale = buffer->scale;
-	int width = ceil(buffer->props.width * scale);
+	int width = ceil(get_text_width(&buffer->props) * scale);
 	int height = ceil(buffer->props.height * scale);
 	float *color = (float *)&buffer->props.color;
 	float *background = (float *)&buffer->props.background;
@@ -137,8 +137,20 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 	cairo_fill(cairo);
 	cairo_set_source_rgba(cairo, color[0], color[1], color[2], color[3]);
 	cairo_move_to(cairo, 0, (global_server.desktop_interface->font_baseline - buffer->props.baseline) * scale);
-	render_text(cairo, global_server.desktop_interface->font_description, scale, buffer->props.pango_markup,
-		"%s", buffer->text);
+	if (buffer->props.ellipsize && buffer->props.max_width >= 0) {
+		PangoLayout *layout = get_pango_layout(cairo,
+			global_server.desktop_interface->font_description,
+			buffer->text, scale, buffer->props.pango_markup);
+		pango_layout_set_width(layout,
+			buffer->props.max_width * scale * PANGO_SCALE);
+		pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
+		pango_cairo_update_layout(cairo, layout);
+		pango_cairo_show_layout(cairo, layout);
+		g_object_unref(layout);
+	} else {
+		render_text(cairo, global_server.desktop_interface->font_description,
+			scale, buffer->props.pango_markup, "%s", buffer->text);
+	}
 	cairo_surface_flush(surface);
 
 	wlr_buffer_init(&cairo_buffer->base, &cairo_buffer_impl, width, height);
@@ -302,6 +314,15 @@ void wsm_text_node_set_max_width(struct wsm_text_node *node, int max_width) {
 	wlr_scene_buffer_set_dest_size(buffer->buffer_node,
 		get_text_width(&buffer->props), buffer->props.height);
 	update_source_box(buffer);
+	render_backing_buffer(buffer);
+}
+
+void wsm_text_node_set_ellipsize(struct wsm_text_node *node, bool enabled) {
+	if (node->ellipsize == enabled) {
+		return;
+	}
+	node->ellipsize = enabled;
+	struct text_buffer *buffer = wl_container_of(node, buffer, props);
 	render_backing_buffer(buffer);
 }
 

@@ -20,6 +20,7 @@
 #include "wsm_keyboard.h"
 #include "wsm_pointer.h"
 #include "wsm_output_memory.h"
+#include "wsm_switcher.h"
 #include "node/wsm_node_descriptor.h"
 
 #include <stdlib.h>
@@ -113,6 +114,8 @@ static void seat_node_destroy(struct wsm_seat_node *seat_node) {
 
 static void handle_seat_destroy(struct wl_listener *listener, void *data) {
 	struct wsm_seat *seat = wl_container_of(listener, seat, destroy);
+	wsm_switcher_destroy(seat->switcher);
+	seat->switcher = NULL;
 	struct wsm_seat_device *seat_device, *next;
 	wl_list_for_each_safe(seat_device, next, &seat->devices, link) {
 		seat_device_destroy(seat_device);
@@ -427,10 +430,19 @@ struct wsm_seat *seat_create(const char *seat_name) {
 	}
 
 	seat->seat->data = seat;
+	seat->switcher = wsm_switcher_create(seat);
+	if (seat->switcher == NULL) {
+		wlr_seat_destroy(seat->seat);
+		wlr_scene_node_destroy(&seat->scene_tree->node);
+		free(seat);
+		return NULL;
+	}
 
 	seat->cursor = wsm_cursor_create(&global_server, seat);
 	if (!wsm_assert(seat->cursor, "wsm_cursor is NULL!")) {
+		wsm_switcher_destroy(seat->switcher);
 		wlr_seat_destroy(seat->seat);
+		wlr_scene_node_destroy(&seat->scene_tree->node);
 		free(seat);
 		return NULL;
 	}

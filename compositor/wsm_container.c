@@ -772,9 +772,6 @@ void container_minimize(struct wsm_container *con) {
 		return;
 	}
 
-	if (con->maximized) {
-		container_set_maximized(con, false);
-	}
 	view_minimize(con->view, true);
 	transaction_commit_dirty();
 }
