@@ -14,6 +14,7 @@
 #include "wsm_seatop_down.h"
 #include "wsm_layer_shell.h"
 #include "wsm_workspace.h"
+#include "wsm_multi_task_view.h"
 #include "wsm_titlebar.h"
 #include "wsm_input_manager.h"
 #include "wsm_seatop_move_floating.h"
@@ -805,6 +806,10 @@ static void handle_pinch_end(
 
 static void handle_swipe_begin(
 	struct wsm_seat *seat, struct wlr_pointer_swipe_begin_event *event) {
+	if (wsm_multi_task_view_handle_swipe_begin(
+		    seat->multi_task_view, event)) {
+		return;
+	}
 	struct wsm_cursor *cursor = seat->cursor;
 	wlr_pointer_gestures_v1_send_swipe_begin(
 		global_server.input_manager->pointer_gestures_wlr,
@@ -813,6 +818,10 @@ static void handle_swipe_begin(
 
 static void handle_swipe_update(
 	struct wsm_seat *seat, struct wlr_pointer_swipe_update_event *event) {
+	if (wsm_multi_task_view_handle_swipe_update(
+		    seat->multi_task_view, event)) {
+		return;
+	}
 
 	struct wsm_cursor *cursor = seat->cursor;
 	wlr_pointer_gestures_v1_send_swipe_update(
@@ -822,6 +831,10 @@ static void handle_swipe_update(
 
 static void handle_swipe_end(
 	struct wsm_seat *seat, struct wlr_pointer_swipe_end_event *event) {
+	if (wsm_multi_task_view_handle_swipe_end(
+		    seat->multi_task_view, event)) {
+		return;
+	}
 	struct wsm_cursor *cursor = seat->cursor;
 	wlr_pointer_gestures_v1_send_swipe_end(
 		global_server.input_manager->pointer_gestures_wlr,

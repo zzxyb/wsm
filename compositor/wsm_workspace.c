@@ -1,11 +1,9 @@
 #include "wsm_log.h"
-#include "wsm_seat.h"
 #include "wsm_scene.h"
 #include "wsm_view.h"
 #include "wsm_server.h"
 #include "wsm_output.h"
 #include "wsm_workspace.h"
-#include "wsm_input_manager.h"
 #include "wsm_workspace_manager.h"
 #include "wsm_output_config.h"
 
@@ -50,10 +48,14 @@ struct wsm_workspace *workspace_create(struct wsm_output *output,
 	ws->layers.non_fullscreen = wlr_scene_tree_create(global_server.scene->staging);
 	ws->layers.fullscreen = wlr_scene_tree_create(global_server.scene->staging);
 
-	bool successed = ws->layers.non_fullscreen && ws->layers.non_fullscreen;
+	bool successed = ws->layers.non_fullscreen && ws->layers.fullscreen;
 	if (!successed) {
-		wlr_scene_node_destroy(&ws->layers.non_fullscreen->node);
-		wlr_scene_node_destroy(&ws->layers.fullscreen->node);
+		if (ws->layers.non_fullscreen != NULL) {
+			wlr_scene_node_destroy(&ws->layers.non_fullscreen->node);
+		}
+		if (ws->layers.fullscreen != NULL) {
+			wlr_scene_node_destroy(&ws->layers.fullscreen->node);
+		}
 		free(ws);
 		return NULL;
 	}
@@ -237,23 +239,12 @@ void workspace_add_gaps(struct wsm_workspace *ws) {
 }
 
 void workspace_consider_destroy(struct wsm_workspace *ws) {
-	if (ws->tiling->length || ws->floating->length) {
-		return;
-	}
-
-	if (ws->output && output_get_active_workspace(ws->output) == ws) {
-		return;
-	}
-
-	struct wsm_seat *seat;
-	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
-		struct wsm_node *node = seat_get_focus_inactive(seat, &global_server.scene->node);
-		if (node == &ws->node) {
-			return;
-		}
-	}
-
-	workspace_begin_destroy(ws);
+	/* Spaces are persistent once created. Historically this helper reclaimed
+	 * an empty, inactive workspace, which made the overview's add button look
+	 * temporary: the new Space disappeared as soon as focus moved elsewhere.
+	 * Keep the entry point for existing lifecycle call sites, but reserve
+	 * workspace_begin_destroy() for explicit deletion and output teardown. */
+	(void)ws;
 }
 
 void workspace_begin_destroy(struct wsm_workspace *workspace) {

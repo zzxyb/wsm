@@ -179,7 +179,10 @@ void workspace_add_floating(struct wsm_workspace *workspace,
 void workspace_add_gaps(struct wsm_workspace *ws);
 
 /**
- * @brief Considers destroying the specified workspace.
+ * @brief Preserves a workspace during ordinary lifecycle cleanup.
+ *
+ * Workspaces are persistent Spaces and are destroyed only by an explicit
+ * delete operation or output teardown.
  * @param ws Pointer to the wsm_workspace instance.
  */
 void workspace_consider_destroy(struct wsm_workspace *ws);

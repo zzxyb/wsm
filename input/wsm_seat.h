@@ -49,6 +49,7 @@ struct wsm_input_device;
 struct wsm_tablet_tool;
 struct wsm_seatop_impl;
 struct wsm_switcher;
+struct wsm_multi_task_view;
 
 /**
  * @brief Enumeration of input idle sources
@@ -112,6 +113,7 @@ struct wsm_seat {
 	struct wlr_seat *seat; /**< Pointer to the WLR seat instance */
 	struct wsm_cursor *cursor; /**< Pointer to the associated cursor */
 	struct wsm_switcher *switcher; /**< Interactive task switching session */
+	struct wsm_multi_task_view *multi_task_view; /**< Workspace overview */
 
 	struct wlr_scene_tree *scene_tree; /**< Pointer to the scene tree for the seat */
 	struct wlr_scene_tree *drag_icons; /**< Pointer to the scene tree for drag icons */

@@ -21,6 +21,7 @@
 #include "wsm_pointer.h"
 #include "wsm_output_memory.h"
 #include "wsm_switcher.h"
+#include "wsm_multi_task_view.h"
 #include "node/wsm_node_descriptor.h"
 
 #include <stdlib.h>
@@ -116,6 +117,8 @@ static void handle_seat_destroy(struct wl_listener *listener, void *data) {
 	struct wsm_seat *seat = wl_container_of(listener, seat, destroy);
 	wsm_switcher_destroy(seat->switcher);
 	seat->switcher = NULL;
+	wsm_multi_task_view_destroy(seat->multi_task_view);
+	seat->multi_task_view = NULL;
 	struct wsm_seat_device *seat_device, *next;
 	wl_list_for_each_safe(seat_device, next, &seat->devices, link) {
 		seat_device_destroy(seat_device);
@@ -437,9 +440,19 @@ struct wsm_seat *seat_create(const char *seat_name) {
 		free(seat);
 		return NULL;
 	}
+	seat->multi_task_view = wsm_multi_task_view_create(seat);
+	if (seat->multi_task_view == NULL) {
+		wsm_switcher_destroy(seat->switcher);
+		seat->switcher = NULL;
+		wlr_seat_destroy(seat->seat);
+		wlr_scene_node_destroy(&seat->scene_tree->node);
+		free(seat);
+		return NULL;
+	}
 
 	seat->cursor = wsm_cursor_create(&global_server, seat);
 	if (!wsm_assert(seat->cursor, "wsm_cursor is NULL!")) {
+		wsm_multi_task_view_destroy(seat->multi_task_view);
 		wsm_switcher_destroy(seat->switcher);
 		wlr_seat_destroy(seat->seat);
 		wlr_scene_node_destroy(&seat->scene_tree->node);
@@ -647,6 +660,13 @@ void seatop_swipe_end(
 }
 
 void seatop_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
+	if (wsm_multi_task_view_blocks_pointer(seat->multi_task_view)) {
+		if (seat->multi_task_view->active) {
+			wsm_multi_task_view_handle_pointer_motion(seat->multi_task_view);
+		}
+		wlr_seat_pointer_notify_clear_focus(seat->seat);
+		return;
+	}
 	if (seat->seatop_impl->pointer_motion) {
 		seat->seatop_impl->pointer_motion(seat, time_msec);
 	}
@@ -654,6 +674,9 @@ void seatop_pointer_motion(struct wsm_seat *seat, uint32_t time_msec) {
 
 void seatop_pointer_axis(
 	struct wsm_seat *seat, struct wlr_pointer_axis_event *event) {
+	if (wsm_multi_task_view_blocks_pointer(seat->multi_task_view)) {
+		return;
+	}
 	if (seat->seatop_impl->pointer_axis) {
 		seat->seatop_impl->pointer_axis(seat, event);
 	}
@@ -662,6 +685,14 @@ void seatop_pointer_axis(
 void seatop_button(struct wsm_seat *seat, uint32_t time_msec,
 	struct wlr_input_device *device, uint32_t button,
 	enum wl_pointer_button_state state) {
+	if (seat->multi_task_view && seat->multi_task_view->active) {
+		wsm_multi_task_view_handle_button(
+			seat->multi_task_view, button, state);
+		return;
+	}
+	if (wsm_multi_task_view_blocks_pointer(seat->multi_task_view)) {
+		return;
+	}
 	if (seat->seatop_impl->button) {
 		seat->seatop_impl->button(
 			seat, time_msec, device, button, state);

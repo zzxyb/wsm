@@ -1,4 +1,5 @@
 #include "wsm_xdg_shell.h"
+#include "../config.h"
 #include "wsm_xdg_popup.h"
 #include "wsm_server.h"
 #include "wsm_log.h"
@@ -468,8 +469,9 @@ static void handle_map(struct wl_listener *listener, void *data) {
 		view->natural_height = toplevel->base->surface->current.height;
 	}
 
-	bool csd = false;
+	bool csd = !HAVE_SSD;
 
+#if HAVE_SSD
 	if (view->xdg_decoration) {
 		enum wlr_xdg_toplevel_decoration_v1_mode mode =
 			view->xdg_decoration->xdg_decoration_wlr->requested_mode;
@@ -480,6 +482,7 @@ static void handle_map(struct wl_listener *listener, void *data) {
 		csd = !deco || deco->server_decoration_wlr->mode ==
 			WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT;
 	}
+#endif
 
 	view_map(view, toplevel->base->surface,
 		toplevel->requested.fullscreen,

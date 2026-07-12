@@ -23,7 +23,7 @@ wsm_input = static_library(
 		'wsm_seatop_down.c',
 		'wsm_text_input.c',
 		'wsm_pointer.c',
-	) + switcher_sources,
+	) + switcher_sources + multi_task_view_sources,
 	dependencies: [
 		wayland_server,
 		wlroots,
@@ -36,5 +36,5 @@ wsm_input = static_library(
 		xcb_icccm,
 		udev,
 	],
-	include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc, shell_inc, decoration_inc, config_inc, data_inc, switcher_inc]
+	include_directories:[common_inc, xwl_inc, compositor_inc, scene_inc, output_inc, shell_inc, decoration_inc, config_inc, data_inc, switcher_inc, multi_task_view_inc]
 )

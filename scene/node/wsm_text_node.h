@@ -38,6 +38,12 @@ struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent,
 	char *text, float color[4], bool pango_markup);
 
 /**
+ * Ensures that the text node has a backing buffer even when its scene tree is
+ * currently outside an output or disabled.
+ */
+void wsm_text_node_ensure_buffer(struct wsm_text_node *node);
+
+/**
  * @brief Sets the color of the specified text node
  * @param node Pointer to the wsm_text_node whose color will be set
  * @param color RGBA color array to set for the text

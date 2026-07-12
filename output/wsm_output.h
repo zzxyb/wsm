@@ -73,6 +73,7 @@ struct wsm_output {
 
 	struct {
 		struct wl_signal disable; /**< Signal emitted when the output is disabled */
+		struct wl_signal frame; /**< Signal emitted before rendering an output frame */
 	} events;
 
 	struct timespec last_presentation; /**< Timestamp of the last presentation */

@@ -8,6 +8,7 @@
 #include "wsm_text_input.h"
 #include "wsm_input_manager.h"
 #include "wsm_switcher.h"
+#include "wsm_multi_task_view.h"
 
 #include <stdlib.h>
 #include <strings.h>
@@ -399,9 +400,15 @@ static void handle_key_event(
 		return;
 	}
 
-	handled = wsm_switcher_handle_key(seat->switcher,
+	handled = wsm_multi_task_view_handle_key(seat->multi_task_view,
 		keyinfo.raw_keysyms, keyinfo.raw_keysyms_len,
 		keyinfo.raw_modifiers, event->state);
+
+	if (!handled) {
+		handled = wsm_switcher_handle_key(seat->switcher,
+			keyinfo.raw_keysyms, keyinfo.raw_keysyms_len,
+			keyinfo.raw_modifiers, event->state);
+	}
 
 	if (!handled && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
 		handled = keyboard_execute_compositor_binding(keyboard,
@@ -540,7 +547,8 @@ static int handle_keyboard_repeat(void *data) {
 
 static void handle_modifier_event(struct wsm_keyboard *keyboard) {
 	if (!keyboard->keyboard_wlr->group) {
-		wsm_switcher_handle_modifiers(keyboard->device_wsm->seat->switcher,
+		wsm_switcher_handle_modifiers(
+			keyboard->device_wsm->seat->switcher,
 			wlr_keyboard_get_modifiers(keyboard->keyboard_wlr));
 		struct wlr_input_method_keyboard_grab_v2 *kb_grab =
 			keyboard_get_im_grab(keyboard);

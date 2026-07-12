@@ -292,6 +292,7 @@ static void handle_frame(struct wl_listener *listener, void *user_data) {
 	if (!output->enabled || !output->wlr_output->enabled) {
 		return;
 	}
+	wl_signal_emit_mutable(&output->events.frame, output);
 
 	int msec_until_refresh = 0;
 
@@ -423,6 +424,7 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
 	}
 
 	wl_signal_init(&output->events.disable);
+	wl_signal_init(&output->events.frame);
 
 	wl_list_insert(&global_server.scene->all_outputs, &output->link);
 

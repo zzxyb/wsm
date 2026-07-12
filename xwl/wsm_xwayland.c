@@ -288,7 +288,8 @@ static void handle_set_decorations(struct wl_listener *listener, void *data) {
 	struct wsm_view *view = &xwayland_view->view;
 	const struct wlr_xwayland_surface *xsurface = view->wlr_xwayland_surface;
 
-	bool csd = xsurface->decorations != WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
+	bool csd = !HAVE_SSD ||
+		xsurface->decorations != WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
 	view_update_csd_from_client(view, csd);
 	if (view->container) {
 		wsm_arrange_container_auto(view->container);
@@ -489,7 +490,8 @@ void wsm_xwayland_map(struct wsm_xwayland_view *xwayland_view) {
 	wl_signal_add(&xsurface->surface->events.commit, &xwayland_view->commit);
 	xwayland_view->commit.notify = handle_commit;
 
-	bool csd = xsurface->decorations != WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
+	bool csd = !HAVE_SSD ||
+		xsurface->decorations != WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
 	view_map(view, xsurface->surface, xsurface->fullscreen, NULL, csd);
 
 	xwayland_view->surface_tree = wlr_scene_subsurface_tree_create(

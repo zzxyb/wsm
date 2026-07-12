@@ -276,6 +276,18 @@ struct wsm_text_node *wsm_text_node_create(struct wlr_scene_tree *parent,
 	return &buffer->props;
 }
 
+void wsm_text_node_ensure_buffer(struct wsm_text_node *node) {
+	struct text_buffer *buffer = wl_container_of(node, buffer, props);
+	if (buffer->buffer_node->buffer != NULL) {
+		return;
+	}
+
+	bool visible = buffer->visible;
+	buffer->visible = true;
+	render_backing_buffer(buffer);
+	buffer->visible = visible;
+}
+
 void wsm_text_node_set_color(struct wsm_text_node *node, float color[4]) {
 	if (memcmp(&node->color, color, sizeof(*color) * 4) == 0) {
 		return;

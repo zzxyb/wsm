@@ -336,9 +336,11 @@ bool wsm_server_init(struct wsm_server *server) {
 	server->xdg_shell = wsm_xdg_shell_create(server);
 	server->idle_notifier_v1 =
 		wlr_idle_notifier_v1_create(server->wl_display);
+#if HAVE_SSD
 	server->server_decoration_manager =
 		wsm_server_decoration_manager_create(server);
 	server->xdg_decoration_manager = xdg_decoration_manager_create(server);
+#endif
 	server->wlr_relative_pointer_manager =
 		wlr_relative_pointer_manager_v1_create(server->wl_display);
 
