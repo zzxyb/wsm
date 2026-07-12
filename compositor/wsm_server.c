@@ -17,6 +17,7 @@
 #include "wsm_session_lock.h"
 #include "wsm_desktop.h"
 #include "wsm_brightness_control_v1.h"
+#include "wsm_keyboard_group_v1.h"
 #include "wsm_transaction.h"
 #include "wsm_workspace.h"
 #include "wsm_output_memory.h"
@@ -437,6 +438,10 @@ bool wsm_server_init(struct wsm_server *server) {
 			server->wl_display);
 
 	wsm_brightness_control_manager_v1_create(server->wl_display);
+	if (!wsm_keyboard_group_manager_v1_create(server->wl_display)) {
+		wsm_log(WSM_ERROR, "Failed to create keyboard group manager");
+		return false;
+	}
 	return true;
 }
 

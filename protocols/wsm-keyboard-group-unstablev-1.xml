@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="wsm_keyboard_group_unstable_v1">
+  <copyright>
+    Copyright (c) 2024 YaoBing Xiao
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+  </copyright>
+
+  <description summary="manage keyboard group settings">
+    This experimental protocol allows a client to create a keyboard
+    group management object for a wl_keyboard and to read or update settings
+    shared by that keyboard group.
+
+    Backward incompatible changes may be made while this protocol is unstable.
+  </description>
+
+  <interface name="wsm_keyboard_group_manager_v1" version="1">
+    <description summary="create keyboard group management objects">
+      The manager creates one wsm_keyboard_group_v1 object for a wl_keyboard.
+      Destroying the manager does not destroy objects previously created from it.
+    </description>
+
+    <request name="get_keyboard_group">
+      <description summary="manage the group represented by a wl_keyboard">
+        Create a keyboard group management object for keyboard. After creation,
+        the compositor sends repeat_info and start_num_lock with the current
+        values before processing subsequent changes requested on the object.
+      </description>
+      <arg name="id" type="new_id" interface="wsm_keyboard_group_v1"/>
+      <arg name="keyboard" type="object" interface="wl_keyboard"/>
+    </request>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager"/>
+    </request>
+
+    <enum name="error">
+      <entry name="invalid_keyboard" value="0"
+             summary="the wl_keyboard is inert or invalid"/>
+    </enum>
+  </interface>
+
+  <interface name="wsm_keyboard_group_v1" version="1">
+    <description summary="keyboard group settings">
+      This object exposes the repeat settings and startup Num Lock preference
+      associated with a wl_keyboard's keyboard group.
+
+      The compositor sends both state events when this object is initialized.
+      It also sends an event whenever the corresponding value changes.
+    </description>
+
+    <request name="set_repeat_info">
+      <description summary="set key repeat rate and delay">
+        Set the key repeat rate in characters per second and the delay in
+        milliseconds before repeating begins. A rate of zero disables repeat.
+      </description>
+      <arg name="rate" type="int" summary="repeat rate in characters per second"/>
+      <arg name="delay" type="int" summary="delay in milliseconds"/>
+    </request>
+
+    <request name="set_start_num_lock">
+      <description summary="set the startup Num Lock preference">
+        Set whether Num Lock should be enabled when the keyboard group starts.
+      </description>
+      <arg name="enabled" type="uint" summary="1 to enable Num Lock, 0 to disable it"/>
+    </request>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy this keyboard group management object"/>
+    </request>
+
+    <event name="repeat_info">
+      <description summary="report key repeat rate and delay">
+        This event is sent when the object is initialized and whenever the key
+        repeat settings change.
+      </description>
+      <arg name="rate" type="int" summary="repeat rate in characters per second"/>
+      <arg name="delay" type="int" summary="delay in milliseconds"/>
+    </event>
+
+    <event name="start_num_lock">
+      <description summary="report the startup Num Lock preference">
+        This event is sent when the object is initialized and whenever the
+        startup Num Lock preference changes.
+      </description>
+      <arg name="enabled" type="uint" summary="1 when Num Lock starts enabled, otherwise 0"/>
+    </event>
+
+    <enum name="error">
+      <entry name="invalid_repeat_info" value="0"
+             summary="the repeat rate or delay is outside the supported range"/>
+      <entry name="invalid_num_lock" value="1"
+             summary="the Num Lock value is neither zero nor one"/>
+      <entry name="save_failed" value="2"
+             summary="the compositor could not persist the requested value"/>
+    </enum>
+  </interface>
+</protocol>
