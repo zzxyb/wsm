@@ -289,6 +289,139 @@ static char* get_icon_name_from_desktop_file(const char* desktop_file_path) {
 	return icon_name;
 }
 
+static void add_locale_candidates(char candidates[][64], size_t *count,
+		const char *locale) {
+	if (locale == NULL || *locale == '\0' || *count >= 32) {
+		return;
+	}
+	char normalized[64];
+	snprintf(normalized, sizeof(normalized), "%s", locale);
+	char *dot = strchr(normalized, '.');
+	if (dot != NULL) {
+		char *modifier = strchr(dot, '@');
+		if (modifier != NULL) {
+			memmove(dot, modifier, strlen(modifier) + 1);
+		} else {
+			*dot = '\0';
+		}
+	}
+	if (strcmp(normalized, "C") == 0 || strcmp(normalized, "POSIX") == 0) {
+		return;
+	}
+	char variants[4][64] = {{0}};
+	snprintf(variants[0], sizeof(variants[0]), "%s", normalized);
+	char *modifier = strchr(normalized, '@');
+	if (modifier != NULL) {
+		*modifier = '\0';
+		snprintf(variants[1], sizeof(variants[1]), "%s", normalized);
+	}
+	char *territory = strchr(normalized, '_');
+	if (territory != NULL) {
+		*territory = '\0';
+		snprintf(variants[2], sizeof(variants[2]), "%s", normalized);
+	}
+	for (size_t i = 0; i < 4 && *count < 32; ++i) {
+		if (variants[i][0] == '\0') {
+			continue;
+		}
+		bool duplicate = false;
+		for (size_t j = 0; j < *count; ++j) {
+			if (strcmp(candidates[j], variants[i]) == 0) {
+				duplicate = true;
+				break;
+			}
+		}
+		if (!duplicate) {
+			snprintf(candidates[(*count)++], 64, "%s", variants[i]);
+		}
+	}
+}
+
+static size_t get_locale_candidates(char candidates[][64]) {
+	size_t count = 0;
+	const char *language = getenv("LANGUAGE");
+	if (language != NULL && *language != '\0') {
+		char *copy = strdup(language);
+		if (copy != NULL) {
+			char *saveptr = NULL;
+			for (char *item = strtok_r(copy, ":", &saveptr); item != NULL;
+					item = strtok_r(NULL, ":", &saveptr)) {
+				add_locale_candidates(candidates, &count, item);
+			}
+			free(copy);
+		}
+	}
+	const char *locale = getenv("LC_ALL");
+	if (locale == NULL || *locale == '\0') {
+		locale = getenv("LC_MESSAGES");
+	}
+	if (locale == NULL || *locale == '\0') {
+		locale = getenv("LANG");
+	}
+	add_locale_candidates(candidates, &count, locale);
+	return count;
+}
+
+char *find_app_name_from_app_id(const char *app_id) {
+	if (app_id == NULL || *app_id == '\0') {
+		return NULL;
+	}
+	char *desktop_file_path = find_desktop_file_frome_app_id(app_id);
+	if (desktop_file_path == NULL) {
+		return NULL;
+	}
+	FILE *file = fopen(desktop_file_path, "r");
+	free(desktop_file_path);
+	if (file == NULL) {
+		return NULL;
+	}
+	char buffer[1024];
+	char *fallback = NULL;
+	char *localized[32] = {0};
+	char candidates[32][64] = {{0}};
+	size_t candidate_count = get_locale_candidates(candidates);
+	bool desktop_entry = false;
+	while (fgets(buffer, sizeof(buffer), file)) {
+		buffer[strcspn(buffer, "\r\n")] = '\0';
+		if (buffer[0] == '[') {
+			desktop_entry = strcmp(buffer, "[Desktop Entry]") == 0;
+			continue;
+		}
+		if (!desktop_entry) {
+			continue;
+		}
+		if (strncmp(buffer, "Name=", 5) == 0 && buffer[5] != '\0') {
+			free(fallback);
+			fallback = strdup(buffer + 5);
+			continue;
+		}
+		for (size_t i = 0; i < candidate_count; ++i) {
+			char key[80];
+			snprintf(key, sizeof(key), "Name[%s]=", candidates[i]);
+			size_t length = strlen(key);
+			if (strncmp(buffer, key, length) == 0 && buffer[length] != '\0') {
+				free(localized[i]);
+				localized[i] = strdup(buffer + length);
+				break;
+			}
+		}
+	}
+	fclose(file);
+	char *name = NULL;
+	for (size_t i = 0; i < candidate_count; ++i) {
+		if (name == NULL && localized[i] != NULL) {
+			name = localized[i];
+			localized[i] = NULL;
+		}
+		free(localized[i]);
+	}
+	if (name != NULL) {
+		free(fallback);
+		return name;
+	}
+	return fallback;
+}
+
 static void get_home_directory(char *home_dir, size_t size) {
 	char *home = getenv("HOME");
 	if (home) {

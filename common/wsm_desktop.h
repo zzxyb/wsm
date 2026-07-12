@@ -134,6 +134,13 @@ void find_system_icon(const char *icon_name, char *icon_path, char *icon_theme, 
 char* find_app_icon_frome_app_id(struct wsm_desktop_interface *desktop, const char *app_id);
 
 /**
+ * @brief Finds the display name from an application's desktop file.
+ * @param app_id Application identifier used to locate the desktop file.
+ * @return Newly allocated display name, or NULL when none can be found.
+ */
+char *find_app_name_from_app_id(const char *app_id);
+
+/**
  * @brief Finds the icon file based on the theme and icon name.
  * @param desktop Pointer to the wsm_desktop_interface instance.
  * @param icon_name The name of the icon to find.

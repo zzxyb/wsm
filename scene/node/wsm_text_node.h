@@ -21,6 +21,7 @@ struct wsm_text_node {
 	int height; /**< Height of the text node */
 	int baseline; /**< Baseline position for the text */
 	bool pango_markup; /**< Flag indicating if Pango markup is used for text formatting */
+	bool ellipsize; /**< Whether overflowing text ends with an ellipsis */
 };
 
 /**
@@ -56,6 +57,11 @@ void wsm_text_node_set_text(struct wsm_text_node *node, char *text);
  * @param max_width Maximum width to set for the text node
  */
 void wsm_text_node_set_max_width(struct wsm_text_node *node, int max_width);
+
+/**
+ * @brief Enables or disables end ellipsizing when max width is exceeded.
+ */
+void wsm_text_node_set_ellipsize(struct wsm_text_node *node, bool enabled);
 
 /**
  * @brief Sets the background color of the specified text node
