@@ -619,6 +619,10 @@ static const struct wsm_seatop_impl seatop_impl = {
 
 void seatop_begin_move_floating(struct wsm_seat *seat,
 		struct wsm_container *con) {
+	if (con->maximized) {
+		return;
+	}
+
 	seatop_end(seat);
 	bool was_in_snap_group = con->snap_group_peer != NULL;
 	if (con->snap_group_peer) {

@@ -217,6 +217,10 @@ static const struct wsm_seatop_impl seatop_impl = {
 
 void seatop_begin_move_tiling_threshold(struct wsm_seat *seat,
 		struct wsm_container *con) {
+	if (con->maximized) {
+		return;
+	}
+
 	seatop_end(seat);
 
 	struct seatop_move_tiling_event *e =
@@ -258,6 +262,10 @@ void seatop_begin_move_tiling(struct wsm_seat *seat,
 
 void seatop_begin_move_tiling_to_floating(struct wsm_seat *seat,
 		struct wsm_container *con) {
+	if (con->maximized) {
+		return;
+	}
+
 	struct wlr_box box;
 	struct wlr_box other_box;
 	struct wsm_container *other = NULL;

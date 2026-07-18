@@ -130,6 +130,9 @@ static enum wlr_edges find_edge(struct wsm_container *cont,
 	if (!cont->view || (surface && cont->view->surface != surface)) {
 		return WLR_EDGE_NONE;
 	}
+	if (cont->maximized) {
+		return WLR_EDGE_NONE;
+	}
 	int max_thickness = get_max_thickness(cont->pending);
 	if (cont->pending.border == B_NONE || !max_thickness ||
 		cont->pending.fullscreen_mode) {
