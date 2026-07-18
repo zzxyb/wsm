@@ -592,7 +592,7 @@ static void container_set_content_geometry_from_box(struct wsm_container *con) {
 
 	if (con->pending.border != B_CSD && !con->pending.fullscreen_mode) {
 		border_width = get_max_thickness(con->pending) *
-			(con->pending.border != B_NONE);
+			(con->pending.border != B_NONE && !con->maximized);
 		title_height = con->pending.border == B_NORMAL ?
 			(int)container_titlebar_height() : border_width;
 	}
@@ -717,6 +717,9 @@ void container_set_maximized(struct wsm_container *con, bool maximized) {
 		con->pending.y = area.y;
 		con->pending.width = area.width;
 		con->pending.height = area.height;
+		con->pending.border_top = con->pending.border_bottom = false;
+		con->pending.border_left = con->pending.border_right = false;
+		con->maximized = maximized;
 		container_set_content_geometry_from_box(con);
 	} else {
 		con->pending.x = con->saved_maximized_x;
@@ -727,9 +730,11 @@ void container_set_maximized(struct wsm_container *con, bool maximized) {
 		con->pending.content_y = con->saved_maximized_content_y;
 		con->pending.content_width = con->saved_maximized_content_width;
 		con->pending.content_height = con->saved_maximized_content_height;
+		con->pending.border_top = con->pending.border_bottom = true;
+		con->pending.border_left = con->pending.border_right = true;
+		con->maximized = maximized;
 	}
 
-	con->maximized = maximized;
 	view_maximize(con->view, maximized);
 	container_raise_floating(con);
 	node_set_dirty(&con->node);

@@ -583,32 +583,39 @@ void wsm_arrange_container_with_title_bar(struct wsm_container *con,
 
 	if (con->view) {
 		int max_thickness = get_max_thickness(con->current);
-		int border_top = container_titlebar_height() + max_thickness * con->current.border_top;
 		int border_width = max_thickness;
 		int sensing_width = max_thickness;
+		int border_left = con->current.border_left ? border_width : 0;
+		int border_right = con->current.border_right ? border_width : 0;
+		int border_top = con->current.border_top ? border_width : 0;
 
 		if (con->current.border == B_NORMAL) {
+			int title_top = container_titlebar_height() + border_top;
 			if (title_bar) {
 				int title_width = titlebar_visible_width(con,
-					width - max_thickness * 2);
-				wsm_arrange_title_bar(con, max_thickness, 0,
-					title_width, border_top);
+					width - border_left - border_right);
+				wsm_arrange_title_bar(con, border_left, 0,
+					title_width, title_top);
 			} else {
-				border_top = 0;
+				title_top = 0;
 			}
+			border_top = title_top;
 		} else if (con->current.border == B_NONE) {
 			container_update(con);
 			border_top = 0;
 			border_width = 0;
 			sensing_width = 0;
+			border_left = 0;
+			border_right = 0;
 		} else if (con->current.border == B_CSD) {
 			border_top = 0;
 			border_width = 0;
+			border_left = 0;
+			border_right = 0;
 		} else {
 			wsm_assert(false, "unreachable");
 		}
 
-		int border_left = con->current.border_left ? border_width : 0;
 		int sensing_bottom = con->current.border_bottom ? sensing_width : 0;
 		int sensing_left = con->current.border_left ? sensing_width : 0;
 		int sensing_right = con->current.border_right ? sensing_width : 0;

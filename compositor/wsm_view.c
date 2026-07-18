@@ -242,7 +242,7 @@ void view_autoconfigure(struct wsm_view *view) {
 	con->pending.border_top = con->pending.border_bottom = true;
 	con->pending.border_left = con->pending.border_right = true;
 
-	bool show_border = true;
+	bool show_border = !con->maximized;
 	con->pending.border_left &= show_border;
 	con->pending.border_right &= show_border;
 	con->pending.border_top &= show_border;
