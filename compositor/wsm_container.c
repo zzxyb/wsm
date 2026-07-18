@@ -216,6 +216,7 @@ static void handle_max_button_clicked(struct wl_listener *listener, void *data) 
 		wl_container_of(listener, titlebar, max_button_clicked);
 	if (titlebar->container && titlebar->container->view &&
 			view_can_maximize(titlebar->container->view)) {
+		wsm_button_node_set_hovered(titlebar->max_button, false);
 		container_set_maximized(titlebar->container,
 			!titlebar->container->maximized);
 		transaction_commit_dirty();
