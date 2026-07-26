@@ -88,11 +88,16 @@ struct wsm_scene *wsm_scene_create(const struct wsm_server* server) {
 	scene->layers.unmanaged = alloc_scene_tree(scene->layer_tree, &failed);
 #endif
 	scene->layers.shell_overlay = alloc_scene_tree(scene->layer_tree, &failed);
+	scene->layers.animation = alloc_scene_tree(scene->layer_tree, &failed);
 	scene->layers.popup = alloc_scene_tree(scene->layer_tree, &failed);
 	scene->layers.seat = alloc_scene_tree(scene->layer_tree, &failed);
 	scene->layers.session_lock = alloc_scene_tree(scene->layer_tree, &failed);
 
 	if (!failed && !wsm_scene_descriptor_assign(&scene->layers.seat->node,
+			WSM_SCENE_DESC_NON_INTERACTIVE, (void *)1)) {
+		failed = true;
+	}
+	if (!failed && !wsm_scene_descriptor_assign(&scene->layers.animation->node,
 			WSM_SCENE_DESC_NON_INTERACTIVE, (void *)1)) {
 		failed = true;
 	}

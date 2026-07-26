@@ -19,6 +19,7 @@
 #include "wsm_idle_inhibit_v1.h"
 #include "wsm_input_manager.h"
 #include "wsm_xdg_decoration.h"
+#include "wsm_window_animation.h"
 #include "wsm_arrange.h"
 
 #include <float.h>
@@ -363,6 +364,10 @@ void view_minimize(struct wsm_view *view, bool minimize) {
 	if (view->impl->minimize) {
 		view->impl->minimize(view, minimize);
 	}
+	if (!minimize && view->container != NULL &&
+			!view->minimize_animation_pending) {
+		view->restore_animation_requested = true;
+	}
 }
 
 bool view_can_minimize(struct wsm_view *view) {
@@ -374,6 +379,12 @@ bool view_can_minimize(struct wsm_view *view) {
 }
 
 void view_close(struct wsm_view *view) {
+	if (view->close_animation_pending || view->open_animation_pending) {
+		return;
+	}
+	if (view->container) {
+		wsm_window_animation_start_close(view->container, NULL);
+	}
 	if (view->impl->close) {
 		view->impl->close(view);
 	}

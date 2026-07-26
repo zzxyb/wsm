@@ -15,6 +15,7 @@
 #include "wsm_input_manager.h"
 #include "wsm_idle_inhibit_v1.h"
 #include "wsm_workspace_manager.h"
+#include "wsm_window_animation.h"
 #include "node/wsm_node_descriptor.h"
 
 #include <stdlib.h>
@@ -277,6 +278,52 @@ static void transaction_apply(struct wsm_transaction *transaction) {
 
 static void transaction_commit_pending(void);
 
+static void transaction_start_open_animations(
+		struct wsm_transaction *transaction) {
+	for (int i = 0; i < transaction->instructions->length; ++i) {
+		struct wsm_node *node =
+			((struct wsm_transaction_instruction *)
+				transaction->instructions->items[i])->node;
+		if (!node_is_view(node) || node->destroying) {
+			continue;
+		}
+
+		struct wsm_view *view = node->container->view;
+		if (view == NULL || view->surface == NULL ||
+				view->open_animation_pending ||
+				view->close_animation_pending ||
+				view->maximize_animation_pending) {
+			continue;
+		}
+
+		if (view->maximize_animation_requested) {
+			view->maximize_animation_requested = false;
+			struct wsm_window_animation_options options = {
+				.kind = WSM_WINDOW_ANIMATION_GEOMETRY,
+				.target_box = view->maximize_animation_from,
+			};
+			wsm_window_animation_start_geometry(view->container, &options);
+			continue;
+		}
+
+		if (view->restore_animation_requested) {
+			view->restore_animation_requested = false;
+			if (!view->minimize_animation_pending) {
+				wsm_window_animation_start_restore_minimize(
+					view->container, NULL);
+			}
+			continue;
+		}
+
+		if (view->open_animation_done) {
+			continue;
+		}
+
+		view->open_animation_done = true;
+		wsm_window_animation_start_open(view->container, NULL);
+	}
+}
+
 static void transaction_progress(void) {
 	if (!global_server.queued_transaction) {
 		return;
@@ -286,6 +333,7 @@ static void transaction_progress(void) {
 	}
 	transaction_apply(global_server.queued_transaction);
 	arrange_root_scene(global_server.scene);
+	transaction_start_open_animations(global_server.queued_transaction);
 	cursor_rebase_all();
 	transaction_destroy(global_server.queued_transaction);
 	global_server.queued_transaction = NULL;

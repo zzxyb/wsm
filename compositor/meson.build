@@ -7,6 +7,7 @@ wsm_compositor = static_library(
 		'wsm_server.c',
 		'wsm_idle_inhibit_v1.c',
 		'wsm_container.c',
+		'wsm_window_animation.c',
 		'wsm_transaction.c',
 		'wsm_session_lock.c',
 	),

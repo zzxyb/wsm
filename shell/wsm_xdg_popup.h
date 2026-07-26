@@ -22,6 +22,7 @@ struct wsm_xdg_popup {
 	struct wlr_scene_tree *scene_tree; /**< Pointer to the scene tree containing this popup */
 	struct wlr_scene_tree *xdg_surface_tree; /**< Pointer to the scene tree for the XDG surface */
 	struct wlr_xdg_popup *xdg_popup_wlr; /**< Pointer to the WLR XDG popup instance */
+	bool animated; /**< Whether the initial popup animation has started */
 };
 
 /**
@@ -39,5 +40,7 @@ struct wsm_xdg_popup *wsm_xdg_popup_create(struct wlr_xdg_popup *wlr_popup,
  * @param popup Pointer to the wsm_xdg_popup instance to be unconstrained
  */
 void wsm_xdg_popup_unconstrain(struct wsm_xdg_popup *popup);
+
+void wsm_xdg_popup_animate(struct wsm_xdg_popup *popup);
 
 #endif

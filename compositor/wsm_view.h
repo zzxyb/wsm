@@ -124,6 +124,14 @@ struct wsm_view {
 	bool enabled; /**< Flag indicating if the view is enabled */
 	bool destroying; /**< Flag indicating if the view is being destroyed */
 	bool allow_request_urgent; /**< Flag indicating if urgent requests are allowed */
+	bool close_animation_pending; /**< Flag indicating if close is deferred by an animation */
+	bool open_animation_pending; /**< Flag indicating if map is being presented by an animation */
+	bool open_animation_done; /**< Flag indicating if the initial map animation has run */
+	bool minimize_animation_pending; /**< Flag indicating if minimize/restore is being presented by an animation */
+	bool restore_animation_requested; /**< Flag indicating if restore animation should run after arrange */
+	bool maximize_animation_pending; /**< Flag indicating if maximize/restore is being presented by an animation */
+	bool maximize_animation_requested; /**< Flag indicating if maximize/restore animation should run after arrange */
+	struct wlr_box maximize_animation_from; /**< Geometry to animate from after maximize/restore redraw */
 };
 
 /**

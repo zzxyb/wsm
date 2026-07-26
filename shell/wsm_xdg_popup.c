@@ -3,6 +3,7 @@
 #include "wsm_xdg_shell.h"
 #include "wsm_workspace.h"
 #include "wsm_output.h"
+#include "wsm_popup_animation.h"
 #include "node/wsm_node_descriptor.h"
 
 #include <stdlib.h>
@@ -19,6 +20,9 @@ static void popup_handle_surface_commit(struct wl_listener *listener, void *data
 	struct wsm_xdg_popup *popup = wl_container_of(listener, popup, surface_commit);
 	if (popup->xdg_popup_wlr->base->initial_commit) {
 		wsm_xdg_popup_unconstrain(popup);
+	}
+	if (!popup->animated) {
+		wsm_xdg_popup_animate(popup);
 	}
 }
 
@@ -94,6 +98,13 @@ struct wsm_xdg_popup *wsm_xdg_popup_create(struct wlr_xdg_popup *wlr_popup,
 	popup->destroy.notify = popup_handle_destroy;
 
 	return popup;
+}
+
+void wsm_xdg_popup_animate(struct wsm_xdg_popup *popup) {
+	if (popup != NULL && !popup->animated &&
+			wsm_popup_animation_start(popup->scene_tree, NULL)) {
+		popup->animated = true;
+	}
 }
 
 void wsm_xdg_popup_unconstrain(struct wsm_xdg_popup *popup) {

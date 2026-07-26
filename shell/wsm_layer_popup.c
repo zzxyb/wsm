@@ -2,6 +2,7 @@
 #include "wsm_output.h"
 #include "wsm_layer_popup.h"
 #include "wsm_layer_shell.h"
+#include "wsm_popup_animation.h"
 
 #include <stdlib.h>
 
@@ -30,6 +31,10 @@ static void popup_handle_commit(struct wl_listener *listener, void *data) {
 	struct wsm_layer_popup *popup = wl_container_of(listener, popup, commit);
 	if (popup->xdg_popup->base->initial_commit) {
 		wsm_layer_popup_unconstrain(popup);
+	}
+	if (!popup->animated &&
+			wsm_popup_animation_start(popup->scene, NULL)) {
+		popup->animated = true;
 	}
 }
 

@@ -53,6 +53,7 @@ struct wsm_scene {
 		struct wlr_scene_tree *unmanaged; /**< Scene tree for unmanaged windows (if XWayland is enabled) */
 #endif
 		struct wlr_scene_tree *shell_overlay; /**< Scene tree for overlay layers */
+		struct wlr_scene_tree *animation; /**< Scene tree for compositor-owned window animations */
 		struct wlr_scene_tree *popup; /**< Scene tree for popups */
 		struct wlr_scene_tree *seat; /**< Scene tree for seat management */
 		struct wlr_scene_tree *session_lock; /**< Scene tree for session lock */

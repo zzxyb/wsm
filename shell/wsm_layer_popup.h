@@ -18,6 +18,7 @@ struct wsm_layer_popup {
 	struct wlr_xdg_popup *xdg_popup; /**< Pointer to the associated WLR XDG popup instance */
 	struct wlr_scene_tree *scene; /**< Pointer to the scene tree containing this layer popup */
 	struct wsm_layer_surface *toplevel; /**< Pointer to the associated top-level layer surface */
+	bool animated; /**< Whether the initial popup animation has started */
 };
 
 /**

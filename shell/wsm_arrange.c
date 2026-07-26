@@ -52,6 +52,7 @@ void arrange_root_scene(struct wsm_scene *root) {
 	wlr_scene_node_set_enabled(&root->layers.floating->node, !fs);
 	wlr_scene_node_set_enabled(&root->layers.shell_top->node, !fs);
 	wlr_scene_node_set_enabled(&root->layers.fullscreen->node, !fs);
+	wlr_scene_node_set_enabled(&root->layers.animation->node, true);
 
 	for (int i = 0; i < root->scratchpad->length; i++) {
 		struct wsm_container *con = root->scratchpad->items[i];

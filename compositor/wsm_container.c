@@ -13,6 +13,7 @@
 #include "wsm_common.h"
 #include "wsm_arrange.h"
 #include "wsm_transaction.h"
+#include "wsm_window_animation.h"
 #include "wsm_titlebar.h"
 #include "wsm_desktop.h"
 #include "wsm_layer_shell.h"
@@ -26,6 +27,7 @@
 #include <float.h>
 
 #include <wlr/types/wlr_scene.h>
+#include <wlr/render/pixman.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_foreign_toplevel_management_v1.h>
 
@@ -689,6 +691,28 @@ static struct wlr_box container_maximize_area(struct wsm_container *con) {
 	return area;
 }
 
+static void container_request_maximize_animation(struct wsm_container *con) {
+	if (global_server.wlr_renderer == NULL ||
+			wlr_renderer_is_pixman(global_server.wlr_renderer) ||
+			con->view->maximize_animation_pending) {
+		return;
+	}
+
+	int lx = 0;
+	int ly = 0;
+	if (!wlr_scene_node_coords(&con->scene_tree->node, &lx, &ly) ||
+			con->current.width <= 0 || con->current.height <= 0) {
+		return;
+	}
+	con->view->maximize_animation_from = (struct wlr_box) {
+		.x = lx,
+		.y = ly,
+		.width = con->current.width,
+		.height = con->current.height,
+	};
+	con->view->maximize_animation_requested = true;
+}
+
 void container_set_maximized(struct wsm_container *con, bool maximized) {
 	con = container_toplevel_ancestor(con);
 	if (!con->view || !container_is_floating(con) || !view_can_maximize(con->view)) {
@@ -699,9 +723,12 @@ void container_set_maximized(struct wsm_container *con, bool maximized) {
 		return;
 	}
 
+	container_request_maximize_animation(con);
+
 	if (maximized) {
 		struct wlr_box area = container_maximize_area(con);
 		if (wlr_box_empty(&area)) {
+			con->view->maximize_animation_requested = false;
 			return;
 		}
 
@@ -778,6 +805,7 @@ void container_minimize(struct wsm_container *con) {
 		return;
 	}
 
+	wsm_window_animation_start_minimize(con, NULL);
 	view_minimize(con->view, true);
 	transaction_commit_dirty();
 }
