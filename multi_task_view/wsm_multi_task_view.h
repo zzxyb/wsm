@@ -57,6 +57,9 @@ struct wsm_multi_task_view {
 	bool gesture_update_pending;
 	bool client_updates_suspended;
 	bool workspace_captures_started;
+	bool workspace_captures_deferred;
+	struct wsm_container *deferred_capture_container;
+	struct wsm_workspace *deferred_capture_target;
 
 	struct wsm_multi_task_layout *drag_layout;
 	struct wsm_container *dragged_container;

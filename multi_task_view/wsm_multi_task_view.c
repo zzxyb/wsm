@@ -348,6 +348,12 @@ static void start_workspace_captures(
 	struct wsm_multi_task_layout *layout);
 static void start_view_workspace_captures(
 	struct wsm_multi_task_view *view);
+static void set_layout_progress(
+	struct wsm_multi_task_layout *layout, double progress, double position);
+static void hide_deferred_workspace_container(
+	struct wsm_multi_task_view *view);
+static void refresh_deferred_workspace_captures(
+	struct wsm_multi_task_view *view);
 
 static bool has_keysym(
 	const uint32_t *keysyms, size_t length, uint32_t wanted) {
@@ -1352,6 +1358,7 @@ static bool prepare_layouts(struct wsm_multi_task_view *view) {
 		view->workspace_captures_started = false;
 		start_view_workspace_captures(view);
 	}
+	hide_deferred_workspace_container(view);
 	return view->layouts_len > 0;
 }
 
@@ -1518,12 +1525,48 @@ static void start_workspace_captures(
 
 static void start_view_workspace_captures(
 		struct wsm_multi_task_view *view) {
-	if (view == NULL || view->workspace_captures_started) {
+	if (view == NULL || view->workspace_captures_started ||
+			view->workspace_captures_deferred) {
 		return;
 	}
 	view->workspace_captures_started = true;
 	for (size_t i = 0; i < view->layouts_len; ++i) {
 		start_workspace_captures(view->layouts[i]);
+	}
+}
+
+static void hide_deferred_workspace_container(
+		struct wsm_multi_task_view *view) {
+	if (view == NULL || !view->workspace_captures_deferred) {
+		return;
+	}
+	struct wsm_container *container = view->deferred_capture_container;
+	if (container != NULL && !container->node.destroying &&
+			container->scene_tree != NULL) {
+		wlr_scene_node_set_enabled(&container->scene_tree->node, false);
+	}
+}
+
+static void refresh_deferred_workspace_captures(
+		struct wsm_multi_task_view *view) {
+	if (view == NULL || !view->workspace_captures_deferred) {
+		return;
+	}
+	struct wsm_container *container = view->deferred_capture_container;
+	struct wsm_workspace *target = view->deferred_capture_target;
+	if (container != NULL && !container->node.destroying &&
+			container->current.workspace != target) {
+		hide_deferred_workspace_container(view);
+		return;
+	}
+	hide_deferred_workspace_container(view);
+	view->workspace_captures_deferred = false;
+	view->deferred_capture_container = NULL;
+	view->deferred_capture_target = NULL;
+	start_view_workspace_captures(view);
+	for (size_t i = 0; i < view->layouts_len; ++i) {
+		set_layout_progress(view->layouts[i],
+			view->progress, view->progress);
 	}
 }
 
@@ -1825,6 +1868,8 @@ static void handle_layout_output_frame(
 	struct wsm_multi_task_layout *layout = wl_container_of(
 		listener, layout, output_frame);
 	struct wsm_multi_task_view *view = layout->view;
+	hide_deferred_workspace_container(view);
+	refresh_deferred_workspace_captures(view);
 	for (size_t i = 0; i < layout->workspace_previews_len; ++i) {
 		struct wsm_workspace_capture *capture =
 			layout->workspace_previews[i].capture;
@@ -1924,6 +1969,9 @@ static void close_overview(struct wsm_multi_task_view *view) {
 	view->client_updates_suspended = false;
 	view->active = false;
 	view->workspace_captures_started = false;
+	view->workspace_captures_deferred = false;
+	view->deferred_capture_container = NULL;
+	view->deferred_capture_target = NULL;
 	destroy_layouts(view);
 	cursor_rebase(view->seat->cursor);
 }
@@ -2270,6 +2318,10 @@ static bool move_overview_window_to_workspace(
 		source->name, target->name,
 		target->output->wlr_output->name);
 	transaction_commit_dirty();
+	view->workspace_captures_started = false;
+	view->workspace_captures_deferred = true;
+	view->deferred_capture_container = container;
+	view->deferred_capture_target = target;
 	if (!prepare_layouts(view)) {
 		close_overview(view);
 		return false;
