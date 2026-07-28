@@ -2527,6 +2527,14 @@ static void hide_workspace_for_space_swipe(struct wsm_workspace *workspace) {
 	}
 }
 
+static void hide_shell_lower_layers_for_space_swipe(struct wsm_output *output) {
+	if (output == NULL) {
+		return;
+	}
+	wlr_scene_node_set_enabled(&output->layers.shell_background->node, false);
+	wlr_scene_node_set_enabled(&output->layers.shell_bottom->node, false);
+}
+
 static struct wsm_workspace_capture *create_space_swipe_capture(
 		struct wsm_space_swipe_transition *transition,
 		struct wsm_workspace *workspace,
@@ -2543,10 +2551,11 @@ static struct wsm_workspace_capture *create_space_swipe_capture(
 		.width = transition->output_box.width,
 		.height = transition->output_box.height,
 	};
-	struct wsm_workspace_capture *capture = wsm_workspace_capture_create_options(
+	struct wsm_workspace_capture *capture =
+		wsm_workspace_capture_create_layer_options(
 		*capture_tree, transition->output, workspace, &source_box,
 		&destination, global_server.wlr_renderer,
-		global_server.wlr_allocator, false,
+		global_server.wlr_allocator, true, false, true,
 		transition->output->wlr_output->scale);
 	if (capture == NULL) {
 		wlr_scene_node_destroy(&(*capture_tree)->node);
@@ -2794,6 +2803,7 @@ static bool begin_space_swipe(
 	}
 	hide_workspace_for_space_swipe(source);
 	hide_workspace_for_space_swipe(target);
+	hide_shell_lower_layers_for_space_swipe(output);
 	transition->output_frame.notify = handle_space_swipe_output_frame;
 	wl_signal_add(&output->events.frame, &transition->output_frame);
 	transition->output_disable.notify = handle_space_swipe_output_disable;

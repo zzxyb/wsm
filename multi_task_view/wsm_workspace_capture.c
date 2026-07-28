@@ -50,6 +50,8 @@ struct wsm_workspace_capture {
 	struct wl_list sources;
 	struct wl_listener frame_done;
 	bool include_shell_layers;
+	bool include_shell_top;
+	bool ignore_shell_lower_root_enabled;
 	bool refreshing_sources;
 	bool refresh_sources;
 	bool dirty;
@@ -255,8 +257,10 @@ static void for_each_source_tree(struct wsm_workspace_capture *capture,
 		void (*iterator)(struct wsm_workspace_capture *,
 			struct wlr_scene_tree *, bool, void *), void *data) {
 	if (capture->include_shell_layers) {
-		iterator(capture, capture->output->layers.shell_background, false, data);
-		iterator(capture, capture->output->layers.shell_bottom, false, data);
+		iterator(capture, capture->output->layers.shell_background,
+			capture->ignore_shell_lower_root_enabled, data);
+		iterator(capture, capture->output->layers.shell_bottom,
+			capture->ignore_shell_lower_root_enabled, data);
 	}
 	if (capture->workspace->current.fullscreen != NULL) {
 		iterator(capture, capture->workspace->layers.fullscreen, true, data);
@@ -269,7 +273,7 @@ static void for_each_source_tree(struct wsm_workspace_capture *capture,
 		iterator(capture, containers.items[i]->scene_tree, true, data);
 	}
 	free(containers.items);
-	if (capture->include_shell_layers) {
+	if (capture->include_shell_layers && capture->include_shell_top) {
 		iterator(capture, capture->output->layers.shell_top, false, data);
 	}
 }
@@ -422,6 +426,18 @@ struct wsm_workspace_capture *wsm_workspace_capture_create_options(
 		const struct wlr_box *destination, struct wlr_renderer *renderer,
 		struct wlr_allocator *allocator, bool include_shell_layers,
 		float buffer_scale) {
+	return wsm_workspace_capture_create_layer_options(parent, output,
+		workspace, source_box, destination, renderer, allocator,
+		include_shell_layers, include_shell_layers, false, buffer_scale);
+}
+
+struct wsm_workspace_capture *wsm_workspace_capture_create_layer_options(
+		struct wlr_scene_tree *parent, struct wsm_output *output,
+		struct wsm_workspace *workspace, const struct wlr_box *source_box,
+		const struct wlr_box *destination, struct wlr_renderer *renderer,
+		struct wlr_allocator *allocator, bool include_shell_layers,
+		bool include_shell_top, bool ignore_shell_lower_root_enabled,
+		float buffer_scale) {
 	if (parent == NULL || output == NULL || workspace == NULL ||
 			source_box == NULL || source_box->width <= 0 ||
 			source_box->height <= 0 || destination == NULL ||
@@ -448,6 +464,9 @@ struct wsm_workspace_capture *wsm_workspace_capture_create_options(
 		return NULL;
 	}
 	capture->include_shell_layers = include_shell_layers;
+	capture->include_shell_top = include_shell_top;
+	capture->ignore_shell_lower_root_enabled =
+		ignore_shell_lower_root_enabled;
 	wl_list_init(&capture->sources);
 	wl_list_init(&capture->frame_done.link);
 	wlr_damage_ring_init(&capture->damage_ring);
