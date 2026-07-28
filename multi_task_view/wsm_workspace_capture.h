@@ -31,6 +31,14 @@ struct wsm_workspace_capture *wsm_workspace_capture_create_options(
 	struct wlr_allocator *allocator, bool include_shell_layers,
 	float buffer_scale);
 
+struct wsm_workspace_capture *wsm_workspace_capture_create_layer_options(
+	struct wlr_scene_tree *parent, struct wsm_output *output,
+	struct wsm_workspace *workspace, const struct wlr_box *source_box,
+	const struct wlr_box *destination, struct wlr_renderer *renderer,
+	struct wlr_allocator *allocator, bool include_shell_layers,
+	bool include_shell_top, bool ignore_shell_lower_root_enabled,
+	float buffer_scale);
+
 /** Render pending source damage. Intended to run from the output frame event. */
 bool wsm_workspace_capture_render(struct wsm_workspace_capture *capture);
 
