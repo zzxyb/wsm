@@ -11,6 +11,24 @@
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_xdg_shell.h>
 
+static float view_output_scale(struct wsm_view *view) {
+	struct wsm_output *output = NULL;
+	if (view != NULL && view->container != NULL) {
+		struct wsm_workspace *workspace = view->container->current.workspace;
+		if (workspace == NULL) {
+			workspace = view->container->pending.workspace;
+		}
+		if (workspace != NULL) {
+			output = workspace->output;
+		}
+	}
+	if (output == NULL || output->wlr_output == NULL ||
+			output->wlr_output->scale <= 0) {
+		return 1.0f;
+	}
+	return output->wlr_output->scale;
+}
+
 static void popup_handle_reposition(struct wl_listener *listener, void *data) {
 	struct wsm_xdg_popup *popup = wl_container_of(listener, popup, reposition);
 	wsm_xdg_popup_unconstrain(popup);
@@ -101,8 +119,12 @@ struct wsm_xdg_popup *wsm_xdg_popup_create(struct wlr_xdg_popup *wlr_popup,
 }
 
 void wsm_xdg_popup_animate(struct wsm_xdg_popup *popup) {
+	struct wsm_popup_animation_options options = {
+		.direction = WSM_POPUP_ANIMATION_FROM_TOP,
+		.scale = view_output_scale(popup != NULL ? popup->view : NULL),
+	};
 	if (popup != NULL && !popup->animated &&
-			wsm_popup_animation_start(popup->scene_tree, NULL)) {
+			wsm_popup_animation_start(popup->scene_tree, &options)) {
 		popup->animated = true;
 	}
 }

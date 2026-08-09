@@ -17,6 +17,7 @@ struct wsm_popup_animation_options {
 	enum wsm_popup_animation_direction direction;
 	uint32_t duration_msec;
 	int travel;
+	float scale;
 };
 
 bool wsm_popup_animation_start(struct wlr_scene_tree *tree,

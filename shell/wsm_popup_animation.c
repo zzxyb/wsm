@@ -160,12 +160,16 @@ bool wsm_popup_animation_start(struct wlr_scene_tree *tree,
 	struct wsm_popup_animation_options opts = {
 		.direction = WSM_POPUP_ANIMATION_FROM_TOP,
 		.duration_msec = POPUP_SPRING_DURATION_MSEC,
+		.scale = 1.0f,
 	};
 	if (options != NULL) {
 		opts = *options;
 	}
 	if (opts.duration_msec == 0) {
 		opts.duration_msec = POPUP_SPRING_DURATION_MSEC;
+	}
+	if (opts.scale <= 0) {
+		opts.scale = 1.0f;
 	}
 	struct wsm_popup_animation *animation =
 		calloc(1, sizeof(*animation));
@@ -174,17 +178,18 @@ bool wsm_popup_animation_start(struct wlr_scene_tree *tree,
 	}
 	wl_list_init(&animation->source_tree_destroy.link);
 
+	int lx = 0;
+	int ly = 0;
+	wlr_scene_node_coords(&tree->node, &lx, &ly);
+
 	struct wsm_scene_capture capture;
 	if (!wsm_scene_capture_tree(&capture, tree, global_server.wlr_renderer,
-			global_server.wlr_allocator, 1.0f)) {
+			global_server.wlr_allocator, opts.scale)) {
 		wsm_log(WSM_DEBUG, "Could not capture popup for animation");
 		free(animation);
 		return false;
 	}
 
-	int lx = 0;
-	int ly = 0;
-	wlr_scene_node_coords(&tree->node, &lx, &ly);
 	animation->source_tree = tree;
 	animation->duration_msec = opts.duration_msec;
 	animation->final_x = lx + capture.box.x;

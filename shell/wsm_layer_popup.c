@@ -10,6 +10,16 @@
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xdg_shell.h>
 
+static float layer_popup_output_scale(struct wsm_layer_popup *popup) {
+	struct wsm_output *output = popup != NULL && popup->toplevel != NULL ?
+		popup->toplevel->output : NULL;
+	if (output == NULL || output->wlr_output == NULL ||
+			output->wlr_output->scale <= 0) {
+		return 1.0f;
+	}
+	return output->wlr_output->scale;
+}
+
 static void popup_handle_new_popup(struct wl_listener *listener, void *data) {
 	struct wsm_layer_popup *wsm_layer_popup =
 		wl_container_of(listener, wsm_layer_popup, new_popup);
@@ -32,8 +42,12 @@ static void popup_handle_commit(struct wl_listener *listener, void *data) {
 	if (popup->xdg_popup->base->initial_commit) {
 		wsm_layer_popup_unconstrain(popup);
 	}
+	struct wsm_popup_animation_options options = {
+		.direction = WSM_POPUP_ANIMATION_FROM_TOP,
+		.scale = layer_popup_output_scale(popup),
+	};
 	if (!popup->animated &&
-			wsm_popup_animation_start(popup->scene, NULL)) {
+			wsm_popup_animation_start(popup->scene, &options)) {
 		popup->animated = true;
 	}
 }
