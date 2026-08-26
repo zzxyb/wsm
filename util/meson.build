@@ -7,4 +7,5 @@ wsm_sources += files(
 	'wsm_toml.c',
 	'wsm_matrix.c',
 	'wsm_common.c',
+	'wsm_pango.c',
 )
