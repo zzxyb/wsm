@@ -52,6 +52,7 @@ jobs:
           glslang \
           libdrm \
           pixman \
+          lcms2 \
 
     - name: Install wlframe
       run: |
