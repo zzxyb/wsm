@@ -48,6 +48,7 @@ jobs:
           libxml2 \
           cairo \
           pango \
+          glib2 \
 
     - name: Install wlframe
       run: |
