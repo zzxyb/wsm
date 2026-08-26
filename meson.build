@@ -112,6 +112,16 @@ pixman = dependency('pixman-1',
 	default_options: ['werror=false'],
 )
 lcms2 = dependency('lcms2', required: true)
+xkbcommon = dependency('xkbcommon',
+	version: '>=1.8.0',
+	fallback: 'libxkbcommon',
+	default_options: [
+		'enable-tools=false',
+		'enable-x11=false',
+		'enable-docs=false',
+		'enable-xkbregistry=false',
+	],
+)
 math = cc.find_library('m')
 rt = cc.find_library('rt')
 
@@ -217,6 +227,7 @@ wsm_deps = [
 	gbm,
 	pixman,
 	lcms2,
+	xkbcommon,
 ]
 
 if have_xwayland
