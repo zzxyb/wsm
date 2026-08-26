@@ -91,6 +91,9 @@ wayland_protos = dependency('wayland-protocols',
 
 xcb = wlroots_features['xwayland'] ? dependency('xcb') : null_dep
 xcb_icccm = wlroots_features['xwayland'] ? dependency('xcb-icccm') : null_dep
+cairo = dependency('cairo')
+pangocairo = dependency('pangocairo')
+pango = dependency('pango')
 math = cc.find_library('m')
 rt = cc.find_library('rt')
 
@@ -180,6 +183,9 @@ wsm_deps = [
 	threads,
 	wayland_server,
 	wlroots,
+	cairo,
+	pangocairo,
+	pango,
 ]
 
 if have_xwayland

@@ -46,6 +46,8 @@ jobs:
           libxslt \
           xmlto \
           libxml2 \
+          cairo \
+          pango \
 
     - name: Install wlframe
       run: |
