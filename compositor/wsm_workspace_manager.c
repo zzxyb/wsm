@@ -1,5 +1,4 @@
 #include "wsm_log.h"
-#include "wsm_scene.h"
 #include "wsm_server.h"
 #include "wsm_output.h"
 #include "wsm_workspace.h"

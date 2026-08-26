@@ -1,7 +1,6 @@
 #include "wsm_layer_shell.h"
 #include "wsm_server.h"
 #include "wsm_log.h"
-#include "wsm_scene.h"
 #include "wsm_seat.h"
 #include "wsm_output.h"
 #include "wsm_cursor.h"
@@ -19,7 +18,7 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_fractional_scale_v1.h>
 
-#define WSM_LAYER_SHELL_VERSION 4
+#define WSM_LAYER_SHELL_VERSION 5
 
 static struct wlr_scene_tree *wsm_layer_get_scene(struct wsm_output *output,
 		enum zwlr_layer_shell_v1_layer type) {
@@ -45,7 +44,8 @@ static struct wsm_layer_surface *wsm_layer_surface_create(
 		return NULL;
 	}
 
-	struct wlr_scene_tree *popups = wlr_scene_tree_create(global_server.scene->layers.popup);
+	struct wlr_scene_tree *popups = wlr_scene_tree_create(
+		global_server.scene_state.layers.popup);
 	if (!popups) {
 		wsm_log(WSM_ERROR, "Could not allocate a scene_layer popup node");
 		free(surface);
@@ -148,8 +148,8 @@ static void handle_output_destroy(struct wl_listener *listener, void *data) {
 
 static struct wsm_layer_surface *find_mapped_layer_by_client(
 	struct wl_client *client, struct wsm_output *ignore_output) {
-	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
-		struct wsm_output *output = global_server.scene->outputs->items[i];
+	for (int i = 0; i < global_server.scene_state.outputs->length; ++i) {
+		struct wsm_output *output = global_server.scene_state.outputs->items[i];
 		if (output == ignore_output) {
 			continue;
 		}
@@ -231,8 +231,8 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 				output = ws->output;
 			}
 		}
-		if (!output || output == global_server.scene->fallback_output) {
-			if (!global_server.scene->outputs->length) {
+		if (!output || output == global_server.scene_state.fallback_output) {
+			if (!global_server.scene_state.outputs->length) {
 				wsm_log(WSM_ERROR,
 					"no output to auto-assign layer surface '%s' to",
 					layer_surface->namespace);
@@ -240,7 +240,7 @@ void handle_layer_shell_surface(struct wl_listener *listener, void *data) {
 
 				return;
 			}
-			output = global_server.scene->outputs->items[0];
+			output = global_server.scene_state.outputs->items[0];
 		}
 		layer_surface->output = output->wlr_output;
 	}
@@ -306,6 +306,11 @@ struct wsm_layer_shell *wsm_layer_shell_create(const struct wsm_server *server) 
 
 	layer_shell->wlr_layer_shell = wlr_layer_shell_v1_create(server->wl_display,
 		WSM_LAYER_SHELL_VERSION);
+	if (!layer_shell->wlr_layer_shell) {
+		wsm_log(WSM_ERROR, "Could not create wlr_layer_shell_v1");
+		free(layer_shell);
+		return NULL;
+	}
 	layer_shell->layer_shell_surface.notify = handle_layer_shell_surface;
 	wl_signal_add(&layer_shell->wlr_layer_shell->events.new_surface,
 		&layer_shell->layer_shell_surface);

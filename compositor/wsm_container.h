@@ -201,9 +201,6 @@ struct wsm_container {
 		struct wlr_scene_rect *right; /**< Right sensing rectangle */
 	} sensing; /**< Sensing rectangles for the container */
 
-	struct wl_listener output_enter; /**< Listener for output enter events */
-	struct wl_listener output_leave; /**< Listener for output leave events */
-
 	struct wlr_box transform; /**< Transformation box for the container */
 
 	struct wsm_view *view; /**< Pointer to the associated wsm_view */
@@ -214,8 +211,6 @@ struct wsm_container {
 	struct wsm_titlebar *title_bar; /**< Pointer to the title bar of the container */
 
 	struct wlr_scene_tree *content_tree; /**< Scene tree for the container's content */
-	struct wlr_scene_buffer *output_handler; /**< Output handler for the container */
-
 	char *title;           /**< The view's title (unformatted) */
 	char *formatted_title; /**< The title displayed in the title bar */
 
@@ -506,6 +501,12 @@ void container_reap_empty(struct wsm_container *con);
  * @param con Pointer to the wsm_container to remove
  */
 void root_scratchpad_remove_container(struct wsm_container *con);
+
+/**
+ * @brief Shows a container from the root scratchpad on the focused workspace
+ * @param con Pointer to the wsm_container to show
+ */
+void root_scratchpad_show(struct wsm_container *con);
 
 /**
  * @brief Adds a child container to the specified parent

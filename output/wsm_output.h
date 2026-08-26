@@ -12,6 +12,7 @@
 
 struct udev_device;
 
+struct wlr_surface;
 struct wlr_output;
 struct wlr_scene_rect;
 struct wlr_output_mode;
@@ -98,7 +99,6 @@ struct wsm_output {
 	enum scale_filter_mode scale_filter; /**< Current scale filter mode */
 
 	bool enabled; /**< Flag indicating if the output is enabled */
-	bool gamma_lut_changed; /**< Flag indicating if the gamma LUT has changed */
 	bool leased; /**< Flag indicating if the output is leased */
 };
 
@@ -286,6 +286,11 @@ void output_for_each_container(struct wsm_output *output,
  * @brief Requests a mode set for the output
  */
 void request_modeset();
+
+/**
+ * @brief Applies pending output modes immediately
+ */
+void force_modeset(void);
 
 /**
  * @brief Retrieves the device handle for the specified output

@@ -5,7 +5,6 @@
 #include "wsm_log.h"
 #include "wsm_view.h"
 #include "wsm_output.h"
-#include "wsm_scene.h"
 #include "wsm_seat.h"
 #include "wsm_config.h"
 #include "wsm_arrange.h"
@@ -218,7 +217,7 @@ static void set_tiled(struct wsm_view *view, bool tiled) {
 	}
 
 	struct wlr_xwayland_surface *surface = view->wlr_xwayland_surface;
-	wlr_xwayland_surface_set_maximized(surface, tiled);
+	wlr_xwayland_surface_set_maximized(surface, tiled, tiled);
 }
 
 static void set_fullscreen(struct wsm_view *view, bool fullscreen) {
@@ -318,7 +317,8 @@ static void _maximize(struct wsm_view *view, bool maximize) {
 	if (xwayland_view_from_view(view) == NULL) {
 		return;
 	}
-	wlr_xwayland_surface_set_maximized(view->wlr_xwayland_surface, maximize);
+	wlr_xwayland_surface_set_maximized(
+		view->wlr_xwayland_surface, maximize, maximize);
 }
 
 static void _minimize(struct wsm_view *view, bool minimize) {

@@ -1,8 +1,6 @@
-wsm_scene = static_library(
-	'wsm_scene',
+wsm_scene_support = static_library(
+	'wsm_scene_support',
 	files(
-		'wsm_scene.c',
-		'wsm_scene.h',
 		'wsm_scene_capture.c',
 		'wsm_scene_capture.h',
 		'node/wsm_node.c',

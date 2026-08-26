@@ -36,14 +36,14 @@ if is_freebsd
 	add_project_arguments('-D_C11_SOURCE', language: 'c')
 endif
 
-wlroots_version = ['>=0.18.0', '<0.20.0']
+wlroots_version = ['>=0.21.0', '<0.22.0']
 # subproject(
 # 	'wlroots',
 # 	default_options: ['examples=false'],
 # 	required: false,
 # 	version: wlroots_version,
 # )
-wlroots = dependency('wlroots-0.18', version: wlroots_version, fallback: 'wlroots')
+wlroots = dependency('wlroots-0.21', version: wlroots_version, fallback: 'wlroots')
 wlroots_features = {
 	'xwayland': get_option('xwayland').enabled(),
 	'libinput_backend': true,
@@ -205,7 +205,7 @@ executable(
 	'wsm',
 	wsm_sources,
 	dependencies: wsm_deps,
-	link_with: [wsm_common, wsm_compositor, wsm_input, wsm_config, wsm_xwl, wsm_output, wsm_scene, wsm_decoration, wsm_shell, wsm_wayland, wsm_drm, wsm_data],
+	link_with: [wsm_common, wsm_compositor, wsm_input, wsm_config, wsm_xwl, wsm_output, wsm_scene_support, wsm_decoration, wsm_shell, wsm_wayland, wsm_drm, wsm_data],
 	include_directories:[common_inc, compositor_inc, xwl_inc, output_inc, config_inc, scene_inc, decoration_inc, wayland_inc, drm_inc, data_inc],
 	install: true
 )

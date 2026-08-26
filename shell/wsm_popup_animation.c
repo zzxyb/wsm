@@ -3,7 +3,6 @@
 #include "wsm_common.h"
 #include "wsm_log.h"
 #include "wsm_output.h"
-#include "wsm_scene.h"
 #include "wsm_scene_capture.h"
 #include "wsm_server.h"
 
@@ -38,8 +37,8 @@ struct wsm_popup_animation {
 };
 
 static void schedule_animation_frames(void) {
-	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
-		struct wsm_output *output = global_server.scene->outputs->items[i];
+	for (int i = 0; i < global_server.scene_state.outputs->length; ++i) {
+		struct wsm_output *output = global_server.scene_state.outputs->items[i];
 		if (output->enabled && output->wlr_output->enabled) {
 			wlr_damage_ring_add_whole(&output->scene_output->damage_ring);
 			wlr_output_schedule_frame(output->wlr_output);
@@ -198,7 +197,7 @@ bool wsm_popup_animation_start(struct wlr_scene_tree *tree,
 	animation->height = capture.box.height;
 	animation->scale = capture.scale;
 	animation->tree =
-		wlr_scene_tree_create(global_server.scene->layers.animation);
+		wlr_scene_tree_create(global_server.scene_state.layers.animation);
 	if (animation->tree == NULL) {
 		wsm_scene_capture_finish(&capture);
 		free(animation);

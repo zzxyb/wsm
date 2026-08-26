@@ -4,7 +4,6 @@
 #include "wsm_server.h"
 #include "wsm_log.h"
 #include "wsm_view.h"
-#include "wsm_scene.h"
 #include "wsm_seat.h"
 #include "wsm_arrange.h"
 #include "wsm_workspace.h"
@@ -188,13 +187,15 @@ void wsm_xwayland_unmanaged_unmap(struct wsm_xwayland_unmanaged *surface) {
 		// This simply returns focus to the parent surface if there's one available.
 		// This seems to handle JetBrains issues.
 		if (xsurface->parent && xsurface->parent->surface
-				&& wlr_xwayland_or_surface_wants_focus(xsurface->parent)) {
+				&& wlr_xwayland_surface_override_redirect_wants_focus(
+					xsurface->parent)) {
 			seat_set_focus_surface(seat, xsurface->parent->surface, false);
 			return;
 		}
 
 		// Restore focus
-		struct wsm_node *previous = seat_get_focus_inactive(seat, &global_server.scene->node);
+		struct wsm_node *previous = seat_get_focus_inactive(seat,
+			&global_server.scene_state.node);
 		if (previous) {
 			// Hack to get seat to re-focus the return value of get_focus
 			seat_set_focus(seat, NULL);
@@ -206,7 +207,8 @@ void wsm_xwayland_unmanaged_unmap(struct wsm_xwayland_unmanaged *surface) {
 void wsm_xwayland_unmanaged_map(struct wsm_xwayland_unmanaged *surface) {
 		struct wlr_xwayland_surface *xsurface = surface->wlr_xwayland_surface;
 
-	surface->surface_scene = wlr_scene_surface_create(global_server.scene->layers.unmanaged,
+	surface->surface_scene = wlr_scene_surface_create(
+		global_server.scene_state.layers.unmanaged,
 		xsurface->surface);
 
 	if (surface->surface_scene) {
@@ -219,7 +221,7 @@ void wsm_xwayland_unmanaged_map(struct wsm_xwayland_unmanaged *surface) {
 		surface->set_geometry.notify = unmanaged_handle_set_geometry;
 	}
 
-	if (wlr_xwayland_or_surface_wants_focus(xsurface)) {
+	if (wlr_xwayland_surface_override_redirect_wants_focus(xsurface)) {
 		struct wsm_seat *seat = input_manager_current_seat();
 		struct wlr_xwayland *xwayland = global_server.xwayland.xwayland_wlr;
 		wlr_xwayland_set_seat(xwayland, seat->seat);

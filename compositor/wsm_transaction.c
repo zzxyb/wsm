@@ -10,7 +10,6 @@
 #include "node/wsm_node.h"
 #include "wsm_titlebar.h"
 #include "wsm_server.h"
-#include "wsm_scene.h"
 #include "wsm_arrange.h"
 #include "wsm_input_manager.h"
 #include "wsm_idle_inhibit_v1.h"
@@ -63,7 +62,10 @@ static void transaction_destroy(struct wsm_transaction *transaction) {
 		if (node->instruction == instruction) {
 			node->instruction = NULL;
 		}
-		if (node->destroying && node->ntxnrefs == 0) {
+		/* A destroying node can be marked dirty again while an older
+		 * transaction is still queued. Keep it alive until that dirty state
+		 * has been committed and its final transaction reference is gone. */
+		if (node->destroying && node->ntxnrefs == 0 && !node->dirty) {
 			switch (node->type) {
 			case N_ROOT:
 				wsm_assert(false, "Never reached");
@@ -332,7 +334,7 @@ static void transaction_progress(void) {
 		return;
 	}
 	transaction_apply(global_server.queued_transaction);
-	arrange_root_scene(global_server.scene);
+	arrange_root_scene();
 	transaction_start_open_animations(global_server.queued_transaction);
 	cursor_rebase_all();
 	transaction_destroy(global_server.queued_transaction);

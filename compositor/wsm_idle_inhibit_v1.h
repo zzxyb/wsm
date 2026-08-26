@@ -32,6 +32,7 @@ enum wsm_idle_inhibit_mode {
  */
 struct wsm_idle_inhibit_manager_v1 {
 	struct wl_listener new_idle_inhibitor_v1; /**< Listener for new idle inhibitor events */
+	struct wl_listener manager_destroy; /**< Listener for manager destruction events */
 	struct wl_list inhibitors; /**< List of active inhibitors */
 	struct wlr_idle_inhibit_manager_v1 *idle_inhibit_manager_wlr; /**< Pointer to the WLR idle inhibit manager */
 };

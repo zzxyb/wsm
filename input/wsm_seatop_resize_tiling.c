@@ -5,7 +5,6 @@
 #include "wsm_list.h"
 #include "wsm_log.h"
 #include "wsm_output.h"
-#include "wsm_scene.h"
 #include "wsm_seat.h"
 #include "wsm_seatop_default.h"
 #include "wsm_server.h"
@@ -619,7 +618,7 @@ static bool find_resize_pair_at(double lx, double ly,
 		struct wsm_container **first, struct wsm_container **second,
 		enum wlr_edges *edge) {
 	struct wlr_output *wlr_output = wlr_output_layout_output_at(
-		global_server.scene->output_layout, lx, ly);
+		global_server.scene_state.output_layout, lx, ly);
 	if (!wlr_output || !wlr_output->data) {
 		return false;
 	}

@@ -3,6 +3,7 @@
 #include "common/wsm_common.h"
 #include "compositor/wsm_server.h"
 #include "common/wsm_parser.h"
+#include "output/wsm_output.h"
 #include "xwl/wsm_xwayland.h"
 
 #include <getopt.h>
@@ -99,13 +100,13 @@ int main(int argc, char **argv) {
 	signal(SIGINT, sig_handler);
 
 	signal(SIGPIPE, SIG_IGN);
-	wsm_server_init(&global_server);
-	
-	const char *socket = wl_display_add_socket_auto(global_server.wl_display);
-	if (!socket) {
-		wl_display_destroy(global_server.wl_display);
+	if (!wsm_server_init(&global_server)) {
+		wsm_log(WSM_ERROR, "server initialization failed");
 		goto shutdown;
 	}
+	const char *socket = global_server.socket;
+	global_server.startup_command = startup_cmd;
+	setenv("WAYLAND_DISPLAY", socket, true);
 
 	if (!xwayland) {
 		wsm_log(WSM_DEBUG, "Command disabled xwayland!");
@@ -121,17 +122,21 @@ int main(int argc, char **argv) {
 #endif
 
 	if (!wlr_backend_start(global_server.backend)) {
-		wl_display_destroy(global_server.wl_display);
 		wsm_log(WSM_ERROR, "backend start failed!");
 		goto shutdown;
 	}
 
-	setenv("WAYLAND_DISPLAY", socket, true);
-	if (startup_cmd != NULL) {
-		if (fork() == 0) {
-			execl("/bin/sh", "/bin/sh", "-c", startup_cmd, (void *)NULL);
-		}
-	}
+	/*
+	 * Backend start may emit outputs synchronously. Configure them before
+	 * dispatching client requests, and cancel the delayed retry just like
+	 * Sway's force_modeset() does.
+	 */
+	force_modeset();
+
+	/* The command is launched by output_enable() after a real output has
+	 * completed its modeset. This avoids clients starting against only the
+	 * private fallback output. */
+	wsm_server_run_startup_command(&global_server);
 
 	wsm_log(WSM_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s",socket);
 	

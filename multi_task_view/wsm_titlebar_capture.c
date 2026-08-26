@@ -49,15 +49,15 @@ static void measure_tree(struct wlr_scene_tree *tree, int sx, int sy,
 		} else {
 			struct wlr_scene_buffer *buffer =
 				wlr_scene_buffer_from_node(node);
-			if (buffer->buffer == NULL && buffer->texture == NULL) {
+			if (buffer->buffer == NULL && buffer->WLR_PRIVATE.texture == NULL) {
 				continue;
 			}
 			if (buffer->dst_width > 0 && buffer->dst_height > 0) {
 				width = buffer->dst_width;
 				height = buffer->dst_height;
 			} else {
-				width = buffer->buffer_width;
-				height = buffer->buffer_height;
+				width = buffer->WLR_PRIVATE.buffer_width;
+				height = buffer->WLR_PRIVATE.buffer_height;
 				wlr_output_transform_coords(
 					buffer->transform, &width, &height);
 			}
@@ -130,7 +130,7 @@ static void render_tree(struct wlr_scene_tree *tree, int sx, int sy,
 
 		struct wlr_scene_buffer *buffer =
 			wlr_scene_buffer_from_node(node);
-		if (buffer->buffer == NULL && buffer->texture == NULL) {
+		if (buffer->buffer == NULL && buffer->WLR_PRIVATE.texture == NULL) {
 			continue;
 		}
 		int width;
@@ -139,8 +139,8 @@ static void render_tree(struct wlr_scene_tree *tree, int sx, int sy,
 			width = buffer->dst_width;
 			height = buffer->dst_height;
 		} else {
-			width = buffer->buffer_width;
-			height = buffer->buffer_height;
+			width = buffer->WLR_PRIVATE.buffer_width;
+			height = buffer->WLR_PRIVATE.buffer_height;
 			wlr_output_transform_coords(
 				buffer->transform, &width, &height);
 		}
@@ -151,7 +151,7 @@ static void render_tree(struct wlr_scene_tree *tree, int sx, int sy,
 		/* A scene buffer may release its backing wlr_buffer after importing it.
 		 * Reuse that renderer-owned texture when present; only textures imported
 		 * specifically for this capture belong in our destruction list. */
-		struct wlr_texture *texture = buffer->texture;
+		struct wlr_texture *texture = buffer->WLR_PRIVATE.texture;
 		bool texture_owned = false;
 		if (texture == NULL) {
 			texture = wlr_texture_from_buffer(

@@ -6,7 +6,6 @@
 #include "wsm_drag.h"
 #include "wsm_tablet.h"
 #include "wsm_common.h"
-#include "wsm_scene.h"
 #include "wsm_output.h"
 #include "wsm_container.h"
 #include "wsm_workspace.h"
@@ -32,6 +31,15 @@
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 
 #define WLR_CURSOR_SHAPE_V1_VERSION 1
+
+static void remove_listener_if_linked(struct wl_listener *listener) {
+	if (!listener || !listener->link.next) {
+		return;
+	}
+
+	wl_list_remove(&listener->link);
+	wl_list_init(&listener->link);
+}
 
 static void cursor_hide(struct wsm_cursor *cursor) {
 	wlr_cursor_unset_image(cursor->cursor_wlr);
@@ -355,10 +363,11 @@ static void handle_tablet_tool_position(struct wsm_cursor *cursor,
 	struct wlr_surface *surface = NULL;
 	struct wsm_seat *seat = cursor->seat_wsm;
 	wlr_scene_node_at(
-		&global_server.scene->root_scene->tree.node, cursor->cursor_wlr->x, cursor->cursor_wlr->y, &sx, &sy);
+		&global_server.scene->tree.node, cursor->cursor_wlr->x,
+		cursor->cursor_wlr->y, &sx, &sy);
 
 	if (!cursor->simulating_pointer_from_tool_tip &&
-		((surface && wlr_surface_accepts_tablet_v2(tablet->tablet_v2, surface)) ||
+		((surface && wlr_surface_accepts_tablet_v2(surface, tablet->tablet_v2)) ||
 		 wlr_tablet_tool_v2_has_implicit_grab(tool->tablet_v2_tool))) {
 		seatop_tablet_tool_motion(seat, tool, time_msec);
 	} else {
@@ -435,7 +444,7 @@ static void handle_tool_tip(struct wl_listener *listener, void *data) {
 
 	double sx, sy;
 	struct wlr_surface *surface = NULL;
-	wlr_scene_node_at(&global_server.scene->root_scene->tree.node,
+	wlr_scene_node_at(&global_server.scene->tree.node,
 		cursor->cursor_wlr->x, cursor->cursor_wlr->y, &sx, &sy);
 
 	if (cursor->simulating_pointer_from_tool_tip &&
@@ -444,7 +453,7 @@ static void handle_tool_tip(struct wl_listener *listener, void *data) {
 		dispatch_cursor_button(cursor, &event->tablet->base, event->time_msec,
 			BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED);
 		wlr_seat_pointer_notify_frame(seat->seat);
-	} else if (!surface || !wlr_surface_accepts_tablet_v2(tablet_v2, surface)) {
+	} else if (!surface || !wlr_surface_accepts_tablet_v2(surface, tablet_v2)) {
 		if (event->state == WLR_TABLET_TOOL_TIP_UP) {
 			seatop_tablet_tool_tip(seat, wsm_tool, event->time_msec,
 				WLR_TABLET_TOOL_TIP_UP);
@@ -573,12 +582,14 @@ struct wsm_cursor *wsm_cursor_create(const struct wsm_server* server, struct wsm
 	cursor->previous.y = wlr_cursor->y;
 
 	cursor->seat_wsm = seat;
-	wlr_cursor_attach_output_layout(wlr_cursor, server->scene->output_layout);
+	wlr_cursor_attach_output_layout(wlr_cursor,
+		server->scene_state.output_layout);
 
 	struct wlr_cursor_shape_manager_v1 *cursor_shape_manager =
 		wlr_cursor_shape_manager_v1_create(server->wl_display,
 		WLR_CURSOR_SHAPE_V1_VERSION);
 	if (!wsm_assert(cursor_shape_manager, "Could not create wlr_cursor_shape_manager_v1: allocation failed!")) {
+		wlr_cursor_destroy(wlr_cursor);
 		free(cursor);
 		return NULL;
 	}
@@ -680,7 +691,9 @@ void wsm_cursor_destroy(struct wsm_cursor *cursor) {
 		return;
 	}
 
-	wl_event_source_remove(cursor->hide_source);
+	if (cursor->hide_source) {
+		wl_event_source_remove(cursor->hide_source);
+	}
 
 	wl_list_remove(&cursor->image_surface_destroy.link);
 	wl_list_remove(&cursor->hold_begin.link);
@@ -703,15 +716,18 @@ void wsm_cursor_destroy(struct wsm_cursor *cursor) {
 	wl_list_remove(&cursor->touch_frame.link);
 	wl_list_remove(&cursor->tool_axis.link);
 	wl_list_remove(&cursor->tool_tip.link);
+	wl_list_remove(&cursor->tool_proximity.link);
 	wl_list_remove(&cursor->tool_button.link);
+	wl_list_remove(&cursor->request_set_shape.link);
 	wl_list_remove(&cursor->request_set_cursor.link);
+	remove_listener_if_linked(&cursor->constraint_commit);
 
 	wlr_cursor_destroy(cursor->cursor_wlr);
 	free(cursor);
 }
 
 void cursor_rebase_all(void) {
-	if (!global_server.scene->outputs->length) {
+	if (!global_server.scene_state.outputs->length) {
 		return;
 	}
 
@@ -934,7 +950,7 @@ void wsm_cursor_constrain(struct wsm_cursor *cursor,
 		return;
 	}
 
-	wl_list_remove(&cursor->constraint_commit.link);
+	remove_listener_if_linked(&cursor->constraint_commit);
 	if (cursor->active_constraint_wlr) {
 		if (constraint == NULL) {
 			warp_to_constraint_cursor_hint(cursor);
@@ -946,7 +962,6 @@ void wsm_cursor_constrain(struct wsm_cursor *cursor,
 	cursor->active_constraint_wlr = constraint;
 
 	if (constraint == NULL) {
-		wl_list_init(&cursor->constraint_commit.link);
 		return;
 	}
 
@@ -991,7 +1006,8 @@ struct wsm_node *node_at_coords(
 	struct wlr_scene_node *scene_node = NULL;
 	struct wlr_scene_node *node;
 
-	wl_list_for_each_reverse(node, &global_server.scene->layer_tree->children, link) {
+	wl_list_for_each_reverse(node,
+		&global_server.scene_state.layer_tree->children, link) {
 		struct wlr_scene_tree *layer = wlr_scene_tree_from_node(node);
 		
 		bool non_interactive = wsm_scene_descriptor_try_get(&layer->node,
@@ -1061,7 +1077,7 @@ struct wsm_node *node_at_coords(
 	}
 
 	struct wlr_output *wlr_output = wlr_output_layout_output_at(
-		global_server.scene->output_layout, lx, ly);
+		global_server.scene_state.output_layout, lx, ly);
 	if (wlr_output == NULL) {
 		return NULL;
 	}

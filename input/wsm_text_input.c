@@ -1,7 +1,6 @@
 #include "wsm_log.h"
 #include "wsm_seat.h"
 #include "wsm_server.h"
-#include "wsm_scene.h"
 #include "wsm_container.h"
 #include "wsm_text_input.h"
 #include "wsm_layer_shell.h"
@@ -316,8 +315,8 @@ static void input_popup_update(struct wsm_input_popup *popup) {
 
 	struct wlr_box geo = {0};
 
-	struct wsm_scene *root = global_server.scene;
-	popup->scene_tree = wlr_scene_subsurface_tree_create(root->layers.popup, popup->popup_surface->surface);
+	popup->scene_tree = wlr_scene_subsurface_tree_create(
+		global_server.scene_state.layers.popup, popup->popup_surface->surface);
 	if (layer_surface != NULL) {
 		struct wsm_layer_surface *layer = layer_surface->data;
 		if (layer == NULL) {
@@ -326,7 +325,8 @@ static void input_popup_update(struct wsm_input_popup *popup) {
 
 		relative_parent = layer->scene->tree;
 		struct wlr_output *output = layer->layer_surface_wlr->output;
-		wlr_output_layout_get_box(root->output_layout, output, &output_box);
+		wlr_output_layout_get_box(global_server.scene_state.output_layout,
+			output, &output_box);
 		int lx, ly;
 		wlr_scene_node_coords(&layer->tree->node, &lx, &ly);
 		parent.x = lx;
@@ -338,10 +338,12 @@ static void input_popup_update(struct wsm_input_popup *popup) {
 		geo = view->geometry;
 		int lx, ly;
 		wlr_scene_node_coords(&view->scene_tree->node, &lx, &ly);
-		struct wlr_output *output = wlr_output_layout_output_at(root->output_layout,
+		struct wlr_output *output = wlr_output_layout_output_at(
+			global_server.scene_state.output_layout,
 			view->container->pending.content_x + view->geometry.x,
 			view->container->pending.content_y + view->geometry.y);
-		wlr_output_layout_get_box(root->output_layout, output, &output_box);
+		wlr_output_layout_get_box(global_server.scene_state.output_layout,
+			output, &output_box);
 		parent.x = lx;
 		parent.y = ly;
 
@@ -537,11 +539,11 @@ void wsm_input_method_relay_init(struct wsm_seat *seat,
 	wl_list_init(&relay->input_popups);
 
 	relay->text_input_new.notify = relay_handle_text_input;
-	wl_signal_add(&global_server.text_input->events.text_input,
+	wl_signal_add(&global_server.text_input->events.new_text_input,
 		&relay->text_input_new);
 
 	relay->input_method_new.notify = relay_handle_input_method;
-	wl_signal_add(&global_server.input_method->events.input_method,
+	wl_signal_add(&global_server.input_method->events.new_input_method,
 		&relay->input_method_new);
 }
 

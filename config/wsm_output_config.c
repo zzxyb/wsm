@@ -1,6 +1,5 @@
 #include "wsm_log.h"
 #include "wsm_server.h"
-#include "wsm_scene.h"
 #include "wsm_seat.h"
 #include "wsm_cursor.h"
 #include "wsm_output.h"
@@ -17,6 +16,7 @@
 #include <wlr/config.h>
 #include <wlr/backend.h>
 #include <wlr/render/color.h>
+#include <wlr/render/allocator.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/backend/drm.h>
 #include <wlr/types/wlr_output_swapchain_manager.h>
@@ -154,7 +154,7 @@ void smart_layout_output_configs(
 		struct wlr_output *output = config->output->wlr_output;
 		struct wlr_box box;
 		wlr_output_layout_get_box(
-			global_server.scene->output_layout, output, &box);
+			global_server.scene_state.output_layout, output, &box);
 		if (existing_count == 0) {
 			bounds = clone_box = box;
 			if (output->current_mode != NULL) {
@@ -238,7 +238,10 @@ void smart_layout_output_configs(
 }
 
 void apply_all_output_configs(void) {
-	size_t configs_len = wl_list_length(&global_server.scene->all_outputs);
+	size_t configs_len = wl_list_length(&global_server.scene_state.all_outputs);
+	if (configs_len == 0) {
+		return;
+	}
 	struct matched_output_config *configs =
 		calloc(configs_len, sizeof(*configs));
 	if (!configs) {
@@ -250,8 +253,8 @@ void apply_all_output_configs(void) {
 
 	int config_idx = 0;
 	struct wsm_output *wsm_output;
-	wl_list_for_each(wsm_output, &global_server.scene->all_outputs, link) {
-		if (wsm_output == global_server.scene->fallback_output) {
+	wl_list_for_each(wsm_output, &global_server.scene_state.all_outputs, link) {
+		if (wsm_output == global_server.scene_state.fallback_output) {
 			configs_len--;
 			continue;
 		}
@@ -272,9 +275,15 @@ void apply_all_output_configs(void) {
 }
 
 struct output_config *find_output_config(struct wsm_output *output) {
+	if (!output || !output->wlr_output) {
+		return NULL;
+	}
 	const char *name = output->wlr_output->name;
 
 	struct output_config *result = new_output_config(name);
+	if (!result) {
+		return NULL;
+	}
 	default_output_config(result, output->wlr_output);
 	result->has_persistent_config = wsm_output_memory_load(output, result);
 
@@ -344,7 +353,7 @@ const char *wsm_output_scale_filter_to_string(
 
 static bool finalize_output_config(
 	struct output_config *oc, struct wsm_output *output) {
-	if (output == global_server.scene->fallback_output) {
+	if (output == global_server.scene_state.fallback_output) {
 		return false;
 	}
 
@@ -354,7 +363,7 @@ static bool finalize_output_config(
 		if (output->enabled) {
 			output_disable(output);
 			wlr_output_layout_remove(
-				global_server.scene->output_layout, wlr_output);
+				global_server.scene_state.output_layout, wlr_output);
 		}
 		return true;
 	}
@@ -387,16 +396,16 @@ static bool finalize_output_config(
 	if (oc && (oc->x != -1 || oc->y != -1)) {
 		wsm_log(WSM_DEBUG, "Set %s position to %d, %d", oc->name, oc->x,
 			oc->y);
-		wlr_output_layout_add(global_server.scene->output_layout,
+		wlr_output_layout_add(global_server.scene_state.output_layout,
 			wlr_output, oc->x, oc->y);
 	} else {
 		wlr_output_layout_add_auto(
-			global_server.scene->output_layout, wlr_output);
+			global_server.scene_state.output_layout, wlr_output);
 	}
 
 	struct wlr_box output_box;
 	wlr_output_layout_get_box(
-		global_server.scene->output_layout, wlr_output, &output_box);
+		global_server.scene_state.output_layout, wlr_output, &output_box);
 	output->lx = output_box.x;
 	output->ly = output_box.y;
 	output->width = output_box.width;
@@ -474,6 +483,12 @@ static void set_mode(struct wlr_output *output,
 			output->name);
 	} else {
 		best = wlr_output_preferred_mode(output);
+		if (!best) {
+			wsm_log(WSM_ERROR,
+				"Configured mode (%dx%d@%.3fHz) is not available on %s",
+				width, height, refresh_rate, output->name);
+			return;
+		}
 		wsm_log(WSM_INFO,
 			"Configured mode (%dx%d@%.3fHz) not available, "
 			"applying preferred mode (%dx%d@%.3fHz)",
@@ -571,7 +586,7 @@ static bool render_format_is_10bit(uint32_t render_format) {
 
 static void queue_output_config(struct output_config *oc,
 	struct wsm_output *output, struct wlr_output_state *pending) {
-	if (output == global_server.scene->fallback_output) {
+	if (output == global_server.scene_state.fallback_output) {
 		return;
 	}
 
@@ -817,6 +832,7 @@ static bool search_render_format(
 		DRM_FORMAT_XRGB2101010,
 		DRM_FORMAT_XBGR2101010,
 		DRM_FORMAT_XRGB8888,
+		DRM_FORMAT_ARGB8888,
 		DRM_FORMAT_INVALID,
 	};
 	if (render_format_is_bgr(wlr_output->render_format)) {
@@ -827,14 +843,17 @@ static bool search_render_format(
 
 	const struct wlr_drm_format_set *primary_formats =
 		wlr_output_get_primary_formats(
-			wlr_output, WLR_BUFFER_CAP_DMABUF);
+			wlr_output, global_server.wlr_allocator->buffer_caps);
 	bool need_10bit = cfg->config &&
 		cfg->config->render_bit_depth == RENDER_BIT_DEPTH_10;
 	for (size_t idx = 0; fmts[idx] != DRM_FORMAT_INVALID; idx++) {
 		if (!need_10bit && render_format_is_10bit(fmts[idx])) {
 			continue;
 		}
-		if (!wlr_drm_format_set_get(primary_formats, fmts[idx])) {
+		/* A backend without a primary-format query accepts all formats here;
+		 * the output backend will perform the final validation. */
+		if (primary_formats &&
+			!wlr_drm_format_set_get(primary_formats, fmts[idx])) {
 			// This is not a supported format for this output
 			continue;
 		}
@@ -881,6 +900,9 @@ static bool search_valid_config(struct search_context *ctx, size_t output_idx) {
 
 bool apply_output_configs(struct matched_output_config *configs,
 	size_t configs_len, bool test_only, bool degrade_to_off) {
+	if (configs_len == 0) {
+		return true;
+	}
 	struct wlr_backend_output_state *states =
 		calloc(configs_len, sizeof(struct wlr_backend_output_state));
 	if (!states) {

@@ -4,7 +4,6 @@
 #include "wsm_container.h"
 
 struct wsm_list;
-struct wsm_scene;
 struct wsm_output;
 struct wsm_workspace;
 
@@ -14,10 +13,9 @@ struct wsm_workspace;
 void arrange_root_auto(void);
 
 /**
- * @brief Arranges the specified root scene
- * @param root Pointer to the wsm_scene to be arranged
+ * @brief Arranges the logical root scene
  */
-void arrange_root_scene(struct wsm_scene *root);
+void arrange_root_scene(void);
 
 /**
  * @brief Automatically arranges the specified output

@@ -5,7 +5,6 @@
 #include "wsm_log.h"
 #include "wsm_view.h"
 #include "wsm_seat.h"
-#include "wsm_scene.h"
 #include "wsm_output.h"
 #include "wsm_arrange.h"
 #include "wsm_desktop.h"
@@ -49,6 +48,14 @@ static struct wsm_xdg_shell_view *xdg_shell_view_from_view(
 
 static void get_constraints(struct wsm_view *view, double *min_width,
 		double *max_width, double *min_height, double *max_height) {
+	if (!view || view->destroying || !view->wlr_xdg_toplevel) {
+		*min_width = DBL_MIN;
+		*max_width = DBL_MAX;
+		*min_height = DBL_MIN;
+		*max_height = DBL_MAX;
+		return;
+	}
+
 	struct wlr_xdg_toplevel_state *state =
 		&view->wlr_xdg_toplevel->current;
 	*min_width = state->min_width > 0 ? state->min_width : DBL_MIN;
@@ -59,7 +66,8 @@ static void get_constraints(struct wsm_view *view, double *min_width,
 
 static const char *get_string_prop(struct wsm_view *view,
 		enum wsm_view_prop prop) {
-	if (xdg_shell_view_from_view(view) == NULL) {
+	if (xdg_shell_view_from_view(view) == NULL || view->destroying ||
+			!view->wlr_xdg_toplevel) {
 		return NULL;
 	}
 	switch (prop) {
@@ -251,7 +259,7 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 	}
 
 	struct wlr_box new_geo;
-	wlr_xdg_surface_get_geometry(xdg_surface, &new_geo);
+	new_geo = xdg_surface->geometry;
 	bool new_size = new_geo.width != view->geometry.width ||
 		new_geo.height != view->geometry.height ||
 		new_geo.x != view->geometry.x ||
@@ -327,7 +335,7 @@ static void handle_new_popup(struct wl_listener *listener, void *data) {
 	struct wlr_xdg_popup *wlr_popup = data;
 
 	struct wsm_xdg_popup *popup = wsm_xdg_popup_create(wlr_popup,
-		&xdg_shell_view->view, global_server.scene->layers.popup);
+		&xdg_shell_view->view, global_server.scene_state.layers.popup);
 	if (!popup) {
 		return;
 	}
@@ -463,10 +471,12 @@ static void handle_map(struct wl_listener *listener, void *data) {
 	struct wsm_view *view = &xdg_shell_view->view;
 	struct wlr_xdg_toplevel *toplevel = view->wlr_xdg_toplevel;
 
-	view->natural_width = toplevel->base->current.geometry.width;
-	view->natural_height = toplevel->base->current.geometry.height;
-	if (!view->natural_width && !view->natural_height) {
+	view->natural_width = toplevel->base->geometry.width;
+	view->natural_height = toplevel->base->geometry.height;
+	if (view->natural_width <= 0) {
 		view->natural_width = toplevel->base->surface->current.width;
+	}
+	if (view->natural_height <= 0) {
 		view->natural_height = toplevel->base->surface->current.height;
 	}
 
@@ -619,6 +629,11 @@ struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server) {
 	}
 
 	shell->xdg_shell_wlr = wlr_xdg_shell_create(server->wl_display, WSM_XDG_SHELL_VERSION);
+	if (!shell->xdg_shell_wlr) {
+		wsm_log(WSM_ERROR, "Could not create wlr_xdg_shell");
+		free(shell);
+		return NULL;
+	}
 	shell->xdg_shell_toplevel.notify = handle_xdg_shell_toplevel;
 	wl_signal_add(&shell->xdg_shell_wlr->events.new_toplevel,
 		&shell->xdg_shell_toplevel);
@@ -626,6 +641,7 @@ struct wsm_xdg_shell *wsm_xdg_shell_create(const struct wsm_server* server) {
 	shell->xdg_activation_v1 = wlr_xdg_activation_v1_create(server->wl_display);
 	if (!shell->xdg_activation_v1) {
 		wsm_log(WSM_ERROR, "Could not create wlr_xdg_activation_v1: allocation failed!");
+		wl_list_remove(&shell->xdg_shell_toplevel.link);
 		free(shell);
 		return NULL;
 	}

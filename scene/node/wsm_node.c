@@ -1,6 +1,5 @@
 #include "wsm_node.h"
 #include "wsm_log.h"
-#include "wsm_scene.h"
 #include "wsm_server.h"
 #include "wsm_output.h"
 #include "wsm_workspace.h"
@@ -35,7 +34,11 @@ void node_set_dirty(struct wsm_node *node) {
 		return;
 	}
 	node->dirty = true;
-	wsm_list_add(global_server.dirty_nodes, node);
+	/* Nodes can be torn down while server initialization is unwinding or
+	 * after shutdown has detached the transaction machinery. */
+	if (global_server.dirty_nodes) {
+		wsm_list_add(global_server.dirty_nodes, node);
+	}
 }
 
 bool node_is_view(struct wsm_node *node) {
@@ -59,7 +62,7 @@ char *node_get_name(struct wsm_node *node) {
 void node_get_box(struct wsm_node *node, struct wlr_box *box) {
 	switch (node->type) {
 	case N_ROOT:
-		root_get_box(global_server.scene, box);
+	root_get_box(box);
 		break;
 	case N_OUTPUT:
 		output_get_box(node->output, box);
@@ -122,7 +125,7 @@ struct wsm_node *node_get_parent(struct wsm_node *node) {
 	}
 		return NULL;
 	case N_OUTPUT:
-		return &global_server.scene->node;
+		return &global_server.scene_state.node;
 	case N_ROOT:
 		return NULL;
 	}
@@ -149,7 +152,7 @@ void scene_node_disown_children(struct wlr_scene_tree *tree) {
 
 	struct wlr_scene_node *child, *tmp_child;
 	wl_list_for_each_safe(child, tmp_child, &tree->children, link) {
-		wlr_scene_node_reparent(child, global_server.scene->staging);
+		wlr_scene_node_reparent(child, global_server.scene_state.staging);
 	}
 }
 

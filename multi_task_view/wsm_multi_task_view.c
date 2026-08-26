@@ -11,7 +11,6 @@
 #include "wsm_log.h"
 #include "wsm_output.h"
 #include "wsm_arrange.h"
-#include "wsm_scene.h"
 #include "wsm_seat.h"
 #include "wsm_server.h"
 #include "wsm_titlebar.h"
@@ -249,8 +248,8 @@ static struct wsm_output *gesture_target_output(
 	if (output != NULL && wsm_output_is_usable(output)) {
 		return output;
 	}
-	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
-		output = global_server.scene->outputs->items[i];
+	for (int i = 0; i < global_server.scene_state.outputs->length; ++i) {
+		output = global_server.scene_state.outputs->items[i];
 		if (wsm_output_is_usable(output) && output->workspaces != NULL &&
 				output->workspaces->length > 0) {
 			return output;
@@ -515,7 +514,8 @@ static void handle_preview_frame_done(
 	 * including the settle animation after the fingers are released. */
 	if (observer->surface != NULL &&
 			!observer->layout->view->client_updates_suspended) {
-		wlr_surface_send_frame_done(observer->surface, data);
+		struct wlr_scene_frame_done_event *event = data;
+		wlr_surface_send_frame_done(observer->surface, &event->when);
 	}
 }
 
@@ -601,10 +601,10 @@ static void clone_scene_tree(
 				wlr_scene_buffer_from_node(node);
 			int width = source->dst_width > 0
 				? source->dst_width
-				: source->buffer_width;
+				: source->WLR_PRIVATE.buffer_width;
 			int height = source->dst_height > 0
 				? source->dst_height
-				: source->buffer_height;
+				: source->WLR_PRIVATE.buffer_height;
 			if (width <= 0 || height <= 0) {
 				continue;
 			}
@@ -1332,9 +1332,9 @@ static struct wsm_multi_task_layout *create_layout(
 static bool prepare_layouts(struct wsm_multi_task_view *view) {
 	cancel_window_drag(view, false);
 	destroy_layouts(view);
-	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
+	for (int i = 0; i < global_server.scene_state.outputs->length; ++i) {
 		struct wsm_output *output =
-			global_server.scene->outputs->items[i];
+			global_server.scene_state.outputs->items[i];
 		if (!wsm_output_is_usable(output) || output->workspaces == NULL) {
 			continue;
 		}
@@ -1376,29 +1376,30 @@ static void sync_buffer(struct wsm_multi_task_buffer *item,
 	} else {
 		wlr_scene_buffer_set_buffer(item->buffer, source->buffer);
 	}
-	if (item->cropped && source->buffer_width > 0 &&
-			source->buffer_height > 0) {
+	if (item->cropped && source->WLR_PRIVATE.buffer_width > 0 &&
+			source->WLR_PRIVATE.buffer_height > 0) {
 		struct wlr_fbox source_box = source->src_box;
 		if (wlr_fbox_empty(&source_box)) {
 			source_box = (struct wlr_fbox){
-				.width = source->buffer_width,
-				.height = source->buffer_height,
+				.width = source->WLR_PRIVATE.buffer_width,
+				.height = source->WLR_PRIVATE.buffer_height,
 			};
 		}
 		struct wlr_fbox transformed;
 		wlr_fbox_transform(&transformed, &source_box, source->transform,
-			source->buffer_width, source->buffer_height);
+			 source->WLR_PRIVATE.buffer_width,
+			 source->WLR_PRIVATE.buffer_height);
 		double width = transformed.width;
 		double height = transformed.height;
 		transformed.x += width * item->crop_x;
 		transformed.y += height * item->crop_y;
 		transformed.width = width * item->crop_width;
 		transformed.height = height * item->crop_height;
-		int transformed_width = source->buffer_width;
-		int transformed_height = source->buffer_height;
+		int transformed_width = source->WLR_PRIVATE.buffer_width;
+		int transformed_height = source->WLR_PRIVATE.buffer_height;
 		if (source->transform & 1) {
-			transformed_width = source->buffer_height;
-			transformed_height = source->buffer_width;
+			transformed_width = source->WLR_PRIVATE.buffer_height;
+			transformed_height = source->WLR_PRIVATE.buffer_width;
 		}
 		wlr_fbox_transform(&source_box, &transformed,
 			wlr_output_transform_invert(source->transform),
@@ -2659,7 +2660,7 @@ static void destroy_space_swipe(struct wsm_multi_task_view *view) {
 	if (transition->tree != NULL) {
 		wlr_scene_node_destroy(&transition->tree->node);
 	}
-	arrange_root_scene(global_server.scene);
+	arrange_root_scene();
 	damage_space_swipe_output(transition);
 	free(transition);
 	if (!view->active && view->layouts_len == 0) {
@@ -2771,7 +2772,8 @@ static bool begin_space_swipe(
 	transition->finger_distance =
 		calculate_space_swipe_finger_distance(view, output);
 	view->space_swipe = transition;
-	transition->tree = wlr_scene_tree_create(global_server.scene->layers.tiling);
+	transition->tree = wlr_scene_tree_create(
+		global_server.scene_state.layers.tiling);
 	if (transition->tree == NULL) {
 		wsm_log(WSM_DEBUG,
 			"Cannot start real Space swipe: transition tree allocation failed");

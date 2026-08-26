@@ -62,5 +62,8 @@ void *wsm_scene_descriptor_try_get(struct wlr_scene_node *node,
 void wsm_scene_descriptor_destroy(struct wlr_scene_node *node,
 		enum wsm_scene_descriptor_type type) {
 	struct scene_descriptor *desc = scene_node_get_descriptor(node, type);
+	if (!desc) {
+		return;
+	}
 	descriptor_destroy(desc);
 }

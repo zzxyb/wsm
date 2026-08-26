@@ -59,8 +59,8 @@ static void source_size(struct wlr_scene_buffer *source,
 		*height = source->dst_height;
 		return;
 	}
-	*width = source->buffer_width;
-	*height = source->buffer_height;
+	*width = source->WLR_PRIVATE.buffer_width;
+	*height = source->WLR_PRIVATE.buffer_height;
 	wlr_output_transform_coords(source->transform, width, height);
 }
 
@@ -174,7 +174,8 @@ static void handle_frame_done(struct wl_listener *listener, void *data) {
 	struct preview_buffer *buffer = wl_container_of(
 		listener, buffer, frame_done);
 	if (buffer->surface != NULL) {
-		wlr_surface_send_frame_done(buffer->surface, data);
+		struct wlr_scene_frame_done_event *event = data;
+		wlr_surface_send_frame_done(buffer->surface, &event->when);
 	}
 }
 

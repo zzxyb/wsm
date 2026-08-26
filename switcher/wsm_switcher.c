@@ -1,7 +1,6 @@
 #include "wsm_switcher.h"
 
 #include "wsm_cursor.h"
-#include "wsm_scene.h"
 #include "wsm_seat.h"
 #include "wsm_server.h"
 #include "wsm_desktop.h"
@@ -51,12 +50,12 @@ static bool layout_cards(struct wsm_switcher *switcher,
 	struct wlr_box root;
 	struct wlr_cursor *cursor = switcher->session.seat->cursor->cursor_wlr;
 	struct wlr_output *output = wlr_output_layout_output_at(
-		global_server.scene->output_layout, cursor->x, cursor->y);
+		global_server.scene_state.output_layout, cursor->x, cursor->y);
 	if (output != NULL) {
 		wlr_output_layout_get_box(
-			global_server.scene->output_layout, output, &root);
+			global_server.scene_state.output_layout, output, &root);
 	} else {
-		root_get_box(global_server.scene, &root);
+		root_get_box(&root);
 	}
 	int available = root.width - PANEL_PADDING * 2;
 	size_t visible = available > ICON_SLOT_SIZE

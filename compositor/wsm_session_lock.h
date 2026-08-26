@@ -28,7 +28,7 @@ struct wsm_session_lock {
 /**
  * @brief Initializes the session lock system
  */
-void wsm_session_lock_init(void);
+bool wsm_session_lock_init(void);
 
 /**
  * @brief Adds an output to the specified session lock

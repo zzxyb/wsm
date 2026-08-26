@@ -1,7 +1,6 @@
 #include "wsm_log.h"
 #include "wsm_server.h"
 #include "wsm_seat.h"
-#include "wsm_scene.h"
 #include "wsm_common.h"
 #include "wsm_config.h"
 #include "wsm_output.h"
@@ -23,6 +22,7 @@
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xcursor_manager.h>
+#include <wlr/xcursor.h>
 #include <wlr/types/wlr_virtual_keyboard_v1.h>
 #include <wlr/types/wlr_virtual_pointer_v1.h>
 #include <wlr/types/wlr_pointer_gestures_v1.h>
@@ -97,6 +97,12 @@ struct wsm_input_manager *wsm_input_manager_create(
 
 	input_manager->virtual_keyboard_manager_wlr =
 		wlr_virtual_keyboard_manager_v1_create(server->wl_display);
+	if (!input_manager->virtual_keyboard_manager_wlr) {
+		wsm_log(WSM_ERROR, "Could not create virtual keyboard manager");
+		wl_list_remove(&input_manager->new_input.link);
+		free(input_manager);
+		return NULL;
+	}
 	input_manager->virtual_keyboard_new.notify =
 		handle_new_virtual_keyboard;
 	wl_signal_add(&input_manager->virtual_keyboard_manager_wlr->events
@@ -105,6 +111,13 @@ struct wsm_input_manager *wsm_input_manager_create(
 
 	input_manager->virtual_pointer_manager_wlr =
 		wlr_virtual_pointer_manager_v1_create(server->wl_display);
+	if (!input_manager->virtual_pointer_manager_wlr) {
+		wsm_log(WSM_ERROR, "Could not create virtual pointer manager");
+		wl_list_remove(&input_manager->virtual_keyboard_new.link);
+		wl_list_remove(&input_manager->new_input.link);
+		free(input_manager);
+		return NULL;
+	}
 	input_manager->virtual_pointer_new.notify = handle_new_virtual_pointer;
 	wl_signal_add(&input_manager->virtual_pointer_manager_wlr->events
 			      .new_virtual_pointer,
@@ -112,6 +125,14 @@ struct wsm_input_manager *wsm_input_manager_create(
 
 	input_manager->keyboard_shortcuts_inhibit_wlr =
 		wlr_keyboard_shortcuts_inhibit_v1_create(server->wl_display);
+	if (!input_manager->keyboard_shortcuts_inhibit_wlr) {
+		wsm_log(WSM_ERROR, "Could not create keyboard shortcuts inhibit manager");
+		wl_list_remove(&input_manager->virtual_pointer_new.link);
+		wl_list_remove(&input_manager->virtual_keyboard_new.link);
+		wl_list_remove(&input_manager->new_input.link);
+		free(input_manager);
+		return NULL;
+	}
 	input_manager->keyboard_shortcuts_inhibit_new_inhibitor.notify =
 		handle_keyboard_shortcuts_inhibit_new_inhibitor;
 	wl_signal_add(&input_manager->keyboard_shortcuts_inhibit_wlr->events
@@ -214,11 +235,11 @@ void input_manager_configure_xcursor(void) {
 		}
 	}
 
-	if (global_server.scene && global_server.scene->outputs &&
-		global_server.scene->outputs->length > 0) {
-		for (int i = 0; i < global_server.scene->outputs->length; ++i) {
+	if (global_server.scene && global_server.scene_state.outputs &&
+		global_server.scene_state.outputs->length > 0) {
+		for (int i = 0; i < global_server.scene_state.outputs->length; ++i) {
 			struct wsm_output *output =
-				global_server.scene->outputs->items[i];
+				global_server.scene_state.outputs->items[i];
 			if (!wlr_xcursor_manager_load(
 				    global_server.xcursor_manager,
 				    output->wlr_output->scale)) {
@@ -252,8 +273,7 @@ void input_manager_configure_xcursor(void) {
 			struct wlr_xcursor_image *image = xcursor->images[0];
 			wlr_xwayland_set_cursor(
 				global_server.xwayland.xwayland_wlr,
-				image->buffer, image->width * 4, image->width,
-				image->height, image->hotspot_x,
+				wlr_xcursor_image_get_buffer(image), image->hotspot_x,
 				image->hotspot_y);
 		} else {
 			wsm_log(WSM_ERROR,

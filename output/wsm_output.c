@@ -2,7 +2,6 @@
 #include "wsm_seat.h"
 #include "wsm_cursor.h"
 #include "wsm_server.h"
-#include "wsm_scene.h"
 #include "wsm_view.h"
 #include "wsm_list.h"
 #include "wsm_common.h"
@@ -31,9 +30,10 @@
 #include <wlr/backend/headless.h>
 #include <wlr/backend/wayland.h>
 #include <wlr/types/wlr_scene.h>
+#include <wlr/render/color.h>
 #include <wlr/backend/drm.h>
 #include <wlr/types/wlr_drm_lease_v1.h>
-#include <wlr/types/wlr_gamma_control_v1.h>
+#include <wlr/types/wlr_alpha_modifier_v1.h>
 #include <wlr/types/wlr_output_power_management_v1.h>
 
 struct send_frame_done_data {
@@ -48,14 +48,6 @@ struct buffer_timer {
 };
 
 static void begin_destroy(struct wsm_output *output) {
-	if (output->enabled) {
-		output_disable(output);
-	}
-
-	output_begin_destroy(output);
-
-	wl_list_remove(&output->link);
-
 	wl_list_remove(&output->layout_destroy.link);
 	wl_list_remove(&output->destroy.link);
 	wl_list_remove(&output->commit.link);
@@ -63,10 +55,26 @@ static void begin_destroy(struct wsm_output *output) {
 	wl_list_remove(&output->frame.link);
 	wl_list_remove(&output->request_state.link);
 
-	wlr_scene_output_destroy(output->scene_output);
+	/* Destroy the scene output before changing the logical output state. This
+	 * prevents wlroots from emitting scene output events for a dead output. */
+	if (output->scene_output) {
+		wlr_scene_output_destroy(output->scene_output);
+	}
 	output->scene_output = NULL;
+
+	if (output->enabled) {
+		output_disable(output);
+	}
+	output_begin_destroy(output);
+	wl_list_remove(&output->link);
+
 	output->wlr_output->data = NULL;
 	output->wlr_output = NULL;
+
+	if (output->repaint_timer) {
+		wl_event_source_remove(output->repaint_timer);
+		output->repaint_timer = NULL;
+	}
 
 	request_modeset();
 }
@@ -101,9 +109,6 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 		wsm_output_memory_store_all();
 	}
 
-	if ((event->state->committed & WLR_OUTPUT_STATE_ENABLED) && !output->wlr_output->enabled) {
-		output->gamma_lut_changed = true;
-	}
 }
 
 static void handle_present(struct wl_listener *listener, void *data) {
@@ -114,15 +119,15 @@ static void handle_present(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	output->last_presentation = *output_event->when;
+	output->last_presentation = output_event->when;
 	output->refresh_nsec = output_event->refresh;
 }
 
 static int handle_buffer_timer(void *data) {
-	struct wlr_scene_buffer *buffer = data;
+	struct wlr_scene_surface *scene_surface = data;
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
-	wlr_scene_buffer_send_frame_done(buffer, &now);
+	wlr_scene_surface_send_frame_done(scene_surface, &now);
 	return 0;
 }
 
@@ -134,7 +139,9 @@ static void handle_buffer_timer_destroy(struct wl_listener *listener, void *data
 	free(timer);
 }
 
-static struct buffer_timer *buffer_timer_get_or_create(struct wlr_scene_buffer *buffer) {
+static struct buffer_timer *buffer_timer_get_or_create(
+		struct wlr_scene_surface *scene_surface) {
+	struct wlr_scene_buffer *buffer = scene_surface->buffer;
 	struct buffer_timer *timer =
 		wsm_scene_descriptor_try_get(&buffer->node, WSM_SCENE_DESC_BUFFER_TIMER);
 	if (timer) {
@@ -148,7 +155,7 @@ static struct buffer_timer *buffer_timer_get_or_create(struct wlr_scene_buffer *
 	}
 
 	timer->frame_done_timer = wl_event_loop_add_timer(global_server.wl_event_loop,
-		handle_buffer_timer, buffer);
+		handle_buffer_timer, scene_surface);
 	if (!timer->frame_done_timer) {
 		free(timer);
 		return NULL;
@@ -169,6 +176,12 @@ static void send_frame_done_iterator(struct wlr_scene_buffer *buffer,
 	int view_max_render_time = 0;
 	
 	if (buffer->primary_output != data->output->scene_output) {
+		return;
+	}
+
+	struct wlr_scene_surface *scene_surface =
+		wlr_scene_surface_try_from_buffer(buffer);
+	if (!scene_surface) {
 		return;
 	}
 
@@ -194,19 +207,21 @@ static void send_frame_done_iterator(struct wlr_scene_buffer *buffer,
 	struct buffer_timer *timer = NULL;
 
 	if (output->max_render_time != 0 && view_max_render_time != 0 && delay > 0) {
-		timer = buffer_timer_get_or_create(buffer);
+		timer = buffer_timer_get_or_create(scene_surface);
 	}
 
 	if (timer) {
 		wl_event_source_timer_update(timer->frame_done_timer, delay);
 	} else {
-		wlr_scene_buffer_send_frame_done(buffer, &data->when);
+		wlr_scene_surface_send_frame_done(scene_surface, &data->when);
 	}
 }
 
 static enum wlr_scale_filter_mode get_scale_filter(struct wsm_output *output,
 		struct wlr_scene_buffer *buffer) {
-	if (buffer->dst_width > 0 && buffer->dst_height > 0) {
+	if (buffer->dst_width > 0 && buffer->dst_height > 0 &&
+			(buffer->dst_width < buffer->WLR_PRIVATE.buffer_width ||
+			 buffer->dst_height < buffer->WLR_PRIVATE.buffer_height)) {
 		return WLR_SCALE_FILTER_BILINEAR;
 	}
 
@@ -234,6 +249,15 @@ static void output_configure_scene(struct wsm_output *output,
 
 	if (node->type == WLR_SCENE_NODE_BUFFER) {
 		struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
+		struct wlr_scene_surface *surface =
+			wlr_scene_surface_try_from_buffer(buffer);
+		if (surface) {
+			const struct wlr_alpha_modifier_surface_v1_state *state =
+				wlr_alpha_modifier_v1_get_surface_state(surface->surface);
+			if (state) {
+				opacity *= (float)state->multiplier;
+			}
+		}
 		buffer->filter_mode = get_scale_filter(output, buffer);
 		wlr_scene_buffer_set_opacity(buffer, opacity);
 	} else if (node->type == WLR_SCENE_NODE_TREE) {
@@ -248,48 +272,41 @@ static void output_configure_scene(struct wsm_output *output,
 static int output_repaint_timer_handler(void *data) {
 	struct wsm_output *output = data;
 
-	if (!output->enabled) {
+	output->wlr_output->frame_pending = false;
+	if (!output->wlr_output->enabled) {
 		return 0;
 	}
 
-	output->wlr_output->frame_pending = false;
+	output_configure_scene(output, &global_server.scene->tree.node, 1.0f);
 
-	output_configure_scene(output, &global_server.scene->root_scene->tree.node, 1.0f);
+	struct wlr_scene_output_state_options opts = {
+		.color_transform = output->color_transform,
+	};
+	if (!output->scene_output ||
+			!wlr_scene_output_needs_frame(output->scene_output)) {
+		return 0;
+	}
 
-	if (output->gamma_lut_changed) {
-		struct wlr_output_state pending;
-		wlr_output_state_init(&pending);
-		if (!wsm_scene_output_build_state(output->scene_output, &pending, NULL)) {
-			return 0;
-		}
-
-		output->gamma_lut_changed = false;
-		struct wlr_gamma_control_v1 *gamma_control =
-			wlr_gamma_control_manager_v1_get_control(
-				global_server.output_manager->gamma_control_manager_v1, output->wlr_output);
-		if (!wlr_gamma_control_v1_apply(gamma_control, &pending)) {
-			wlr_output_state_finish(&pending);
-			return 0;
-		}
-
-		if (!wlr_output_commit_state(output->wlr_output, &pending)) {
-			wlr_gamma_control_v1_send_failed_and_destroy(gamma_control);
-			wlr_output_state_finish(&pending);
-			return 0;
-		}
-
+	struct wlr_output_state pending;
+	wlr_output_state_init(&pending);
+	if (!wlr_scene_output_build_state(output->scene_output, &pending, &opts)) {
 		wlr_output_state_finish(&pending);
 		return 0;
 	}
 
-	wsm_scene_output_commit(output->scene_output, NULL);
+	if (!wlr_output_commit_state(output->wlr_output, &pending)) {
+		wsm_log(WSM_ERROR, "Page-flip failed on output %s",
+			output->wlr_output->name);
+	}
+	wlr_output_state_finish(&pending);
 	return 0;
 }
 
 static void handle_frame(struct wl_listener *listener, void *user_data) {
 	struct wsm_output *output =
 		wl_container_of(listener, output, frame);
-	if (!output->enabled || !output->wlr_output->enabled) {
+	if (!output->enabled || !output->wlr_output->enabled ||
+			!output->scene_output) {
 		return;
 	}
 	wl_signal_emit_mutable(&output->events.frame, output);
@@ -336,28 +353,52 @@ static void handle_frame(struct wl_listener *listener, void *user_data) {
 static void handle_request_state(struct wl_listener *listener, void *data) {
 	struct wsm_output *output = wl_container_of(listener, output, request_state);
 	const struct wlr_output_event_request_state *event = data;
+	if (!output->wlr_output || !event->state) {
+		return;
+	}
 	wlr_output_commit_state(output->wlr_output, event->state);
 }
 
 static void destroy_scene_layers(struct wsm_output *output) {
-	wlr_scene_node_destroy(&output->fullscreen_background->node);
+	if (output->fullscreen_background) {
+		wlr_scene_node_destroy(&output->fullscreen_background->node);
+		output->fullscreen_background = NULL;
+	}
 
 	scene_node_disown_children(output->layers.tiling);
 	scene_node_disown_children(output->layers.fullscreen);
 
-	wlr_scene_node_destroy(&output->layers.shell_background->node);
-	wlr_scene_node_destroy(&output->layers.shell_bottom->node);
-	wlr_scene_node_destroy(&output->layers.tiling->node);
-	wlr_scene_node_destroy(&output->layers.fullscreen->node);
-	wlr_scene_node_destroy(&output->layers.shell_top->node);
-	wlr_scene_node_destroy(&output->layers.shell_overlay->node);
-	wlr_scene_node_destroy(&output->layers.session_lock->node);
-	wlr_scene_node_destroy(&output->layers.osd->node);
-	wlr_scene_node_destroy(&output->layers.water_mark->node);
-	wlr_scene_node_destroy(&output->layers.black_screen->node);
+	if (output->layers.shell_background) {
+		wlr_scene_node_destroy(&output->layers.shell_background->node);
+	}
+	if (output->layers.shell_bottom) {
+		wlr_scene_node_destroy(&output->layers.shell_bottom->node);
+	}
+	if (output->layers.tiling) {
+		wlr_scene_node_destroy(&output->layers.tiling->node);
+	}
+	if (output->layers.fullscreen) {
+		wlr_scene_node_destroy(&output->layers.fullscreen->node);
+	}
+	if (output->layers.shell_top) {
+		wlr_scene_node_destroy(&output->layers.shell_top->node);
+	}
+	if (output->layers.shell_overlay) {
+		wlr_scene_node_destroy(&output->layers.shell_overlay->node);
+	}
+	if (output->layers.session_lock) {
+		wlr_scene_node_destroy(&output->layers.session_lock->node);
+	}
+	if (output->layers.osd) {
+		wlr_scene_node_destroy(&output->layers.osd->node);
+	}
+	if (output->layers.water_mark) {
+		wlr_scene_node_destroy(&output->layers.water_mark->node);
+	}
+	if (output->layers.black_screen) {
+		wlr_scene_node_destroy(&output->layers.black_screen->node);
+	}
 }
-
-static unsigned int last_headless_num = 0;
 
 struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
 	struct wsm_output *output = calloc(1, sizeof(struct wsm_output));
@@ -367,12 +408,6 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
 	}
 
 	node_init(&output->node, N_OUTPUT, output);
-
-	if (wlr_output_is_headless(wlr_output)) {
-		char name[64];
-		snprintf(name, sizeof(name), "HEADLESS-%u", ++last_headless_num);
-		wlr_output_set_name(wlr_output, name);
-	}
 
 	if (wlr_output_is_wl(wlr_output) || wlr_output_is_x11(wlr_output)) {
 		char title[128];
@@ -387,16 +422,26 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
 	}
 
 	bool failed = false;
-	output->layers.shell_background = alloc_scene_tree(global_server.scene->staging, &failed);
-	output->layers.shell_bottom = alloc_scene_tree(global_server.scene->staging, &failed);
-	output->layers.tiling = alloc_scene_tree(global_server.scene->staging, &failed);
-	output->layers.fullscreen = alloc_scene_tree(global_server.scene->staging, &failed);
-	output->layers.shell_top = alloc_scene_tree(global_server.scene->staging, &failed);
-	output->layers.shell_overlay = alloc_scene_tree(global_server.scene->staging, &failed);
-	output->layers.session_lock = alloc_scene_tree(global_server.scene->staging, &failed);
-	output->layers.osd = alloc_scene_tree(global_server.scene->staging, &failed);
-	output->layers.water_mark = alloc_scene_tree(global_server.scene->staging, &failed);
-	output->layers.black_screen = alloc_scene_tree(global_server.scene->staging, &failed);
+	output->layers.shell_background = alloc_scene_tree(
+		global_server.scene_state.staging, &failed);
+	output->layers.shell_bottom = alloc_scene_tree(
+		global_server.scene_state.staging, &failed);
+	output->layers.tiling = alloc_scene_tree(
+		global_server.scene_state.staging, &failed);
+	output->layers.fullscreen = alloc_scene_tree(
+		global_server.scene_state.staging, &failed);
+	output->layers.shell_top = alloc_scene_tree(
+		global_server.scene_state.staging, &failed);
+	output->layers.shell_overlay = alloc_scene_tree(
+		global_server.scene_state.staging, &failed);
+	output->layers.session_lock = alloc_scene_tree(
+		global_server.scene_state.staging, &failed);
+	output->layers.osd = alloc_scene_tree(
+		global_server.scene_state.staging, &failed);
+	output->layers.water_mark = alloc_scene_tree(
+		global_server.scene_state.staging, &failed);
+	output->layers.black_screen = alloc_scene_tree(
+		global_server.scene_state.staging, &failed);
 
 	if (!failed) {
 		output->fullscreen_background = wlr_scene_rect_create(
@@ -419,17 +464,28 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
 
 	output->workspaces = wsm_list_create();
 	output->current.workspaces = wsm_list_create();
+	if (!output->workspaces || !output->current.workspaces) {
+		wsm_log(WSM_ERROR, "Could not create output workspace lists");
+		goto out;
+	}
 	if (wlr_output_is_drm(wlr_output)) {
 		output->backlight_device = wsm_backlight_device_create(output);
 	}
 
 	wl_signal_init(&output->events.disable);
 	wl_signal_init(&output->events.frame);
+	output->repaint_timer = wl_event_loop_add_timer(global_server.wl_event_loop,
+		output_repaint_timer_handler, output);
+	if (!output->repaint_timer) {
+		wsm_log(WSM_ERROR, "Could not create output repaint timer");
+		goto out;
+	}
 
-	wl_list_insert(&global_server.scene->all_outputs, &output->link);
+	wl_list_insert(&global_server.scene_state.all_outputs, &output->link);
 
 	output->layout_destroy.notify = handle_layout_destroy;
-	wl_signal_add(&global_server.scene->output_layout->events.destroy, &output->layout_destroy);
+	wl_signal_add(&global_server.scene_state.output_layout->events.destroy,
+		&output->layout_destroy);
 
 	output->destroy.notify = handle_destroy;
 	wl_signal_add(&wlr_output->events.destroy, &output->destroy);
@@ -446,14 +502,26 @@ struct wsm_output *wsm_ouput_create(struct wlr_output *wlr_output) {
 	output->request_state.notify = handle_request_state;
 	wl_signal_add(&wlr_output->events.request_state, &output->request_state);
 
-	output->repaint_timer = wl_event_loop_add_timer(global_server.wl_event_loop,
-		output_repaint_timer_handler, output);
-
 	return output;
 
 out:
+	if (output->repaint_timer) {
+		wl_event_source_remove(output->repaint_timer);
+		output->repaint_timer = NULL;
+	}
+	if (output->backlight_device) {
+		wsm_backlight_device_destroy(output->backlight_device);
+		output->backlight_device = NULL;
+	}
+	if (output->wlr_output && output->wlr_output->data == output) {
+		output->wlr_output->data = NULL;
+	}
+	wsm_list_destroy(output->workspaces);
+	wsm_list_destroy(output->current.workspaces);
 	destroy_scene_layers(output);
-	wlr_scene_output_destroy(output->scene_output);
+	if (output->scene_output) {
+		wlr_scene_output_destroy(output->scene_output);
+	}
 	free(output);
 	return NULL;
 }
@@ -475,15 +543,21 @@ void wsm_output_destroy(struct wsm_output *output) {
 	destroy_scene_layers(output);
 	wsm_list_destroy(output->workspaces);
 	wsm_list_destroy(output->current.workspaces);
-	wl_event_source_remove(output->repaint_timer);
+	if (output->repaint_timer) {
+		wl_event_source_remove(output->repaint_timer);
+	}
 	if (output->backlight_device) {
 		wsm_backlight_device_destroy(output->backlight_device);
 	}
+	wlr_color_transform_unref(output->color_transform);
 	free(output);
 }
 
 void output_begin_destroy(struct wsm_output *output) {
 	if (!wsm_assert(!output->enabled, "Expected a disabled output")) {
+		return;
+	}
+	if (!output->wlr_output) {
 		return;
 	}
 	wsm_log(WSM_DEBUG, "Destroying output '%s'", output->wlr_output->name);
@@ -499,29 +573,54 @@ void output_enable(struct wsm_output *output) {
 	}
 
 	output->enabled = true;
-	wsm_list_add(global_server.scene->outputs, output);
+	wsm_list_add(global_server.scene_state.outputs, output);
 
 	struct wsm_workspace *ws = NULL;
-	if (!output->workspaces->length) {
-		char *ws_name = int_to_string(output->workspaces->length);
-		ws = workspace_create(output, ws_name);
-		struct wsm_seat *seat = NULL;
-		wl_list_for_each(seat, &global_server.input_manager->seats, link) {
-			if (!seat->has_focus) {
-				seat_set_focus_workspace(seat, ws);
+	if (output->workspaces->length > 0) {
+		ws = output->workspaces->items[0];
+	} else {
+		struct wsm_output *fallback = global_server.scene_state.fallback_output;
+		if (fallback && fallback != output && fallback->workspaces->length > 0) {
+			ws = fallback->workspaces->items[0];
+			wsm_output_add_workspace(output, ws);
+			output_sort_workspaces(output);
+		}
+
+		if (!ws) {
+			char *ws_name = int_to_string(output->workspaces->length);
+			if (ws_name) {
+				ws = workspace_create(output, ws_name);
+				free(ws_name);
 			}
 		}
-		free(ws_name);
+	}
+
+	if (!ws) {
+		wsm_log(WSM_ERROR, "Could not create initial workspace for output '%s'",
+			output->wlr_output->name);
+		wsm_list_delete(global_server.scene_state.outputs,
+			global_server.scene_state.outputs->length - 1);
+		output->enabled = false;
+		return;
+	}
+
+	struct wsm_seat *seat = NULL;
+	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
+		if (!seat->has_focus) {
+			seat_set_focus_workspace(seat, ws);
+		}
 	}
 
 	ws->layout = L_NONE;
 
 	input_manager_configure_xcursor();
 
-	wl_signal_emit_mutable(&global_server.scene->events.new_node, &output->node);
+	wl_signal_emit_mutable(&global_server.scene_state.events.new_node,
+		&output->node);
 
 	wsm_arrange_layers(output);
 	arrange_root_auto();
+	wsm_server_run_startup_command(&global_server);
 }
 
 static void evacuate_sticky(struct wsm_workspace *old_ws,
@@ -546,11 +645,10 @@ static void output_evacuate(struct wsm_output *output) {
 		return;
 	}
 	struct wsm_output *fallback_output = NULL;
-	struct wsm_scene *root = global_server.scene;
-	if (root->outputs->length > 1) {
-		fallback_output = root->outputs->items[0];
+	if (global_server.scene_state.outputs->length > 1) {
+		fallback_output = global_server.scene_state.outputs->items[0];
 		if (fallback_output == output) {
-			fallback_output = root->outputs->items[1];
+			fallback_output = global_server.scene_state.outputs->items[1];
 		}
 	}
 
@@ -565,7 +663,7 @@ static void output_evacuate(struct wsm_output *output) {
 			new_output = fallback_output;
 		}
 		if (!new_output) {
-			new_output = root->fallback_output;
+			new_output = global_server.scene_state.fallback_output;
 		}
 
 		struct wsm_workspace *new_output_ws =
@@ -597,7 +695,7 @@ void output_disable(struct wsm_output *output) {
 	if (!wsm_assert(output->enabled, "Expected an enabled output")) {
 		return;
 	}
-	int index = wsm_list_find(global_server.scene->outputs, output);
+	int index = wsm_list_find(global_server.scene_state.outputs, output);
 	if (!wsm_assert(index >= 0, "Output not found in root node")) {
 		return;
 	}
@@ -607,7 +705,7 @@ void output_disable(struct wsm_output *output) {
 
 	output_evacuate(output);
 
-	wsm_list_delete(global_server.scene->outputs, index);
+	wsm_list_delete(global_server.scene_state.outputs, index);
 
 	output->enabled = false;
 
@@ -634,16 +732,18 @@ struct wsm_output *wsm_output_nearest_to_cursor() {
 
 struct wsm_output *wsm_output_nearest_to(int lx, int ly) {
 	double closest_x, closest_y;
-	wlr_output_layout_closest_point(global_server.scene->output_layout, NULL, lx, ly,
+	wlr_output_layout_closest_point(global_server.scene_state.output_layout,
+		NULL, lx, ly,
 		&closest_x, &closest_y);
 
-	return wsm_output_from_wlr_output(wlr_output_layout_output_at(global_server.scene->output_layout,
+	return wsm_output_from_wlr_output(wlr_output_layout_output_at(
+		global_server.scene_state.output_layout,
 		closest_x, closest_y));
 }
 
 struct wsm_output *wsm_output_from_wlr_output(struct wlr_output *wlr_output) {
 	struct wsm_output *wsm_output;
-	wl_list_for_each(wsm_output, &global_server.output_manager->outputs, link) {
+	wl_list_for_each(wsm_output, &global_server.scene_state.all_outputs, link) {
 		if (wsm_output->wlr_output == wlr_output) {
 			return wsm_output;
 		}
@@ -654,12 +754,13 @@ struct wsm_output *wsm_output_from_wlr_output(struct wlr_output *wlr_output) {
 struct wlr_box
 wsm_output_usable_area_in_layout_coords(struct wsm_output *output)
 {
-	if (!output) {
+	if (!output || !output->wlr_output ||
+			!global_server.scene_state.output_layout) {
 		return (struct wlr_box){0};
 	}
 	struct wlr_box box = output->usable_area;
 	double ox = 0, oy = 0;
-	wlr_output_layout_output_coords(global_server.scene->output_layout,
+	wlr_output_layout_output_coords(global_server.scene_state.output_layout,
 		output->wlr_output, &ox, &oy);
 	box.x -= ox;
 	box.y -= oy;
@@ -669,7 +770,7 @@ wsm_output_usable_area_in_layout_coords(struct wsm_output *output)
 struct wlr_box
 wsm_output_usable_area_scaled(struct wsm_output *output)
 {
-	if (!output) {
+	if (!output || !output->wlr_output) {
 		return (struct wlr_box){0};
 	}
 	struct wlr_box usable = wsm_output_usable_area_in_layout_coords(output);
@@ -696,7 +797,8 @@ void wsm_output_power_manager_set_mode(struct wlr_output_power_v1_set_mode_event
 }
 
 bool wsm_output_is_usable(struct wsm_output *output) {
-	return output && output->wlr_output->enabled && !output->leased;
+	return output && output->wlr_output && output->wlr_output->enabled &&
+		!output->leased;
 }
 
 void output_get_box(struct wsm_output *output, struct wlr_box *box) {
@@ -722,8 +824,10 @@ static void handle_destroy_non_desktop(struct wl_listener *listener, void *data)
 	struct wsm_output_non_desktop *output =
 		wl_container_of(listener, output, destroy);
 	wsm_log(WSM_DEBUG, "Destroying non-desktop output '%s'", output->wlr_output->name);
-	int index = wsm_list_find(global_server.scene->non_desktop_outputs, output);
-	wsm_list_delete(global_server.scene->non_desktop_outputs, index);
+	int index = wsm_list_find(global_server.scene_state.non_desktop_outputs, output);
+	if (index >= 0) {
+		wsm_list_delete(global_server.scene_state.non_desktop_outputs, index);
+	}
 
 	wl_list_remove(&output->destroy.link);
 	free(output);
@@ -753,20 +857,40 @@ void output_for_each_container(struct wsm_output *output,
 
 static int timer_modeset_handle(void *data) {
 	struct wsm_server *server = data;
+	if (server->shutting_down) {
+		server->delayed_modeset = NULL;
+		return 0;
+	}
 	wl_event_source_remove(server->delayed_modeset);
 	server->delayed_modeset = NULL;
 
-	apply_all_output_configs();
-	transaction_commit_dirty();
-	update_output_manager_config(server);
+	force_modeset();
 
 	return 0;
 }
 
+void force_modeset(void) {
+	if (global_server.delayed_modeset) {
+		wl_event_source_remove(global_server.delayed_modeset);
+		global_server.delayed_modeset = NULL;
+	}
+
+	apply_all_output_configs();
+	transaction_commit_dirty();
+	update_output_manager_config(&global_server);
+}
+
 void request_modeset() {
+	if (global_server.shutting_down || !global_server.wl_event_loop) {
+		return;
+	}
 	if (global_server.delayed_modeset == NULL) {
 		global_server.delayed_modeset = wl_event_loop_add_timer(global_server.wl_event_loop,
 			timer_modeset_handle, &global_server);
+		if (!global_server.delayed_modeset) {
+			wsm_log(WSM_ERROR, "Could not create delayed modeset timer");
+			return;
+		}
 		wl_event_source_timer_update(global_server.delayed_modeset, 10);
 	}
 }
@@ -850,9 +974,8 @@ struct udev_device *wsm_output_get_device_handle(struct wsm_output *output) {
 }
 
 struct wsm_output *output_by_name_or_id(const char *name_or_id) {
-	struct wsm_scene *root = global_server.scene;
-	for (int i = 0; i < root->outputs->length; ++i) {
-		struct wsm_output *output = root->outputs->items[i];
+	for (int i = 0; i < global_server.scene_state.outputs->length; ++i) {
+		struct wsm_output *output = global_server.scene_state.outputs->items[i];
 		if (output_match_name_or_id(output, name_or_id)) {
 			return output;
 		}

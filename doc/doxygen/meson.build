@@ -54,7 +54,6 @@ src_files = files([
 		'../../output/wsm_backlight_device.h',
 		'../../output/wsm_output.h',
 		'../../output/wsm_output_manager.h',
-		'../../scene/wsm_scene.h',
 		'../../scene/node/wsm_image_node.h',
 		'../../scene/node/wsm_node_descriptor.h',
 		'../../scene/node/wsm_text_node.h',

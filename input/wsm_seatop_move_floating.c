@@ -5,7 +5,6 @@
 #include "wsm_list.h"
 #include "wsm_arrange.h"
 #include "wsm_output.h"
-#include "wsm_scene.h"
 #include "wsm_server.h"
 #include "wsm_workspace.h"
 #include "wsm_seatop_default.h"
@@ -149,7 +148,7 @@ static bool edge_has_adjacent_output(struct wsm_output *output,
 	}
 
 	struct wlr_output *adjacent = wlr_output_layout_output_at(
-		global_server.scene->output_layout, x, y);
+		global_server.scene_state.output_layout, x, y);
 	return adjacent && adjacent != output->wlr_output;
 }
 
@@ -161,7 +160,7 @@ static bool get_snap_target(struct wsm_seat *seat, struct wsm_container *con,
 
 	struct wlr_cursor *cursor = seat->cursor->cursor_wlr;
 	struct wlr_output *wlr_output = wlr_output_layout_output_at(
-		global_server.scene->output_layout, cursor->x, cursor->y);
+		global_server.scene_state.output_layout, cursor->x, cursor->y);
 	if (!wlr_output || !wlr_output->data) {
 		return false;
 	}

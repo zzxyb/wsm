@@ -1,7 +1,6 @@
 #include "wsm_task_session.h"
 
 #include "wsm_container.h"
-#include "wsm_scene.h"
 #include "wsm_seat.h"
 #include "wsm_transaction.h"
 #include "wsm_view.h"

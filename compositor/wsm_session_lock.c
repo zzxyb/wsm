@@ -3,7 +3,6 @@
 #include "wsm_seat.h"
 #include "wsm_server.h"
 #include "wsm_output.h"
-#include "wsm_scene.h"
 #include "wsm_cursor.h"
 #include "wsm_arrange.h"
 #include "wsm_input_manager.h"
@@ -148,15 +147,16 @@ static void handle_unlock(struct wl_listener *listener, void *data) {
 
 	struct wsm_seat *seat;
 	wl_list_for_each(seat, &global_server.input_manager->seats, link) {
-		struct wsm_node *previous = seat_get_focus_inactive(seat, &global_server.scene->node);
+		struct wsm_node *previous = seat_get_focus_inactive(seat,
+			&global_server.scene_state.node);
 		if (previous) {
 			seat_set_focus(seat, NULL);
 			seat_set_focus(seat, previous);
 		}
 	}
 
-	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
-		struct wsm_output *output = global_server.scene->outputs->items[i];
+	for (int i = 0; i < global_server.scene_state.outputs->length; ++i) {
+		struct wsm_output *output = global_server.scene_state.outputs->items[i];
 		wsm_arrange_layers(output);
 	}
 }
@@ -210,7 +210,7 @@ static void handle_session_lock(struct wl_listener *listener, void *data) {
 	}
 
 	struct wsm_output *output;
-	wl_list_for_each(output, &global_server.scene->all_outputs, link) {
+	wl_list_for_each(output, &global_server.scene_state.all_outputs, link) {
 		wsm_session_lock_add_output(wsm_lock, output);
 	}
 
@@ -311,8 +311,12 @@ static struct wsm_session_lock_output *session_lock_output_create(
 	return lock_output;
 }
 
-void wsm_session_lock_init(void) {
+bool wsm_session_lock_init(void) {
 	global_server.session_lock.manager = wlr_session_lock_manager_v1_create(global_server.wl_display);
+	if (!global_server.session_lock.manager) {
+		wsm_log(WSM_ERROR, "Failed to create session lock manager");
+		return false;
+	}
 
 	global_server.session_lock.new_lock.notify = handle_session_lock;
 	wl_signal_add(&global_server.session_lock.manager->events.new_lock,
@@ -321,6 +325,7 @@ void wsm_session_lock_init(void) {
 	global_server.session_lock.manager_destroy.notify = handle_session_lock_destroy;
 	wl_signal_add(&global_server.session_lock.manager->events.destroy,
 		&global_server.session_lock.manager_destroy);
+	return true;
 }
 
 void wsm_session_lock_add_output(struct wsm_session_lock *lock,

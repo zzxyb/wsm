@@ -8,6 +8,7 @@
 #include <wlr/types/wlr_compositor.h>
 
 struct wlr_scene_node;
+struct wlr_scene_buffer;
 struct wlr_scene_tree;
 struct wlr_xdg_surface;
 struct wlr_xdg_toplevel;
@@ -97,6 +98,8 @@ struct wsm_view {
 	struct wlr_scene_tree *scene_tree; /**< Scene tree for the view */
 	struct wlr_scene_tree *content_tree; /**< Content scene tree for the view */
 	struct wlr_scene_tree *saved_surface_tree; /**< Saved surface tree for the view */
+	struct wlr_scene_buffer *output_handler; /**< Scene buffer used for output enter/leave tracking */
+	struct wl_listener outputs_update; /**< Listener for scene output updates */
 
 	struct wsm_container *container; /**< Pointer to the associated container (NULL if unmapped) */
 	struct wlr_surface *surface; /**< Pointer to the associated WLR surface (NULL for unmapped views) */

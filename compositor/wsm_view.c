@@ -6,7 +6,6 @@
 #include "wsm_output.h"
 #include "wsm_cursor.h"
 #include "wsm_server.h"
-#include "wsm_scene.h"
 #include "wsm_pango.h"
 #include "wsm_common.h"
 #include "wsm_titlebar.h"
@@ -23,6 +22,7 @@
 #include "wsm_arrange.h"
 
 #include <float.h>
+#include <math.h>
 #include <stdlib.h>
 
 #include <wayland-server.h>
@@ -42,10 +42,49 @@
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 #include <wlr/types/wlr_ext_foreign_toplevel_list_v1.h>
 
+static void handle_outputs_update(struct wl_listener *listener, void *data) {
+	struct wsm_view *view = wl_container_of(listener, view, outputs_update);
+	struct wlr_scene_outputs_update_event *event = data;
+
+	struct wlr_foreign_toplevel_handle_v1 *toplevel = view->foreign_toplevel;
+	if (!toplevel) {
+		return;
+	}
+
+	struct wlr_foreign_toplevel_handle_v1_output *toplevel_output, *tmp;
+	wl_list_for_each_safe(toplevel_output, tmp, &toplevel->outputs, link) {
+		bool active = false;
+		for (size_t i = 0; i < event->size; i++) {
+			struct wlr_scene_output *scene_output = event->active[i];
+			if (scene_output->output == toplevel_output->output) {
+				active = true;
+				break;
+			}
+		}
+
+		if (!active) {
+			wlr_foreign_toplevel_handle_v1_output_leave(
+				toplevel, toplevel_output->output);
+		}
+	}
+
+	for (size_t i = 0; i < event->size; i++) {
+		struct wlr_scene_output *scene_output = event->active[i];
+		wlr_foreign_toplevel_handle_v1_output_enter(toplevel,
+			scene_output->output);
+	}
+}
+
+static bool handle_point_accepts_input(
+		struct wlr_scene_buffer *buffer, double *x, double *y) {
+	return false;
+}
+
 bool view_init(struct wsm_view *view, enum wsm_view_type type,
 		const struct wsm_view_impl *impl) {
 	bool failed = false;
-	view->scene_tree = alloc_scene_tree(global_server.scene->staging, &failed);
+	view->scene_tree = alloc_scene_tree(global_server.scene_state.staging,
+		&failed);
 	view->content_tree = alloc_scene_tree(view->scene_tree, &failed);
 
 	if (!failed && !wsm_scene_descriptor_assign(&view->scene_tree->node,
@@ -54,9 +93,20 @@ bool view_init(struct wsm_view *view, enum wsm_view_type type,
 	}
 
 	if (failed) {
-		wlr_scene_node_destroy(&view->scene_tree->node);
-		return false;
+		goto err;
 	}
+
+	view->output_handler = wlr_scene_buffer_create(view->scene_tree, NULL);
+	if (!view->output_handler) {
+		wsm_log(WSM_ERROR,
+			"Could not create scene buffer for view output tracking");
+		goto err;
+	}
+
+	view->outputs_update.notify = handle_outputs_update;
+	wl_signal_add(&view->output_handler->events.outputs_update,
+		&view->outputs_update);
+	view->output_handler->point_accepts_input = handle_point_accepts_input;
 
 	view->type = type;
 	view->impl = impl;
@@ -64,6 +114,12 @@ bool view_init(struct wsm_view *view, enum wsm_view_type type,
 	view->enabled = true;
 	wl_signal_init(&view->events.unmap);
 	return true;
+
+err:
+	if (view->scene_tree) {
+		wlr_scene_node_destroy(&view->scene_tree->node);
+	}
+	return false;
 }
 
 void view_destroy(struct wsm_view *view) {
@@ -98,6 +154,7 @@ void view_begin_destroy(struct wsm_view *view) {
 		return;
 	}
 	view->destroying = true;
+	wl_list_remove(&view->outputs_update.link);
 
 	if (!view->container) {
 		view_destroy(view);
@@ -105,56 +162,56 @@ void view_begin_destroy(struct wsm_view *view) {
 }
 
 const char *view_get_title(struct wsm_view *view) {
-	if (view->impl->get_string_prop) {
+	if (view && !view->destroying && view->impl && view->impl->get_string_prop) {
 		return view->impl->get_string_prop(view, VIEW_PROP_TITLE);
 	}
 	return NULL;
 }
 
 const char *view_get_app_id(struct wsm_view *view) {
-	if (view->impl->get_string_prop) {
+	if (view && !view->destroying && view->impl && view->impl->get_string_prop) {
 		return view->impl->get_string_prop(view, VIEW_PROP_APP_ID);
 	}
 	return NULL;
 }
 
 const char *view_get_class(struct wsm_view *view) {
-	if (view->impl->get_string_prop) {
+	if (view && !view->destroying && view->impl && view->impl->get_string_prop) {
 		return view->impl->get_string_prop(view, VIEW_PROP_CLASS);
 	}
 	return NULL;
 }
 
 const char *view_get_instance(struct wsm_view *view) {
-	if (view->impl->get_string_prop) {
+	if (view && !view->destroying && view->impl && view->impl->get_string_prop) {
 		return view->impl->get_string_prop(view, VIEW_PROP_INSTANCE);
 	}
 	return NULL;
 }
 #if HAVE_XWAYLAND
 uint32_t view_get_x11_window_id(struct wsm_view *view) {
-	if (view->impl->get_int_prop) {
+	if (view && !view->destroying && view->impl && view->impl->get_int_prop) {
 		return view->impl->get_int_prop(view, VIEW_PROP_X11_WINDOW_ID);
 	}
 	return 0;
 }
 
 uint32_t view_get_x11_parent_id(struct wsm_view *view) {
-	if (view->impl->get_int_prop) {
+	if (view && !view->destroying && view->impl && view->impl->get_int_prop) {
 		return view->impl->get_int_prop(view, VIEW_PROP_X11_PARENT_ID);
 	}
 	return 0;
 }
 #endif
 const char *view_get_window_role(struct wsm_view *view) {
-	if (view->impl->get_string_prop) {
+	if (view && !view->destroying && view->impl && view->impl->get_string_prop) {
 		return view->impl->get_string_prop(view, VIEW_PROP_WINDOW_ROLE);
 	}
 	return NULL;
 }
 
 uint32_t view_get_window_type(struct wsm_view *view) {
-	if (view->impl->get_int_prop) {
+	if (view && !view->destroying && view->impl && view->impl->get_int_prop) {
 		return view->impl->get_int_prop(view, VIEW_PROP_WINDOW_TYPE);
 	}
 	return 0;
@@ -174,6 +231,14 @@ const char *view_get_shell(struct wsm_view *view) {
 
 void view_get_constraints(struct wsm_view *view, double *min_width,
 		double *max_width, double *min_height, double *max_height) {
+	if (!view || view->destroying || !view->impl) {
+		*min_width = DBL_MIN;
+		*max_width = DBL_MAX;
+		*min_height = DBL_MIN;
+		*max_height = DBL_MAX;
+		return;
+	}
+
 	if (view->impl->get_constraints) {
 		view->impl->get_constraints(view,
 			min_width, max_width, min_height, max_height);
@@ -187,6 +252,16 @@ void view_get_constraints(struct wsm_view *view, double *min_width,
 
 uint32_t view_configure(struct wsm_view *view, double lx, double ly, int width,
 		int height) {
+	if (!view || view->destroying || !view->impl) {
+		return 0;
+	}
+
+	if (width < 0 || height < 0) {
+		wsm_log(WSM_ERROR, "Clamping invalid %s view size %dx%d",
+			view_get_shell(view), width, height);
+		width = MAX(width, 0);
+		height = MAX(height, 0);
+	}
 	if (view->impl->configure) {
 		return view->impl->configure(view, lx, ly, width, height);
 	}
@@ -226,17 +301,17 @@ void view_autoconfigure(struct wsm_view *view) {
 	}
 	struct wsm_output *output = ws ? ws->output : NULL;
 
-	if (con->pending.fullscreen_mode == FULLSCREEN_WORKSPACE) {
+	if (output && con->pending.fullscreen_mode == FULLSCREEN_WORKSPACE) {
 		con->pending.content_x = output->lx;
 		con->pending.content_y = output->ly;
 		con->pending.content_width = output->width;
 		con->pending.content_height = output->height;
 		return;
 	} else if (con->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
-		con->pending.content_x = global_server.scene->x;
-		con->pending.content_y = global_server.scene->y;
-		con->pending.content_width = global_server.scene->width;
-		con->pending.content_height = global_server.scene->height;
+		con->pending.content_x = global_server.scene_state.x;
+		con->pending.content_y = global_server.scene_state.y;
+		con->pending.content_width = global_server.scene_state.width;
+		con->pending.content_height = global_server.scene_state.height;
 		return;
 	}
 
@@ -271,13 +346,15 @@ void view_autoconfigure(struct wsm_view *view) {
 		height = con->pending.height - container_titlebar_height()
 			- max_thickness * con->pending.border_bottom
 			- max_thickness * con->pending.border_top;
+		width = MAX(width, 1);
+		height = MAX(height, 1);
 		break;
 	}
 
 	con->pending.content_x = x;
 	con->pending.content_y = y;
-	con->pending.content_width = width;
-	con->pending.content_height = height;
+	con->pending.content_width = MAX(width, 1);
+	con->pending.content_height = MAX(height, 1);
 }
 
 void view_set_activated(struct wsm_view *view, bool activated) {
@@ -330,19 +407,19 @@ void view_update_csd_from_client(struct wsm_view *view, bool enabled) {
 }
 
 void view_set_tiled(struct wsm_view *view, bool tiled) {
-	if (view->impl->set_tiled) {
+	if (view && !view->destroying && view->impl && view->impl->set_tiled) {
 		view->impl->set_tiled(view, tiled);
 	}
 }
 
 void view_maximize(struct wsm_view *view, bool maximize) {
-	if (view->impl->maximize) {
+	if (view && !view->destroying && view->impl && view->impl->maximize) {
 		view->impl->maximize(view, maximize);
 	}
 }
 
 bool view_can_maximize(struct wsm_view *view) {
-	if (!view || !view->impl->maximize) {
+	if (!view || view->destroying || !view->impl || !view->impl->maximize) {
 		return false;
 	}
 
@@ -357,21 +434,22 @@ bool view_can_maximize(struct wsm_view *view) {
 }
 
 bool view_can_split(struct wsm_view *view) {
-	return view && view->impl->can_split && view->impl->can_split(view);
+	return view && !view->destroying && view->impl && view->impl->can_split &&
+		view->impl->can_split(view);
 }
 
 void view_minimize(struct wsm_view *view, bool minimize) {
-	if (view->impl->minimize) {
+	if (view && !view->destroying && view->impl && view->impl->minimize) {
 		view->impl->minimize(view, minimize);
 	}
-	if (!minimize && view->container != NULL &&
+	if (view && !view->destroying && !minimize && view->container != NULL &&
 			!view->minimize_animation_pending) {
 		view->restore_animation_requested = true;
 	}
 }
 
 bool view_can_minimize(struct wsm_view *view) {
-	if (!view || !view->impl->minimize) {
+	if (!view || view->destroying || !view->impl || !view->impl->minimize) {
 		return false;
 	}
 
@@ -443,14 +521,46 @@ static void view_populate_pid(struct wsm_view *view) {
 static struct wsm_workspace *select_workspace(struct wsm_view *view) {
 	struct wsm_seat *seat = input_manager_current_seat();
 
-	struct wsm_node *node = seat_get_focus_inactive(seat, &global_server.scene->node);
+	struct wsm_node *node = seat_get_focus_inactive(seat,
+		&global_server.scene_state.node);
 	if (node && node->type == N_WORKSPACE) {
 		return node->workspace;
-	} else if (node && node->type == N_CONTAINER) {
+	} else if (node && node->type == N_CONTAINER &&
+			node->container->pending.workspace) {
 		return node->container->pending.workspace;
 	}
 
-	wsm_assert(false, "Expected to find a workspace");
+	struct wsm_workspace *workspace = seat_get_last_known_workspace(seat);
+	if (workspace) {
+		return workspace;
+	}
+
+	for (int i = 0; i < global_server.scene_state.outputs->length; ++i) {
+		struct wsm_output *output =
+			global_server.scene_state.outputs->items[i];
+		workspace = output_get_active_workspace(output);
+		if (workspace) {
+			return workspace;
+		}
+	}
+
+	struct wsm_output *fallback = global_server.scene_state.fallback_output;
+	if (fallback && fallback->workspaces->length > 0) {
+		return fallback->workspaces->items[0];
+	}
+
+	if (fallback) {
+		char *workspace_name = int_to_string(fallback->workspaces->length);
+		if (workspace_name) {
+			workspace = workspace_create(fallback, workspace_name);
+			free(workspace_name);
+			if (workspace) {
+				return workspace;
+			}
+		}
+	}
+
+	wsm_log(WSM_ERROR, "Unable to select a workspace for a newly mapped view");
 	return NULL;
 }
 
@@ -464,7 +574,8 @@ static bool should_focus(struct wsm_view *view) {
 		return true;
 	}
 
-	if (global_server.scene->fullscreen_global || !map_ws || map_ws->fullscreen) {
+	if (global_server.scene_state.fullscreen_global || !map_ws ||
+			map_ws->fullscreen) {
 		return false;
 	}
 
@@ -580,9 +691,19 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
 		ws = select_workspace(view);
 	}
 
+	if (ws && ws->output && ws->output->wlr_output) {
+		float scale = ws->output->wlr_output->scale;
+		if (scale <= 0) {
+			scale = 1;
+		}
+		wlr_fractional_scale_v1_notify_scale(wlr_surface, scale);
+		wlr_surface_set_preferred_buffer_scale(wlr_surface, ceilf(scale));
+	}
+
 	struct wsm_seat *seat = input_manager_current_seat();
 	struct wsm_node *node =
-		seat_get_focus_inactive(seat, ws ? &ws->node : &global_server.scene->node);
+		seat_get_focus_inactive(seat, ws ? &ws->node :
+			&global_server.scene_state.node);
 	struct wsm_container *target_sibling = NULL;
 	if (node && node->type == N_CONTAINER) {
 		if (container_is_floating(node->container)) {
@@ -692,7 +813,7 @@ void view_map(struct wsm_view *view, struct wlr_surface *wlr_surface,
 #if HAVE_XWAYLAND
 	struct wlr_xwayland_surface *xsurface;
 	if ((xsurface = wlr_xwayland_surface_try_from_wlr_surface(wlr_surface))) {
-		set_focus &= wlr_xwayland_icccm_input_model(xsurface) !=
+		set_focus &= wlr_xwayland_surface_icccm_input_model(xsurface) !=
 			WLR_ICCCM_INPUT_MODEL_NONE;
 	}
 #endif
@@ -732,7 +853,7 @@ void view_unmap(struct wsm_view *view) {
 		workspace_consider_destroy(ws);
 	}
 
-	if (global_server.scene->fullscreen_global) {
+	if (global_server.scene_state.fullscreen_global) {
 		arrange_root_auto();
 	} else if (ws && !ws->node.destroying) {
 		wsm_arrange_workspace_auto(ws);
@@ -766,8 +887,14 @@ void view_update_size(struct wsm_view *view) {
 void view_center_and_clip_surface(struct wsm_view *view) {
 	struct wsm_container *con = view->container;
 	bool clip_to_geometry = true;
-	if (container_is_floating(con)) {
+	if (container_is_floating(con) ||
+			con->pending.fullscreen_mode != FULLSCREEN_NONE) {
+		int x = (int)fmax(0,
+			(con->current.content_width - view->geometry.width) / 2);
+		int y = (int)fmax(0,
+			(con->current.content_height - view->geometry.height) / 2);
 		clip_to_geometry = !view->using_csd;
+		wlr_scene_node_set_position(&view->content_tree->node, x, y);
 	} else {
 		wlr_scene_node_set_position(&view->content_tree->node, 0, 0);
 	}
@@ -932,7 +1059,8 @@ void view_update_title(struct wsm_view *view, bool force) {
 }
 
 bool view_is_visible(struct wsm_view *view) {
-	if (view->container->node.destroying) {
+	if (!view || view->destroying || !view->container ||
+			view->container->node.destroying) {
 		return false;
 	}
 	struct wsm_workspace *workspace = view->container->pending.workspace;
@@ -967,8 +1095,8 @@ bool view_is_visible(struct wsm_view *view) {
 		}
 		con = con->pending.parent;
 	}
-	struct wsm_container *fs = global_server.scene->fullscreen_global ?
-		global_server.scene->fullscreen_global : workspace->fullscreen;
+	struct wsm_container *fs = global_server.scene_state.fullscreen_global ?
+		global_server.scene_state.fullscreen_global : workspace->fullscreen;
 	if (fs && !container_is_fullscreen_or_child(view->container) &&
 		!container_is_transient_for(view->container, fs)) {
 		return false;
@@ -1027,6 +1155,10 @@ static void view_save_buffer_iterator(struct wlr_scene_buffer *buffer,
 	wlr_scene_buffer_set_dest_size(sbuf,
 		buffer->dst_width, buffer->dst_height);
 	wlr_scene_buffer_set_opaque_region(sbuf, &buffer->opaque_region);
+	wlr_scene_buffer_set_opacity(sbuf, buffer->opacity);
+	wlr_scene_buffer_set_filter_mode(sbuf, buffer->filter_mode);
+	wlr_scene_buffer_set_transfer_function(sbuf, buffer->transfer_function);
+	wlr_scene_buffer_set_primaries(sbuf, buffer->primaries);
 	wlr_scene_buffer_set_source_box(sbuf, &buffer->src_box);
 	wlr_scene_node_set_position(&sbuf->node, sx, sy);
 	wlr_scene_buffer_set_transform(sbuf, buffer->transform);
@@ -1044,6 +1176,10 @@ void view_save_buffer(struct wsm_view *view) {
 		return;
 	}
 
+	// Keep the output handler above the saved surface and leave the saved
+	// tree disabled until all buffer state has been copied.
+	wlr_scene_node_place_below(&view->saved_surface_tree->node,
+		&view->output_handler->node);
 	wlr_scene_node_set_enabled(&view->saved_surface_tree->node, false);
 	wlr_scene_node_for_each_buffer(&view->content_tree->node,
 		view_save_buffer_iterator, view->saved_surface_tree);
@@ -1052,14 +1188,20 @@ void view_save_buffer(struct wsm_view *view) {
 }
 
 bool view_is_transient_for(struct wsm_view *child, struct wsm_view *ancestor) {
-	return child->impl->is_transient_for &&
+	return child && ancestor && !child->destroying && !ancestor->destroying &&
+			child->impl && child->impl->is_transient_for &&
 			child->impl->is_transient_for(child, ancestor);
 }
 
 static void send_frame_done_iterator(struct wlr_scene_buffer *scene_buffer,
 		int x, int y, void *data) {
 	struct timespec *when = data;
-	wl_signal_emit_mutable(&scene_buffer->events.frame_done, when);
+	struct wlr_scene_surface *scene_surface =
+		wlr_scene_surface_try_from_buffer(scene_buffer);
+	if (!scene_surface) {
+		return;
+	}
+	wlr_surface_send_frame_done(scene_surface->surface, when);
 }
 
 void view_send_frame_done(struct wsm_view *view) {

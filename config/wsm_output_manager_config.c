@@ -44,9 +44,18 @@ struct wsm_output_manager_config *wsm_output_manager_config_create(struct wsm_ou
 	}
 
 	outputs_manager_config->configs = wsm_list_create();
+	if (!outputs_manager_config->configs) {
+		free(outputs_manager_config);
+		return NULL;
+	}
+	outputs_manager_config->output_manager = output_manager;
 	return outputs_manager_config;
 }
 
 void wwsm_output_manager_config_destory(struct wsm_output_manager_config *config) {
-	
+	if (!config) {
+		return;
+	}
+	wsm_list_destroy(config->configs);
+	free(config);
 }

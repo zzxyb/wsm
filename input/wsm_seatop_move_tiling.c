@@ -5,7 +5,6 @@
 #include "wsm_cursor.h"
 #include "wsm_list.h"
 #include "wsm_log.h"
-#include "wsm_scene.h"
 #include "wsm_seat.h"
 #include "wsm_seatop_default.h"
 #include "wsm_seatop_move_floating.h"
@@ -55,7 +54,7 @@ static void handle_motion_prethreshold(struct wsm_seat *seat) {
 	double dy = cy - e->ref_ly;
 
 	struct wlr_output *wlr_output = wlr_output_layout_output_at(
-		global_server.scene->output_layout, cx, cy);
+		global_server.scene_state.output_layout, cx, cy);
 	double output_scale = wlr_output ? wlr_output->scale : 1;
 	double threshold = global_config.tiling_drag_threshold * output_scale;
 	threshold *= threshold;

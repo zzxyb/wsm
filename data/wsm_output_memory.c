@@ -3,7 +3,6 @@
 #include "wsm_log.h"
 #include "wsm_output.h"
 #include "wsm_output_config.h"
-#include "wsm_scene.h"
 #include "wsm_server.h"
 #include "wsm_toml.h"
 
@@ -219,7 +218,7 @@ static bool store_output(struct wsm_output *output) {
 	}
 	struct wlr_box box;
 	wlr_output_layout_get_box(
-		global_server.scene->output_layout, wlr_output, &box);
+		global_server.scene_state.output_layout, wlr_output, &box);
 	double refresh_rate = wlr_output->current_mode
 		? wlr_output->current_mode->refresh / 1000.0
 		: 0.0;
@@ -263,8 +262,8 @@ void wsm_output_memory_store_all(void) {
 	}
 	bool ok = true;
 	struct wsm_output *output;
-	wl_list_for_each(output, &global_server.scene->all_outputs, link) {
-		if (output != global_server.scene->fallback_output) {
+	wl_list_for_each(output, &global_server.scene_state.all_outputs, link) {
+		if (output != global_server.scene_state.fallback_output) {
 			ok = store_output(output) && ok;
 		}
 	}

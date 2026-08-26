@@ -25,6 +25,15 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 	destroy_inhibitor(inhibitor);
 }
 
+static void handle_manager_destroy(struct wl_listener *listener, void *data) {
+	struct wsm_idle_inhibit_manager_v1 *manager =
+		wl_container_of(listener, manager, manager_destroy);
+
+	wl_list_remove(&manager->manager_destroy.link);
+	wl_list_remove(&manager->new_idle_inhibitor_v1.link);
+	manager->idle_inhibit_manager_wlr = NULL;
+}
+
 void handle_idle_inhibitor_v1(struct wl_listener *listener, void *data) {
 	struct wlr_idle_inhibitor_v1 *wlr_inhibitor = data;
 	struct wsm_idle_inhibit_manager_v1 *manager =
@@ -135,6 +144,9 @@ bool wsm_idle_inhibit_v1_is_active(struct wsm_idle_inhibitor_v1 *inhibitor) {
 
 void wsm_idle_inhibit_v1_check_active(void) {
 	struct wsm_idle_inhibit_manager_v1 *manager = &global_server.idle_inhibit_manager_v1;
+	if (!global_server.idle_notifier_v1) {
+		return;
+	}
 	struct wsm_idle_inhibitor_v1 *inhibitor;
 	bool inhibited = false;
 	wl_list_for_each(inhibitor, &manager->inhibitors, link) {
@@ -157,6 +169,9 @@ bool wsm_idle_inhibit_manager_v1_init(void) {
 	wl_signal_add(&manager->idle_inhibit_manager_wlr->events.new_inhibitor,
 		&manager->new_idle_inhibitor_v1);
 	manager->new_idle_inhibitor_v1.notify = handle_idle_inhibitor_v1;
+	wl_signal_add(&manager->idle_inhibit_manager_wlr->events.destroy,
+		&manager->manager_destroy);
+	manager->manager_destroy.notify = handle_manager_destroy;
 	wl_list_init(&manager->inhibitors);
 
 	return true;

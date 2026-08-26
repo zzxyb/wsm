@@ -1,6 +1,5 @@
 #include "wsm_seat.h"
 #include "wsm_server.h"
-#include "wsm_scene.h"
 #include "wsm_log.h"
 #include "wsm_list.h"
 #include "wsm_view.h"
@@ -47,8 +46,8 @@ static void seat_apply_input_mapping(
 		return;
 	}
 	struct wsm_output *output;
-	wl_list_for_each(output, &global_server.scene->all_outputs, link) {
-		if (output == global_server.scene->fallback_output) {
+	wl_list_for_each(output, &global_server.scene_state.all_outputs, link) {
+		if (output == global_server.scene_state.fallback_output) {
 			continue;
 		}
 		char *output_id = wsm_output_memory_get_output_id(output);
@@ -222,7 +221,7 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 		seat_node_destroy(seat_node);
 		if (seat->workspace == node->workspace) {
 			struct wsm_node *node = seat_get_focus_inactive(
-				seat, &global_server.scene->node);
+				seat, &global_server.scene_state.node);
 			seat_set_focus(seat, NULL);
 			if (node) {
 				seat_set_focus(seat, node);
@@ -283,7 +282,7 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 		}
 	} else {
 		focus = seat_get_focus_inactive(
-			seat, &global_server.scene->node);
+			seat, &global_server.scene_state.node);
 		seat_set_raw_focus(seat, next_focus);
 		if (focus->type == N_CONTAINER &&
 			focus->container->pending.workspace) {
@@ -416,7 +415,7 @@ struct wsm_seat *seat_create(const char *seat_name) {
 
 	bool failed = false;
 	seat->scene_tree =
-		alloc_scene_tree(global_server.scene->layers.seat, &failed);
+		alloc_scene_tree(global_server.scene_state.layers.seat, &failed);
 	seat->drag_icons = alloc_scene_tree(seat->scene_tree, &failed);
 
 	if (failed) {
@@ -476,7 +475,7 @@ struct wsm_seat *seat_create(const char *seat_name) {
 	seat->deferred_bindings = wsm_list_create();
 
 	seat->new_node.notify = handle_new_node;
-	wl_signal_add(&global_server.scene->events.new_node, &seat->new_node);
+	wl_signal_add(&global_server.scene_state.events.new_node, &seat->new_node);
 
 	seat->request_start_drag.notify = handle_request_start_drag;
 	wl_signal_add(&seat->seat->events.request_start_drag,
@@ -505,7 +504,7 @@ struct wsm_seat *seat_create(const char *seat_name) {
 	if (!first) {
 		struct wsm_seat *current_seat = input_manager_current_seat();
 		struct wsm_node *current_focus = seat_get_focus_inactive(
-			current_seat, &global_server.scene->node);
+			current_seat, &global_server.scene_state.node);
 		seat_set_focus(seat, current_focus);
 	}
 
@@ -992,7 +991,7 @@ static void seat_set_workspace_focus(
 		return;
 	}
 
-	if (global_server.scene->fullscreen_global && !container &&
+	if (global_server.scene_state.fullscreen_global && !container &&
 		new_workspace) {
 		return;
 	}
@@ -1100,7 +1099,7 @@ struct wsm_node *seat_get_focus(struct wsm_seat *seat) {
 
 struct wsm_workspace *seat_get_focused_workspace(struct wsm_seat *seat) {
 	struct wsm_node *focus =
-		seat_get_focus_inactive(seat, &global_server.scene->node);
+		seat_get_focus_inactive(seat, &global_server.scene_state.node);
 	if (!focus) {
 		return NULL;
 	}

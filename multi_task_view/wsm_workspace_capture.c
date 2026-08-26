@@ -128,8 +128,8 @@ static void scene_buffer_size(struct wlr_scene_buffer *buffer,
 		*height = buffer->dst_height;
 		return;
 	}
-	*width = buffer->buffer_width;
-	*height = buffer->buffer_height;
+	*width = buffer->WLR_PRIVATE.buffer_width;
+	*height = buffer->WLR_PRIVATE.buffer_height;
 	wlr_output_transform_coords(buffer->transform, width, height);
 }
 
@@ -147,10 +147,9 @@ static void damage_box(struct wsm_workspace_capture *capture,
 	if (box->width <= 0 || box->height <= 0) {
 		return;
 	}
-	if (wlr_damage_ring_add_box(&capture->damage_ring, box)) {
-		capture->dirty = true;
-		wlr_output_schedule_frame(capture->output->wlr_output);
-	}
+	wlr_damage_ring_add_box(&capture->damage_ring, box);
+	capture->dirty = true;
+	wlr_output_schedule_frame(capture->output->wlr_output);
 }
 
 static void destroy_source(struct capture_source *source) {
@@ -346,7 +345,7 @@ static void render_tree(struct wsm_workspace_capture *capture,
 			continue;
 		}
 		struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
-		if (buffer->buffer == NULL && buffer->texture == NULL) {
+		if (buffer->buffer == NULL && buffer->WLR_PRIVATE.texture == NULL) {
 			data->empty_buffers++;
 			continue;
 		}
@@ -356,7 +355,7 @@ static void render_tree(struct wsm_workspace_capture *capture,
 		if (box.width <= 0 || box.height <= 0) {
 			continue;
 		}
-		struct wlr_texture *texture = buffer->texture;
+		struct wlr_texture *texture = buffer->WLR_PRIVATE.texture;
 		bool owned = false;
 		struct wlr_client_buffer *client_buffer = NULL;
 		if (texture == NULL && buffer->buffer != NULL) {
@@ -402,11 +401,11 @@ static void render_tree_iterator(struct wsm_workspace_capture *capture,
 static void handle_frame_done(struct wl_listener *listener, void *data) {
 	struct wsm_workspace_capture *capture = wl_container_of(
 		listener, capture, frame_done);
-	struct timespec *when = data;
+	struct wlr_scene_frame_done_event *event = data;
 	struct capture_source *source;
 	wl_list_for_each(source, &capture->sources, link) {
 		if (source->surface != NULL) {
-			wlr_surface_send_frame_done(source->surface, when);
+			wlr_surface_send_frame_done(source->surface, &event->when);
 		}
 	}
 }
@@ -470,8 +469,6 @@ struct wsm_workspace_capture *wsm_workspace_capture_create_layer_options(
 	wl_list_init(&capture->sources);
 	wl_list_init(&capture->frame_done.link);
 	wlr_damage_ring_init(&capture->damage_ring);
-	wlr_damage_ring_set_bounds(&capture->damage_ring,
-		capture->buffer_width, capture->buffer_height);
 
 	uint64_t modifier = DRM_FORMAT_MOD_INVALID;
 	struct wlr_drm_format format = {
@@ -517,9 +514,8 @@ bool wsm_workspace_capture_render(struct wsm_workspace_capture *capture) {
 	if (capture->refresh_sources) {
 		refresh_sources(capture);
 	}
-	int age = 0;
 	struct wlr_buffer *buffer =
-		wlr_swapchain_acquire(capture->swapchain, &age);
+		wlr_swapchain_acquire(capture->swapchain);
 	if (buffer == NULL) {
 		wsm_log(WSM_ERROR,
 			"Workspace capture '%s': could not acquire swapchain buffer",
@@ -586,7 +582,6 @@ bool wsm_workspace_capture_render(struct wsm_workspace_capture *capture) {
 	wlr_scene_buffer_set_buffer_with_damage(
 		capture->scene_buffer, buffer, &damage);
 	wlr_scene_node_set_enabled(&capture->scene_buffer->node, true);
-	wlr_swapchain_set_buffer_submitted(capture->swapchain, buffer);
 	wlr_buffer_unlock(buffer);
 	pixman_region32_fini(&damage);
 	capture->dirty = false;

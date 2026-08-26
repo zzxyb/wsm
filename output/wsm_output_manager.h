@@ -6,6 +6,7 @@
 struct wl_listener;
 struct wlr_output_layout;
 struct wlr_output_manager_v1;
+struct wlr_xdg_output_manager_v1;
 struct wlr_gamma_control_manager_v1;
 struct wlr_output_power_manager_v1;
 
@@ -36,11 +37,11 @@ struct wsm_output_manager {
 	struct wl_listener output_manager_apply; /**< Listener for applying output manager settings */
 	struct wl_listener output_manager_test; /**< Listener for testing output manager settings */
 	struct wl_listener wsm_output_power_manager_set_mode; /**< Listener for setting output power manager mode */
-	struct wl_listener gamma_control_set_gamma; /**< Listener for setting gamma control */
 
 	struct wl_list outputs; /**< List of outputs managed by the output manager */
 
 	struct wlr_output_manager_v1 *output_manager_v1_wlr; /**< Pointer to the WLR output manager instance */
+	struct wlr_xdg_output_manager_v1 *xdg_output_manager_v1; /**< Pointer to the XDG output manager instance */
 	struct wlr_output_power_manager_v1 *output_power_manager_v1; /**< Pointer to the WLR output power manager instance */
 	struct wlr_gamma_control_manager_v1 *gamma_control_manager_v1; /**< Pointer to the WLR gamma control manager instance */
 	struct wsm_output_manager_config *output_manager_config; /**< Pointer to the output manager configuration */

@@ -4,7 +4,6 @@
 #include "wsm_container.h"
 #include "wsm_log.h"
 #include "wsm_output.h"
-#include "wsm_scene.h"
 #include "wsm_scene_capture.h"
 #include "wsm_server.h"
 #include "wsm_view.h"
@@ -55,8 +54,8 @@ static double ease_out_cubic(double t) {
 }
 
 static void schedule_animation_frames(void) {
-	for (int i = 0; i < global_server.scene->outputs->length; ++i) {
-		struct wsm_output *output = global_server.scene->outputs->items[i];
+	for (int i = 0; i < global_server.scene_state.outputs->length; ++i) {
+		struct wsm_output *output = global_server.scene_state.outputs->items[i];
 		if (output->enabled && output->wlr_output->enabled) {
 			wlr_damage_ring_add_whole(&output->scene_output->damage_ring);
 			wlr_output_schedule_frame(output->wlr_output);
@@ -134,9 +133,9 @@ static void animation_apply(struct wsm_window_animation *animation,
 		int lx = 0;
 		int ly = 0;
 		wlr_scene_node_coords(&animation->tree->node, &lx, &ly);
-		pixman_region32_clear(&animation->snapshot->node.visible);
-		pixman_region32_union_rect(&animation->snapshot->node.visible,
-			&animation->snapshot->node.visible,
+		pixman_region32_clear(&animation->snapshot->node.WLR_PRIVATE.visible);
+		pixman_region32_union_rect(&animation->snapshot->node.WLR_PRIVATE.visible,
+			&animation->snapshot->node.WLR_PRIVATE.visible,
 			lx + box.x - animation->box.x,
 			ly + box.y - animation->box.y,
 			box.width, box.height);
@@ -184,16 +183,16 @@ static void animation_apply(struct wsm_window_animation *animation,
 	wlr_box_intersection(&left, &left, &clip);
 	wlr_box_intersection(&right, &right, &clip);
 
-	pixman_region32_clear(&animation->left->node.visible);
+	pixman_region32_clear(&animation->left->node.WLR_PRIVATE.visible);
 	if (left.width > 0 && left.height > 0) {
-		pixman_region32_union_rect(&animation->left->node.visible,
-			&animation->left->node.visible,
+		pixman_region32_union_rect(&animation->left->node.WLR_PRIVATE.visible,
+			&animation->left->node.WLR_PRIVATE.visible,
 			left.x, left.y, left.width, left.height);
 	}
-	pixman_region32_clear(&animation->right->node.visible);
+	pixman_region32_clear(&animation->right->node.WLR_PRIVATE.visible);
 	if (right.width > 0 && right.height > 0) {
-		pixman_region32_union_rect(&animation->right->node.visible,
-			&animation->right->node.visible,
+		pixman_region32_union_rect(&animation->right->node.WLR_PRIVATE.visible,
+			&animation->right->node.WLR_PRIVATE.visible,
 			right.x, right.y, right.width, right.height);
 	}
 }
@@ -338,7 +337,7 @@ static bool window_animation_start(struct wsm_container *container,
 		enum wsm_window_animation_kind kind) {
 	if (container == NULL || container->scene_tree == NULL ||
 			global_server.scene == NULL ||
-			global_server.scene->layers.animation == NULL) {
+			global_server.scene_state.layers.animation == NULL) {
 		return false;
 	}
 
@@ -403,7 +402,8 @@ static bool window_animation_start(struct wsm_container *container,
 	animation->kind = opts.kind;
 	animation->view = container->view;
 	wl_list_init(&animation->view_unmap.link);
-	animation->tree = wlr_scene_tree_create(global_server.scene->layers.animation);
+	animation->tree = wlr_scene_tree_create(
+		global_server.scene_state.layers.animation);
 	if (animation->tree == NULL) {
 		wsm_log(WSM_DEBUG, "Could not allocate close animation scene tree");
 		free(animation);

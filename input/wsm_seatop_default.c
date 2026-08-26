@@ -5,7 +5,6 @@
 #include "wsm_list.h"
 #include "wsm_view.h"
 #include "wsm_server.h"
-#include "wsm_scene.h"
 #include "wsm_cursor.h"
 #include "wsm_container.h"
 #include "wsm_tablet.h"
@@ -57,7 +56,7 @@ static struct wsm_button_node *button_at_coords(double lx, double ly) {
 	double sx, sy;
 
 	wl_list_for_each_reverse(
-		node, &global_server.scene->layer_tree->children, link) {
+		node, &global_server.scene_state.layer_tree->children, link) {
 		struct wlr_scene_tree *layer = wlr_scene_tree_from_node(node);
 
 		bool non_interactive = wsm_scene_descriptor_try_get(
@@ -274,7 +273,7 @@ static void handle_tablet_tool_tip(struct wsm_seat *seat,
 	else if ((xsurface = wlr_xwayland_surface_try_from_wlr_surface(
 			  surface)) &&
 		xsurface->override_redirect &&
-		wlr_xwayland_or_surface_wants_focus(xsurface)) {
+		wlr_xwayland_surface_override_redirect_wants_focus(xsurface)) {
 		struct wlr_xwayland *xwayland =
 			global_server.xwayland.xwayland_wlr;
 		wlr_xwayland_set_seat(xwayland, seat->seat);
@@ -514,7 +513,7 @@ static void handle_button(struct wsm_seat *seat, uint32_t time_msec,
 		(xsurface = wlr_xwayland_surface_try_from_wlr_surface(
 			 surface)) &&
 		xsurface->override_redirect &&
-		wlr_xwayland_or_surface_wants_focus(xsurface)) {
+		wlr_xwayland_surface_override_redirect_wants_focus(xsurface)) {
 		struct wlr_xwayland *xwayland =
 			global_server.xwayland.xwayland_wlr;
 		wlr_xwayland_set_seat(xwayland, seat->seat);
@@ -533,7 +532,7 @@ static void check_focus_follows_mouse(struct wsm_seat *seat,
 
 	if (!hovered_node) {
 		struct wlr_output *wlr_output = wlr_output_layout_output_at(
-			global_server.scene->output_layout,
+			global_server.scene_state.output_layout,
 			seat->cursor->cursor_wlr->x,
 			seat->cursor->cursor_wlr->y);
 		if (wlr_output == NULL) {
@@ -652,7 +651,7 @@ static void handle_touch_down(struct wsm_seat *seat,
 	double sx, sy;
 	node_at_coords(seat, seat->touch_x, seat->touch_y, &surface, &sx, &sy);
 
-	if (surface && wlr_surface_accepts_touch(wlr_seat, surface)) {
+	if (surface && wlr_surface_accepts_touch(surface, wlr_seat)) {
 		if (seat_is_input_allowed(seat, surface)) {
 			cursor->simulating_pointer_from_touch = false;
 			seatop_begin_touch_down(

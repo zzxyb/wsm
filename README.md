@@ -21,7 +21,7 @@ pacman -S base-devel meson pkgconfig wlroots wayland wayland-protocols libdrm sy
 
 build dependencies(for debian):
 ```shell
-apt install meson libwlroots-0.18-dev libwayland-dev cppcheck doxygen graphviz libxslt1-dev xmlto wayland-protocols libsystemd-dev libdrm-dev libxcb1-dev libxcb-icccm4-dev libxml2-dev libcairo2-dev libpango1.0-dev libxpm-dev libjpeg-dev librsvg2-dev
+apt install meson libwlroots-0.21-dev libwayland-dev cppcheck doxygen graphviz libxslt1-dev xmlto wayland-protocols libsystemd-dev libdrm-dev libxcb1-dev libxcb-icccm4-dev libxml2-dev libcairo2-dev libpango1.0-dev libxpm-dev libjpeg-dev librsvg2-dev
 ```
 
 Run these commands:
