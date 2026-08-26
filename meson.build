@@ -199,6 +199,7 @@ subdir('buffer')
 subdir('texture')
 subdir('pass')
 subdir('types')
+subdir('scene')
 
 wsm_deps = [
 	server_protos,
