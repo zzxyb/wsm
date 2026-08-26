@@ -54,6 +54,7 @@ jobs:
           libdrm \
           pixman \
           lcms2 \
+          xkbcommon \
 
     - name: Install wlframe
       run: |
