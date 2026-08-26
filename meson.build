@@ -141,7 +141,7 @@ else
 	)
 endif
 
-wsm_inc = include_directories('include')
+wsm_inc = include_directories('.')
 
 if get_option('documentation').enabled()
 	subdir('doc')
