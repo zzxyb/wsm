@@ -172,6 +172,7 @@ wsm_sources += files(
 )
 
 subdir('protocols')
+subdir('util')
 
 wsm_deps = [
 	server_protos,
