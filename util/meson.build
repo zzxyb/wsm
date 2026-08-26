@@ -9,4 +9,5 @@ wsm_sources += files(
 	'wsm_matrix.c',
 	'wsm_pango.c',
 	'wsm_desktop.c',
+	'wsm_cairo.c',
 )
