@@ -111,6 +111,7 @@ pixman = dependency('pixman-1',
 	fallback: 'pixman',
 	default_options: ['werror=false'],
 )
+lcms2 = dependency('lcms2', required: true)
 math = cc.find_library('m')
 rt = cc.find_library('rt')
 
@@ -197,6 +198,7 @@ subdir('renderer')
 subdir('buffer')
 subdir('texture')
 subdir('pass')
+subdir('types')
 
 wsm_deps = [
 	server_protos,
@@ -213,6 +215,7 @@ wsm_deps = [
 	glesv2,
 	gbm,
 	pixman,
+	lcms2,
 ]
 
 if have_xwayland
