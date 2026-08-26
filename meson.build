@@ -171,7 +171,10 @@ wsm_sources += files(
 	'server/wsm_server.c',
 )
 
+subdir('protocols')
+
 wsm_deps = [
+	server_protos,
 	math,
 	threads,
 	wayland_server,
