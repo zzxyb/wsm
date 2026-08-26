@@ -141,7 +141,7 @@ else
 	)
 endif
 
-wsm_inc = include_directories('.')
+wsm_inc = include_directories('include')
 
 if get_option('documentation').enabled()
 	subdir('doc')
@@ -172,6 +172,7 @@ wsm_sources += files(
 )
 
 subdir('protocols')
+subdir('util')
 
 wsm_deps = [
 	server_protos,
