@@ -11,18 +11,23 @@ project(
 	],
 )
 
-add_project_arguments(
-	[
-		'-Wno-error=expansion-to-defined',
-		'-DWLR_USE_UNSTABLE',
-		'-D_POSIX_C_SOURCE=200809L',
-		'-Wno-unused-parameter',
-		'-Wno-unused-result',
-		'-Wno-missing-braces',
-		'-Wundef',
-		'-Wvla',
-	],
-	language: 'c',
+little_endian = target_machine.endian() == 'little'
+big_endian = target_machine.endian() == 'big'
+
+add_project_arguments([
+	'-DWSM_PRIVATE=',
+	'-Wno-error=expansion-to-defined',
+	'-DWLR_USE_UNSTABLE',
+	'-DWLR_PRIVATE=',
+	'-D_POSIX_C_SOURCE=200809L',
+	'-Wno-unused-parameter',
+	'-Wno-unused-result',
+	'-Wno-missing-braces',
+	'-Wundef',
+	'-Wvla',
+	'-DWSM_LITTLE_ENDIAN=@0@'.format(little_endian.to_int()),
+	'-DWSM_BIG_ENDIAN=@0@'.format(big_endian.to_int()),
+],language: 'c',
 )
 
 cc = meson.get_compiler('c')
@@ -36,7 +41,7 @@ if is_freebsd
 	add_project_arguments('-D_C11_SOURCE', language: 'c')
 endif
 
-wlroots = dependency('wlroots-0.19', version: '>=0.19.0', fallback: 'wlroots')
+wlroots = dependency('wlroots-0.21', version: '>=0.21.0', fallback: 'wlroots')
 wlroots_features = {
 	'xwayland': get_option('xwayland').enabled(),
 	'libinput_backend': true,
@@ -49,19 +54,43 @@ foreach name, _ : wlroots_features
 endforeach
 
 null_dep = dependency('', required: false)
-wlframe = dependency('wlframe-0.0 ', required: false, version: '>=0.0.1')
-wayland_server = dependency('wayland-server', version: '>=1.20.0')
-wayland_client = dependency('wayland-client')
-wayland_cursor = dependency('wayland-cursor')
-wayland_egl = dependency('wayland-egl')
-xkbcommon = dependency('xkbcommon', version: '>=1.5.0')
-libinput = wlroots_features['libinput_backend'] ? dependency('libinput', version: '>=1.26.0') : null_dep
-wayland_protos = dependency('wayland-protocols', version: '>=1.24')
-drm_full = dependency('libdrm') # only needed for drm_fourcc.h
-drm = drm_full.partial_dependency(compile_args: true, includes: true)
+threads = dependency('threads')
+wayland_client = dependency('wayland-client', required: false, disabler: true)
+
+wayland_kwargs = {
+	'version': '>=1.24.0',
+	'fallback': 'wayland',
+	'default_options': [
+		'tests=false',
+		'documentation=false',
+	],
+}
+wayland_server = dependency('wayland-server',
+	kwargs: wayland_kwargs,
+)
+
+msg = []
+if wlroots_features['libinput_backend']
+  msg += ['wlroots: libinput backend enabled.']
+  libinput = dependency(
+    'libinput',
+    version: '>=1.19.0',
+    required: true,
+    not_found_message: '\n'.join(msg),
+  )
+else
+  msg += ['wlroots: libinput backend disabled (wlroots_features["libinput_backend"] = false).']
+  libinput = null_dep
+endif
+
+wayland_protos = dependency('wayland-protocols',
+	version: '>=1.44',
+	fallback: 'wayland-protocols',
+	default_options: ['tests=false'],
+)
+
 xcb = wlroots_features['xwayland'] ? dependency('xcb') : null_dep
 xcb_icccm = wlroots_features['xwayland'] ? dependency('xcb-icccm') : null_dep
-udev = wlroots_features['libinput_backend'] ? dependency('libudev') : null_dep
 math = cc.find_library('m')
 rt = cc.find_library('rt')
 
@@ -112,7 +141,7 @@ else
 	)
 endif
 
-subdir('protocols')
+wsm_inc = include_directories('include')
 
 if get_option('documentation').enabled()
 	subdir('doc')
@@ -134,3 +163,32 @@ conf.set('datadir', join_paths(get_option('prefix'), get_option('datadir')))
 conf.set('mandir', join_paths(get_option('prefix'), get_option('mandir')))
 conf.set('sysconfdir', join_paths(get_option('prefix'), get_option('sysconfdir')))
 configure_file(output: 'config.h', configuration: conf)
+
+wsm_sources = files(
+)
+
+wsm_sources += files(
+	'server/wsm_server.c',
+)
+
+wsm_deps = [
+	math,
+	threads,
+	wayland_server,
+	wlroots,
+]
+
+if have_xwayland
+endif
+
+if wlroots_features['libinput_backend']
+endif
+
+executable(
+	'wsm',
+	wsm_sources,
+	include_directories: [wsm_inc],
+	dependencies: wsm_deps,
+	link_with: [],
+	install: true
+)
