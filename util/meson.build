@@ -5,4 +5,5 @@ wsm_sources += files(
 	'wsm_list.c',
 	'wsm_parser.c',
 	'wsm_toml.c',
+	'wsm_matrix.c',
 )
