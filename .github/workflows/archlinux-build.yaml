@@ -49,6 +49,10 @@ jobs:
           cairo \
           pango \
           glib2 \
+          mesa \
+          glslang \
+          libdrm \
+          pixman \
 
     - name: Install wlframe
       run: |

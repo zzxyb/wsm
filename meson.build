@@ -95,6 +95,22 @@ cairo = dependency('cairo')
 pangocairo = dependency('pangocairo')
 pango = dependency('pango')
 gio = dependency('gio-2.0')
+drm = dependency('libdrm',
+	version: '>=2.4.122',
+	fallback: 'libdrm',
+	default_options: [
+		'auto_features=disabled',
+		'tests=false',
+	],
+)
+egl = dependency('egl', version: '>= 1.5', required: false, disabler: true)
+glesv2 = dependency('glesv2', required: false, disabler: true)
+gbm = dependency('gbm', required: false, disabler: true)
+pixman = dependency('pixman-1',
+	version: '>=0.43.0',
+	fallback: 'pixman',
+	default_options: ['werror=false'],
+)
 math = cc.find_library('m')
 rt = cc.find_library('rt')
 
@@ -177,6 +193,10 @@ wsm_sources += files(
 
 subdir('protocols')
 subdir('util')
+subdir('renderer')
+subdir('buffer')
+subdir('texture')
+subdir('pass')
 
 wsm_deps = [
 	server_protos,
@@ -188,6 +208,11 @@ wsm_deps = [
 	pangocairo,
 	pango,
 	gio,
+	drm,
+	egl,
+	glesv2,
+	gbm,
+	pixman,
 ]
 
 if have_xwayland
