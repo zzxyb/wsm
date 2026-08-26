@@ -8,4 +8,5 @@ wsm_sources += files(
 	'wsm_toml.c',
 	'wsm_matrix.c',
 	'wsm_pango.c',
+	'wsm_desktop.c',
 )

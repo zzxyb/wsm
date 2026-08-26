@@ -94,6 +94,7 @@ xcb_icccm = wlroots_features['xwayland'] ? dependency('xcb-icccm') : null_dep
 cairo = dependency('cairo')
 pangocairo = dependency('pangocairo')
 pango = dependency('pango')
+gio = dependency('gio-2.0')
 math = cc.find_library('m')
 rt = cc.find_library('rt')
 
@@ -186,6 +187,7 @@ wsm_deps = [
 	cairo,
 	pangocairo,
 	pango,
+	gio,
 ]
 
 if have_xwayland
