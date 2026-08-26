@@ -6,6 +6,8 @@ wsm_sources += files(
 
 	'pixman/pixel_format.c',
 	'pixman/renderer.c',
+
+	'wsm_renderer.c',
 )
 
 glslang = find_program('glslang', 'glslangValidator', native: true, required: false, disabler: true)
