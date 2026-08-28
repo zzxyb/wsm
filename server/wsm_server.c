@@ -4,9 +4,9 @@
 #include "scene/wsm_scene_output.h"
 #include "scene/wsm_scene_output_layout.h"
 #include "scene/wsm_scene_layer_surface.h"
-#include "scene/wsm_scene_node.h"
-#include "scene/wsm_scene_buffer.h"
-#include "scene/wsm_scene_tree.h"
+#include "node/wsm_scene_node.h"
+#include "node/wsm_scene_buffer.h"
+#include "node/wsm_scene_tree.h"
 #include "scene/wsm_scene_xdg_surface.h"
 
 #include <assert.h>

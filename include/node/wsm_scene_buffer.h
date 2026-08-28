@@ -14,7 +14,7 @@
 #ifndef SCENE_WSM_SCENE_BUFFER_H
 #define SCENE_WSM_SCENE_BUFFER_H
 
-#include "scene/wsm_scene_node.h"
+#include "node/wsm_scene_node.h"
 
 #include <wayland-server-core.h>
 
