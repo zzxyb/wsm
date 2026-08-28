@@ -1,5 +1,5 @@
 #include "scene/wsm_scene_surface.h"
-#include "scene/wsm_scene_buffer.h"
+#include "node/wsm_scene_buffer.h"
 #include "scene/wsm_scene_output.h"
 
 #include <pixman.h>

@@ -1,6 +1,6 @@
 #include "scene/wsm_scene_drag_icon.h"
 #include "scene/wsm_scene.h"
-#include "scene/wsm_scene_tree.h"
+#include "node/wsm_scene_tree.h"
 #include "scene/wsm_scene_subsurface_tree.h"
 
 #include <stdlib.h>

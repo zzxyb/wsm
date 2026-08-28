@@ -1,46 +1,28 @@
-#include "scene/wsm_scene_tree.h"
+#include "node/wsm_scene_rect.h"
 #include "scene/wsm_scene.h"
-#include "scene/wsm_scene_output.h"
+
+#include <sched.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <string.h>
 
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 
-#include <assert.h>
-#include <stdlib.h>
-
 #include <wlr/config.h>
-#include <wlr/util/log.h>
 #include <wlr/util/region.h>
 #include <wlr/util/transform.h>
+#include <wlr/render/interface.h>
 
 static void scene_node_visibility(struct wsm_scene_node *node,
 	pixman_region32_t *visible);
+static void scene_node_get_size(struct wsm_scene_node *node,
+	int *width, int *height);
 
 static void scene_node_destroy(struct wsm_scene_node *node) {
-	struct wsm_scene *scene = node->scene;
-	struct wsm_scene_tree *scene_tree = wsm_scene_tree_from_node(node);
+	struct wsm_scene_rect *scene_rect = wsm_scene_rect_from_node(node);
 
-	if (scene_tree == scene->tree) {
-		assert(!node->parent);
-		struct wsm_scene_output *scene_output, *scene_output_tmp;
-		wl_list_for_each_safe(scene_output, scene_output_tmp, &scene->outputs, link) {
-			wsm_scene_output_destroy(scene_output);
-		}
-
-		wl_list_remove(&scene->linux_dmabuf_v1_destroy.link);
-		wl_list_remove(&scene->gamma_control_manager_v1_destroy.link);
-		wl_list_remove(&scene->gamma_control_manager_v1_set_gamma.link);
-	} else {
-		assert(node->parent);
-	}
-
-	struct wsm_scene_node *child, *child_tmp;
-	wl_list_for_each_safe(child, child_tmp,
-			&scene_tree->children, link) {
-		wsm_scene_node_destroy(child);
-	}
-
-	free(scene_tree);
+	free(scene_rect);
 }
 
 static bool scene_node_at_iterator(struct wsm_scene_node *node,
@@ -83,17 +65,11 @@ static struct wsm_scene_node *scene_node_at(struct wsm_scene_node *node,
 	return NULL;
 }
 
-static void scene_node_bounds(struct wsm_scene_node *node,
-		int x, int y, pixman_region32_t *visible) {
-	if (!node->enabled) {
-		return;
-	}
-
-	struct wsm_scene_tree *scene_tree = wsm_scene_tree_from_node(node);
-	struct wsm_scene_node *child;
-	wl_list_for_each(child, &scene_tree->children, link) {
-		wsm_scene_node_bounds(child, x + child->x, y + child->y, visible);
-	}
+static void scene_node_get_size(struct wsm_scene_node *node,
+		int *width, int *height) {
+	struct wsm_scene_rect *scene_rect = wsm_scene_rect_from_node(node);
+	*width = scene_rect->width;
+	*height = scene_rect->height;
 }
 
 static bool _scene_nodes_in_box(struct wsm_scene_node *node, struct wlr_box *box,
@@ -102,12 +78,12 @@ static bool _scene_nodes_in_box(struct wsm_scene_node *node, struct wlr_box *box
 		return false;
 	}
 
-	struct wsm_scene_tree *scene_tree = wsm_scene_tree_from_node(node);
-	struct wsm_scene_node *child;
-	wl_list_for_each_reverse(child, &scene_tree->children, link) {
-		if (wsm_scene_node_nodes_in_box(child, box, iterator, user_data)) {
-			return true;
-		}
+	struct wlr_box node_box = { .x = lx, .y = ly };
+	scene_node_get_size(node, &node_box.width, &node_box.height);
+
+	if (wlr_box_intersection(&node_box, &node_box, box) &&
+			iterator(node, lx, ly, user_data)) {
+		return true;
 	}
 
 	return false;
@@ -119,6 +95,20 @@ static bool scene_nodes_in_box(struct wsm_scene_node *node, struct wlr_box *box,
 	wsm_scene_node_coords(node, &x, &y);
 
 	return _scene_nodes_in_box(node, box, iterator, user_data, x, y);
+}
+
+static void scene_node_opaque_region(struct wsm_scene_node *node, int x, int y,
+		pixman_region32_t *opaque) {
+	int width, height;
+	scene_node_get_size(node, &width, &height);
+
+	struct wsm_scene_rect *scene_rect = wsm_scene_rect_from_node(node);
+	if (scene_rect->color[3] != 1) {
+		return;
+	}
+
+	pixman_region32_fini(opaque);
+	pixman_region32_init_rect(opaque, x, y, width, height);
 }
 
 static void scale_region(pixman_region32_t *region, float scale, bool round_up) {
@@ -135,28 +125,13 @@ static void scene_node_visibility(struct wsm_scene_node *node,
 		return;
 	}
 
-	struct wsm_scene_tree *scene_tree = wsm_scene_tree_from_node(node);
-	struct wsm_scene_node *child;
-	wl_list_for_each(child, &scene_tree->children, link) {
-		wsm_scene_node_visibility(child, visible);
-	}
-}
-
-static void scene_node_send_frame_done(struct wsm_scene_node *node,
-		struct wsm_scene_output *scene_output, struct timespec *now) {
-	if (!node->enabled) {
-		return;
-	}
-
-	struct wsm_scene_tree *scene_tree = wsm_scene_tree_from_node(node);
-	struct wsm_scene_node *child;
-	wl_list_for_each(child, &scene_tree->children, link) {
-		wsm_scene_node_send_frame_done(child, scene_output, now);
-	}
+	pixman_region32_union(visible, visible, &node->visible);
 }
 
 static bool scene_node_invisible(struct wsm_scene_node *node) {
-	return true;
+	struct wsm_scene_rect *rect = wsm_scene_rect_from_node(node);
+
+	return rect->color[3] == 0.f;
 }
 
 static bool construct_render_list_iterator(struct wsm_scene_node *node,
@@ -165,6 +140,20 @@ static bool construct_render_list_iterator(struct wsm_scene_node *node,
 
 	if (wsm_scene_node_invisible(node)) {
 		return false;
+	}
+
+	// While rendering, the background should always be black. If we see a
+	// black rect, we can ignore rendering everything under the rect, and
+	// unless fractional scale is used even the rect itself (to avoid running
+	// into issues regarding damage region expansion).
+	if (data->calculate_visibility &&
+			(!data->fractional_scale || data->render_list->size == 0)) {
+		struct wsm_scene_rect *rect = wsm_scene_rect_from_node(node);
+		float *black = (float[4]){ 0.f, 0.f, 0.f, 1.f };
+
+		if (memcmp(rect->color, black, sizeof(float) * 4) == 0) {
+			return false;
+		}
 	}
 
 	pixman_region32_t intersection;
@@ -239,16 +228,27 @@ static void scene_node_render(struct wsm_render_list_entry *entry, const struct 
 		.x = x,
 		.y = y,
 	};
-	wsm_scene_node_get_size(node, &dst_box.width, &dst_box.height);
+	scene_node_get_size(node, &dst_box.width, &dst_box.height);
 	transform_output_box(&dst_box, data);
 
 	pixman_region32_t opaque;
 	pixman_region32_init(&opaque);
-	wsm_scene_node_opaque_region(node, x, y, &opaque);
+	scene_node_opaque_region(node, x, y, &opaque);
 	logical_to_buffer_coords(&opaque, data, false);
 	pixman_region32_subtract(&opaque, &render_region, &opaque);
 
-	assert(false);
+	struct wsm_scene_rect *scene_rect = wsm_scene_rect_from_node(node);
+
+	wlr_render_pass_add_rect(data->render_pass, &(struct wlr_render_rect_options){
+		.box = dst_box,
+		.color = {
+			.r = scene_rect->color[0],
+			.g = scene_rect->color[1],
+			.b = scene_rect->color[2],
+			.a = scene_rect->color[3],
+		},
+		.clip = &render_region,
+	});
 
 	pixman_region32_fini(&opaque);
 	pixman_region32_fini(&render_region);
@@ -256,89 +256,102 @@ static void scene_node_render(struct wsm_render_list_entry *entry, const struct 
 
 static void get_scene_node_extents(struct wsm_scene_node *node, int lx, int ly,
 		int *x_min, int *y_min, int *x_max, int *y_max) {
-	struct wsm_scene_tree *scene_tree = wsm_scene_tree_from_node(node);
-	struct wsm_scene_node *child;
-	wl_list_for_each(child, &scene_tree->children, link) {
-		wsm_scene_node_get_extents(child, lx + child->x, ly + child->y, x_min, y_min, x_max, y_max);
-	}
-}
+		struct wlr_box node_box = { .x = lx, .y = ly };
+		scene_node_get_size(node, &node_box.width, &node_box.height);
 
-static struct wl_list *scene_node_get_children(struct wsm_scene_node *node) {
-	struct wsm_scene_tree *scene_tree = wsm_scene_tree_from_node(node);
-	return &scene_tree->children;
+		if (node_box.x < *x_min) {
+			*x_min = node_box.x;
+		}
+		if (node_box.y < *y_min) {
+			*y_min = node_box.y;
+		}
+		if (node_box.x + node_box.width > *x_max) {
+			*x_max = node_box.x + node_box.width;
+		}
+		if (node_box.y + node_box.height > *y_max) {
+			*y_max = node_box.y + node_box.height;
+		}
 }
 
 static void scene_node_cleanup_when_disabled(struct wsm_scene_node *node,
 		bool xwayland_restack, struct wl_list *outputs) {
-		struct wsm_scene_tree *scene_tree = wsm_scene_tree_from_node(node);
-		struct wsm_scene_node *child;
-		wl_list_for_each(child, &scene_tree->children, link) {
-			if (!child->enabled) {
-				continue;
-			}
-
-			wsm_scene_node_cleanup_when_disabled(child, xwayland_restack, outputs);
-		}
-		return;
+	pixman_region32_clear(&node->visible);
+	wsm_scene_node_update_outputs(node, outputs, NULL, NULL);
 }
 
 static const struct wsm_scene_node_impl scene_node_impl = {
 	.destroy = scene_node_destroy,
 	.set_enabled = NULL,
 	.set_position = NULL,
-	.bounds = scene_node_bounds,
-	.get_size = NULL,
+	.bounds = NULL,
+	.get_size = scene_node_get_size,
 	.coords = NULL,
 	.at = scene_node_at,
 	.in_box = scene_nodes_in_box,
-	.opaque_region = NULL,
+	.opaque_region = scene_node_opaque_region,
 	.update_outputs = NULL,
 	.update = NULL,
 	.visibility = scene_node_visibility,
-	.frame_done = scene_node_send_frame_done,
+	.frame_done = NULL,
 	.invisible = scene_node_invisible,
 	.construct_render_list_iterator = construct_render_list_iterator,
 	.render = scene_node_render,
 	.get_extents = get_scene_node_extents,
-	.get_children = scene_node_get_children,
+	.get_children = NULL,
 	.restack_xwayland_surface = NULL,
 	.cleanup_when_disabled = scene_node_cleanup_when_disabled,
 };
 
-static struct wsm_scene_tree *scene_tree_create(struct wsm_scene_tree *parent) {
-	struct wsm_scene_tree *tree = calloc(1, sizeof(*tree));
-	if (tree == NULL) {
-		wlr_log_errno(WLR_ERROR, "Allocation failed");
+struct wsm_scene_rect *wsm_scene_rect_create(struct wsm_scene_tree *parent,
+		int width, int height, const float color[static 4]) {
+	assert(parent);
+	assert(width >= 0 && height >= 0);
+
+	struct wsm_scene_rect *scene_rect = calloc(1, sizeof(*scene_rect));
+	if (scene_rect == NULL) {
 		return NULL;
 	}
+	wsm_scene_node_init(&scene_rect->node, &scene_node_impl, parent);
 
-	wsm_scene_node_init(&tree->node, &scene_node_impl, parent);
-	wl_list_init(&tree->children);
-	return tree;
+	scene_rect->width = width;
+	scene_rect->height = height;
+	memcpy(scene_rect->color, color, sizeof(scene_rect->color));
+
+	wsm_scene_node_update(&scene_rect->node, NULL);
+
+	return scene_rect;
 }
 
-struct wsm_scene_tree *wsm_scene_tree_create(struct wsm_scene_tree *parent) {
-	assert(parent);
+void wsm_scene_rect_set_size(struct wsm_scene_rect *rect, int width, int height) {
+	if (rect->width == width && rect->height == height) {
+		return;
+	}
 
-	return scene_tree_create(parent);
+	assert(width >= 0 && height >= 0);
+
+	rect->width = width;
+	rect->height = height;
+	wsm_scene_node_update(&rect->node, NULL);
 }
 
-struct wsm_scene_tree *wsm_root_scene_tree_create(struct wsm_scene *scene) {
-	struct wsm_scene_tree *tree = scene_tree_create(NULL);
-	tree->node.scene = scene;
+void wsm_scene_rect_set_color(struct wsm_scene_rect *rect, const float color[static 4]) {
+	if (memcmp(rect->color, color, sizeof(rect->color)) == 0) {
+		return;
+	}
 
-	return tree;
+	memcpy(rect->color, color, sizeof(rect->color));
+	wsm_scene_node_update(&rect->node, NULL);
 }
 
-bool wsm_scene_node_is_tree(const struct wsm_scene_node *node) {
+bool wsm_scene_node_is_rect(const struct wsm_scene_node *node) {
 	return node != NULL && node->impl == &scene_node_impl;
 }
 
-struct wsm_scene_tree *wsm_scene_tree_from_node(struct wsm_scene_node *node) {
+struct wsm_scene_rect *wsm_scene_rect_from_node(struct wsm_scene_node *node) {
 	assert(node->impl == &scene_node_impl);
 
-	struct wsm_scene_tree *scene_tree =
-		wl_container_of(node, scene_tree, node);
+	struct wsm_scene_rect *scene_rect =
+		wl_container_of(node, scene_rect, node);
 
-	return scene_tree;
+	return scene_rect;
 }

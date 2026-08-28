@@ -1,8 +1,8 @@
-#include "scene/wsm_scene_buffer.h"
+#include "node/wsm_scene_buffer.h"
 #include "types/wsm_color.h"
 #include "scene/wsm_scene.h"
-#include "scene/wsm_scene_node.h"
-#include "scene/wsm_scene_tree.h"
+#include "node/wsm_scene_node.h"
+#include "node/wsm_scene_tree.h"
 #include "scene/wsm_scene_output.h"
 #include "scene/wsm_scene_surface.h"
 

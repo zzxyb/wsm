@@ -1,6 +1,6 @@
 #include "scene/wsm_scene_layer_surface.h"
 #include "scene/wsm_scene.h"
-#include "scene/wsm_scene_tree.h"
+#include "node/wsm_scene_tree.h"
 #include "scene/wsm_scene_subsurface_tree.h"
 #include "wlr-layer-shell-unstable-v1-protocol.h"
 

@@ -1,7 +1,7 @@
 #include "scene/wsm_scene_xdg_surface.h"
 #include "scene/wsm_scene.h"
-#include "scene/wsm_scene_node.h"
-#include "scene/wsm_scene_tree.h"
+#include "node/wsm_scene_node.h"
+#include "node/wsm_scene_tree.h"
 #include "scene/wsm_scene_subsurface_tree.h"
 
 #include <stdlib.h>

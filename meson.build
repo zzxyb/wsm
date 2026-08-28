@@ -209,6 +209,7 @@ subdir('buffer')
 subdir('texture')
 subdir('pass')
 subdir('types')
+subdir('node')
 subdir('scene')
 
 wsm_deps = [

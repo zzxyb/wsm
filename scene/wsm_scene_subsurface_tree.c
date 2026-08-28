@@ -1,7 +1,8 @@
 #include "scene/wsm_scene_subsurface_tree.h"
 #include "scene/wsm_scene_surface.h"
-#include "scene/wsm_scene_buffer.h"
-#include "scene/wsm_scene_tree.h"
+#include "node/wsm_scene_buffer.h"
+#include "node/wsm_scene_tree.h"
+#include "scene/wsm_scene.h"
 
 #include <assert.h>
 #include <stdlib.h>
