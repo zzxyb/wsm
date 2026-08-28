@@ -1,6 +1,5 @@
 #include "scene/wsm_scene.h"
-#include "scene/wsm_scene_tree.h"
-#include "scene/wsm_scene_buffer.h"
+#include "node/wsm_scene_tree.h"
 #include "util/wsm_env.h"
 #include "scene/wsm_scene_output.h"
 

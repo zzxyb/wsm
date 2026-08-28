@@ -1,7 +1,7 @@
 #include "scene/wsm_scene_output_layout.h"
 #include "scene/wsm_scene_output.h"
 #include "scene/wsm_scene.h"
-#include "scene/wsm_scene_tree.h"
+#include "node/wsm_scene_tree.h"
 
 #include <stdlib.h>
 #include <assert.h>
