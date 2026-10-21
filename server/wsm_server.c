@@ -7,6 +7,7 @@
 #include "node/wsm_scene_node.h"
 #include "node/wsm_scene_buffer.h"
 #include "node/wsm_scene_tree.h"
+#include "node/wsm_scene_round_rect.h"
 #include "scene/wsm_scene_xdg_surface.h"
 
 #include <assert.h>
@@ -84,6 +85,9 @@ struct tinywl_output {
 	struct wl_list link;
 	struct tinywl_server *server;
 	struct wlr_output *wlr_output;
+	struct wsm_scene_round_rect *round_rect_demo;
+	int round_rect_phase;
+	int round_rect_direction;
 	struct wl_listener frame;
 	struct wl_listener request_state;
 	struct wl_listener destroy;
@@ -580,6 +584,45 @@ static void server_cursor_frame(struct wl_listener *listener, void *data) {
 	wlr_seat_pointer_notify_frame(server->seat);
 }
 
+static void update_round_rect_demo(struct tinywl_output *output) {
+	struct wsm_scene_round_rect *rect = output->round_rect_demo;
+	if (rect == NULL) {
+		return;
+	}
+
+	/* Keep the sample centered when the output is resized or moved. */
+	struct wlr_box output_box;
+	wlr_output_layout_get_box(output->server->output_layout,
+		output->wlr_output, &output_box);
+	int width = output_box.width * 4 / 5;
+	int height = output_box.height * 4 / 5;
+	if (width > 360) {
+		width = 360;
+	}
+	if (height > 240) {
+		height = 240;
+	}
+	wsm_scene_round_rect_set_size(rect, width, height);
+	wsm_scene_node_set_position(&rect->node,
+		output_box.x + (output_box.width - width) / 2,
+		output_box.y + (output_box.height - height) / 2);
+
+	/* One trip from 0 to 64 and back takes 128 committed frames. */
+	output->round_rect_phase += output->round_rect_direction;
+	if (output->round_rect_phase >= 64) {
+		output->round_rect_phase = 64;
+		output->round_rect_direction = -1;
+	} else if (output->round_rect_phase <= 0) {
+		output->round_rect_phase = 0;
+		output->round_rect_direction = 1;
+	}
+	float phase = output->round_rect_phase;
+	wsm_scene_round_rect_set_top_left_radius(rect, phase * .25f);
+	wsm_scene_round_rect_set_top_right_radius(rect, phase * .5f);
+	wsm_scene_round_rect_set_bottom_left_radius(rect, phase * .75f);
+	wsm_scene_round_rect_set_bottom_right_radius(rect, phase);
+}
+
 static void output_frame(struct wl_listener *listener, void *data) {
 	/* This function is called every time an output is ready to display a frame,
 	 * generally at the output's refresh rate (e.g. 60Hz). */
@@ -588,6 +631,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 
 	struct wsm_scene_output *scene_output = wsm_scene_get_scene_output(
 		scene, output->wlr_output);
+	update_round_rect_demo(output);
 
 	/* Render the scene if needed and commit the output */
 	wsm_scene_output_commit(scene_output, NULL);
@@ -595,6 +639,9 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	wsm_scene_output_send_frame_done(scene_output, &now);
+	if (output->round_rect_demo != NULL) {
+		wlr_output_schedule_frame(output->wlr_output);
+	}
 }
 
 static void output_request_state(struct wl_listener *listener, void *data) {
@@ -608,6 +655,8 @@ static void output_request_state(struct wl_listener *listener, void *data) {
 
 static void output_destroy(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = wl_container_of(listener, output, destroy);
+	wsm_scene_node_destroy(output->round_rect_demo ?
+		&output->round_rect_demo->node : NULL);
 
 	wl_list_remove(&output->frame.link);
 	wl_list_remove(&output->request_state.link);
@@ -650,6 +699,7 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = calloc(1, sizeof(*output));
 	output->wlr_output = wlr_output;
 	output->server = server;
+	output->round_rect_direction = 1;
 
 	/* Sets up a listener for the frame event. */
 	output->frame.notify = output_frame;
@@ -678,6 +728,15 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_output);
 	struct wsm_scene_output *scene_output = wsm_scene_output_create(server->scene, wlr_output);
 	wsm_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
+
+	/* Animated round-rectangle example, behind application surfaces. */
+	const float color[4] = { .12f, .72f, .95f, 1.f };
+	output->round_rect_demo = wsm_scene_round_rect_create(server->scene->tree,
+		0, 0, 0, 0, 0, 0, color);
+	if (output->round_rect_demo != NULL) {
+		wsm_scene_node_lower_to_bottom(&output->round_rect_demo->node);
+		update_round_rect_demo(output);
+	}
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
