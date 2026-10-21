@@ -83,6 +83,15 @@ struct wsm_gles2_renderer {
 			GLint color; /**< Color uniform location. */
 			GLint pos_attrib; /**< Position attribute location. */
 		} quad;
+		struct {
+			GLuint program; /**< Linked rounded rectangle shader program. */
+			GLint proj; /**< Projection matrix uniform location. */
+			GLint pos; /**< Position attribute location. */
+			GLint color; /**< Fill color uniform location. */
+			GLint radius; /**< Corner radii uniform location. */
+			GLint size; /**< Rectangle size uniform location. */
+			GLint smoothness; /**< Corner exponent uniform location. */
+		} round_rect; /**< Rounded rectangle shader state. */
 		struct wsm_gles2_tex_shader tex_rgba;
 		struct wsm_gles2_tex_shader tex_rgbx;
 		struct wsm_gles2_tex_shader tex_ext;
