@@ -92,6 +92,16 @@ struct wsm_gles2_renderer {
 			GLint size; /**< Rectangle size uniform location. */
 			GLint smoothness; /**< Corner exponent uniform location. */
 		} round_rect; /**< Rounded rectangle shader state. */
+		struct {
+			GLuint program; /**< Linked border shader program. */
+			GLint proj; /**< Projection matrix uniform location. */
+			GLint pos; /**< Position attribute location. */
+			GLint color; /**< Border color uniform location. */
+			GLint radius; /**< Corner radii uniform location. */
+			GLint size; /**< Outer size uniform location. */
+			GLint border_width; /**< Border width uniform location. */
+			GLint smoothness; /**< Corner exponent uniform location. */
+		} round_border; /**< Rounded border shader state. */
 		struct wsm_gles2_tex_shader tex_rgba;
 		struct wsm_gles2_tex_shader tex_rgbx;
 		struct wsm_gles2_tex_shader tex_ext;
