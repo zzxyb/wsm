@@ -55,6 +55,16 @@ struct wsm_gles2_texture *wsm_gles2_texture_from_pixels(
 	uint32_t height, const void *data);
 
 /**
+ * @brief Creates an RGBA render target texture in the current GLES context.
+ * @param renderer Renderer that will own the texture.
+ * @param width Texture width in pixels.
+ * @param height Texture height in pixels.
+ * @return GLES2 texture, or NULL on failure.
+ */
+struct wsm_gles2_texture *wsm_gles2_texture_create_render_target(
+	struct wlr_renderer *renderer, uint32_t width, uint32_t height);
+
+/**
  * @brief Creates a GLES2 texture from a wlroots buffer.
  * @param wlr_renderer Renderer that owns the texture.
  * @param buffer Buffer to import.
