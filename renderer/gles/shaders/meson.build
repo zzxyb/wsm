@@ -6,6 +6,7 @@ shaders = [
 	'quad.frag',
 	'round_rect.vert',
 	'round_rect.frag',
+	'round_border.frag',
 	'tex_rgba.frag',
 	'tex_rgbx.frag',
 	'tex_external.frag',
