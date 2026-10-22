@@ -281,6 +281,21 @@ static struct wsm_gles2_texture *gles2_texture_create(
 	return texture;
 }
 
+struct wsm_gles2_texture *wsm_gles2_texture_from_gl_texture(
+		struct wlr_renderer *wlr_renderer, GLuint tex, uint32_t width,
+		uint32_t height, bool has_alpha) {
+	struct wsm_gles2_renderer *renderer = wsm_gles2_renderer_from_renderer(wlr_renderer);
+	struct wsm_gles2_texture *texture = gles2_texture_create(renderer, width, height);
+	if (texture == NULL) {
+		return NULL;
+	}
+	texture->target = GL_TEXTURE_2D;
+	texture->tex = tex;
+	texture->has_alpha = has_alpha;
+	texture->drm_format = has_alpha ? DRM_FORMAT_ARGB8888 : DRM_FORMAT_XRGB8888;
+	return texture;
+}
+
 struct wsm_gles2_texture *wsm_gles2_texture_from_pixels(
 		struct wlr_renderer *wlr_renderer,
 		uint32_t drm_format, uint32_t stride, uint32_t width,

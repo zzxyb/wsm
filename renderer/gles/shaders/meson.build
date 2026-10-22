@@ -7,6 +7,8 @@ shaders = [
 	'round_rect.vert',
 	'round_rect.frag',
 	'round_border.frag',
+	'shadow_cache.vert',
+	'shadow_cache.frag',
 	'tex_rgba.frag',
 	'tex_rgbx.frag',
 	'tex_external.frag',

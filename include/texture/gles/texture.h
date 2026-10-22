@@ -55,6 +55,19 @@ struct wsm_gles2_texture *wsm_gles2_texture_from_pixels(
 	uint32_t height, const void *data);
 
 /**
+ * @brief Wraps an existing GL_TEXTURE_2D name as a GLES2 texture.
+ * @param renderer Renderer that will own the texture.
+ * @param tex OpenGL texture name transferred on success.
+ * @param width Texture width in pixels.
+ * @param height Texture height in pixels.
+ * @param has_alpha Whether the texture contains an alpha channel.
+ * @return GLES2 texture, or NULL on allocation failure.
+ */
+struct wsm_gles2_texture *wsm_gles2_texture_from_gl_texture(
+	struct wlr_renderer *renderer, GLuint tex, uint32_t width,
+	uint32_t height, bool has_alpha);
+
+/**
  * @brief Creates a GLES2 texture from a wlroots buffer.
  * @param wlr_renderer Renderer that owns the texture.
  * @param buffer Buffer to import.
