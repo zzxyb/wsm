@@ -281,6 +281,31 @@ static struct wsm_gles2_texture *gles2_texture_create(
 	return texture;
 }
 
+struct wsm_gles2_texture *wsm_gles2_texture_create_render_target(
+		struct wlr_renderer *wlr_renderer, uint32_t width, uint32_t height) {
+	struct wsm_gles2_renderer *renderer = wsm_gles2_renderer_from_renderer(wlr_renderer);
+	struct wsm_gles2_texture *texture = gles2_texture_create(renderer, width, height);
+	if (texture == NULL) {
+		return NULL;
+	}
+	texture->target = GL_TEXTURE_2D;
+	texture->has_alpha = true;
+	texture->drm_format = DRM_FORMAT_ARGB8888;
+	glGenTextures(1, &texture->tex);
+	if (texture->tex == 0) {
+		wsm_gles2_texture_destroy(texture);
+		return NULL;
+	}
+	glBindTexture(GL_TEXTURE_2D, texture->tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
+		GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	return texture;
+}
+
 struct wsm_gles2_texture *wsm_gles2_texture_from_pixels(
 		struct wlr_renderer *wlr_renderer,
 		uint32_t drm_format, uint32_t stride, uint32_t width,

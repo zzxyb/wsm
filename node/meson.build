@@ -4,5 +4,6 @@ wsm_sources += files(
 	'wsm_scene_rect.c',
 	'wsm_scene_round_rect.c',
 	'wsm_scene_border.c',
+	'wsm_scene_shadow.c',
 	'wsm_scene_buffer.c',
 )
