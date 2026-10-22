@@ -13,6 +13,8 @@
 #include "round_rect_vert_src.h"
 #include "round_rect_frag_src.h"
 #include "round_border_frag_src.h"
+#include "shadow_cache_vert_src.h"
+#include "shadow_cache_frag_src.h"
 #include "tex_rgba_frag_src.h"
 #include "tex_rgbx_frag_src.h"
 #include "tex_external_frag_src.h"
@@ -56,6 +58,7 @@ static void gles2_destroy(struct wlr_renderer *wlr_renderer) {
 	glDeleteProgram(renderer->shaders.quad.program);
 	glDeleteProgram(renderer->shaders.round_rect.program);
 	glDeleteProgram(renderer->shaders.round_border.program);
+	glDeleteProgram(renderer->shaders.shadow_cache.program);
 	glDeleteProgram(renderer->shaders.tex_rgba.program);
 	glDeleteProgram(renderer->shaders.tex_rgbx.program);
 	glDeleteProgram(renderer->shaders.tex_ext.program);
@@ -413,6 +416,28 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 		wsm_log(WSM_ERROR, "Failed to locate round border shader inputs");
 		goto error;
 	}
+	renderer->shaders.shadow_cache.program = prog =
+		wsm_gles2_link_program(renderer, shadow_cache_vert_src, shadow_cache_frag_src);
+	if (!prog) {
+		goto error;
+	}
+	renderer->shaders.shadow_cache.pos = glGetAttribLocation(prog, "pos");
+	renderer->shaders.shadow_cache.size = glGetUniformLocation(prog, "size");
+	renderer->shaders.shadow_cache.slices = glGetUniformLocation(prog, "slices");
+	renderer->shaders.shadow_cache.radius = glGetUniformLocation(prog, "radius");
+	renderer->shaders.shadow_cache.smoothness = glGetUniformLocation(prog, "corner_smoothness");
+	renderer->shaders.shadow_cache.inset = glGetUniformLocation(prog, "inset");
+	renderer->shaders.shadow_cache.spread = glGetUniformLocation(prog, "spread");
+	renderer->shaders.shadow_cache.inner_offset = glGetUniformLocation(prog, "inner_offset");
+	renderer->shaders.shadow_cache.color = glGetUniformLocation(prog, "color");
+	if (renderer->shaders.shadow_cache.pos < 0 || renderer->shaders.shadow_cache.size < 0 ||
+			renderer->shaders.shadow_cache.slices < 0 || renderer->shaders.shadow_cache.radius < 0 ||
+			renderer->shaders.shadow_cache.smoothness < 0 || renderer->shaders.shadow_cache.inset < 0 ||
+			renderer->shaders.shadow_cache.spread < 0 || renderer->shaders.shadow_cache.inner_offset < 0 ||
+			renderer->shaders.shadow_cache.color < 0) {
+		wsm_log(WSM_ERROR, "Failed to locate shadow cache shader inputs");
+		goto error;
+	}
 
 	renderer->shaders.tex_rgba.program = prog =
 		wsm_gles2_link_program(renderer, common_vert_src, tex_rgba_frag_src);
@@ -468,6 +493,7 @@ error:
 	glDeleteProgram(renderer->shaders.quad.program);
 	glDeleteProgram(renderer->shaders.round_rect.program);
 	glDeleteProgram(renderer->shaders.round_border.program);
+	glDeleteProgram(renderer->shaders.shadow_cache.program);
 	glDeleteProgram(renderer->shaders.tex_rgba.program);
 	glDeleteProgram(renderer->shaders.tex_rgbx.program);
 	glDeleteProgram(renderer->shaders.tex_ext.program);
