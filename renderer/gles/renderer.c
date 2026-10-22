@@ -12,6 +12,7 @@
 #include "quad_frag_src.h"
 #include "round_rect_vert_src.h"
 #include "round_rect_frag_src.h"
+#include "round_border_frag_src.h"
 #include "tex_rgba_frag_src.h"
 #include "tex_rgbx_frag_src.h"
 #include "tex_external_frag_src.h"
@@ -54,6 +55,7 @@ static void gles2_destroy(struct wlr_renderer *wlr_renderer) {
 	wsm_gles2_push_debug(renderer);
 	glDeleteProgram(renderer->shaders.quad.program);
 	glDeleteProgram(renderer->shaders.round_rect.program);
+	glDeleteProgram(renderer->shaders.round_border.program);
 	glDeleteProgram(renderer->shaders.tex_rgba.program);
 	glDeleteProgram(renderer->shaders.tex_rgbx.program);
 	glDeleteProgram(renderer->shaders.tex_ext.program);
@@ -390,6 +392,27 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 		wsm_log(WSM_ERROR, "Failed to locate round rectangle shader inputs");
 		goto error;
 	}
+	renderer->shaders.round_border.program = prog =
+		wsm_gles2_link_program(renderer, round_rect_vert_src, round_border_frag_src);
+	if (!prog) {
+		goto error;
+	}
+	renderer->shaders.round_border.proj = glGetUniformLocation(prog, "proj");
+	renderer->shaders.round_border.pos = glGetAttribLocation(prog, "pos");
+	renderer->shaders.round_border.color = glGetUniformLocation(prog, "color");
+	renderer->shaders.round_border.radius = glGetUniformLocation(prog, "radius");
+	renderer->shaders.round_border.size = glGetUniformLocation(prog, "size");
+	renderer->shaders.round_border.border_width = glGetUniformLocation(prog, "border_width");
+	renderer->shaders.round_border.smoothness = glGetUniformLocation(prog, "corner_smoothness");
+	if (renderer->shaders.round_border.proj < 0 || renderer->shaders.round_border.pos < 0 ||
+			renderer->shaders.round_border.color < 0 ||
+			renderer->shaders.round_border.radius < 0 ||
+			renderer->shaders.round_border.size < 0 ||
+			renderer->shaders.round_border.border_width < 0 ||
+			renderer->shaders.round_border.smoothness < 0) {
+		wsm_log(WSM_ERROR, "Failed to locate round border shader inputs");
+		goto error;
+	}
 
 	renderer->shaders.tex_rgba.program = prog =
 		wsm_gles2_link_program(renderer, common_vert_src, tex_rgba_frag_src);
@@ -444,6 +467,7 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 error:
 	glDeleteProgram(renderer->shaders.quad.program);
 	glDeleteProgram(renderer->shaders.round_rect.program);
+	glDeleteProgram(renderer->shaders.round_border.program);
 	glDeleteProgram(renderer->shaders.tex_rgba.program);
 	glDeleteProgram(renderer->shaders.tex_rgbx.program);
 	glDeleteProgram(renderer->shaders.tex_ext.program);
