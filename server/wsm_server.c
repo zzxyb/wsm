@@ -7,7 +7,9 @@
 #include "node/wsm_scene_node.h"
 #include "node/wsm_scene_buffer.h"
 #include "node/wsm_scene_tree.h"
+#include "node/wsm_scene_rect.h"
 #include "node/wsm_scene_round_rect.h"
+#include "node/wsm_scene_border.h"
 #include "scene/wsm_scene_xdg_surface.h"
 
 #include <assert.h>
@@ -85,7 +87,9 @@ struct tinywl_output {
 	struct wl_list link;
 	struct tinywl_server *server;
 	struct wlr_output *wlr_output;
+	struct wsm_scene_rect *background_demo;
 	struct wsm_scene_round_rect *round_rect_demo;
+	struct wsm_scene_border *round_border_demo;
 	int round_rect_phase;
 	int round_rect_direction;
 	struct wl_listener frame;
@@ -586,14 +590,22 @@ static void server_cursor_frame(struct wl_listener *listener, void *data) {
 
 static void update_round_rect_demo(struct tinywl_output *output) {
 	struct wsm_scene_round_rect *rect = output->round_rect_demo;
+	struct wsm_scene_border *border = output->round_border_demo;
+	const int border_width = 2;
+	struct wlr_box output_box;
+	wlr_output_layout_get_box(output->server->output_layout,
+		output->wlr_output, &output_box);
+	if (output->background_demo != NULL) {
+		wsm_scene_rect_set_size(output->background_demo,
+			output_box.width, output_box.height);
+		wsm_scene_node_set_position(&output->background_demo->node,
+			output_box.x, output_box.y);
+	}
 	if (rect == NULL) {
 		return;
 	}
 
 	/* Keep the sample centered when the output is resized or moved. */
-	struct wlr_box output_box;
-	wlr_output_layout_get_box(output->server->output_layout,
-		output->wlr_output, &output_box);
 	int width = output_box.width * 4 / 5;
 	int height = output_box.height * 4 / 5;
 	if (width > 360) {
@@ -602,10 +614,10 @@ static void update_round_rect_demo(struct tinywl_output *output) {
 	if (height > 240) {
 		height = 240;
 	}
+	int x = output_box.x + (output_box.width - width) / 2;
+	int y = output_box.y + (output_box.height - height) / 2;
 	wsm_scene_round_rect_set_size(rect, width, height);
-	wsm_scene_node_set_position(&rect->node,
-		output_box.x + (output_box.width - width) / 2,
-		output_box.y + (output_box.height - height) / 2);
+	wsm_scene_node_set_position(&rect->node, x, y);
 
 	/* One trip from 0 to 64 and back takes 128 committed frames. */
 	output->round_rect_phase += output->round_rect_direction;
@@ -617,10 +629,30 @@ static void update_round_rect_demo(struct tinywl_output *output) {
 		output->round_rect_direction = 1;
 	}
 	float phase = output->round_rect_phase;
-	wsm_scene_round_rect_set_top_left_radius(rect, phase * .25f);
-	wsm_scene_round_rect_set_top_right_radius(rect, phase * .5f);
-	wsm_scene_round_rect_set_bottom_left_radius(rect, phase * .75f);
-	wsm_scene_round_rect_set_bottom_right_radius(rect, phase);
+	float top_left = phase * .25f;
+	float top_right = phase * .5f;
+	float bottom_left = phase * .75f;
+	float bottom_right = phase;
+	wsm_scene_round_rect_set_top_left_radius(rect, top_left);
+	wsm_scene_round_rect_set_top_right_radius(rect, top_right);
+	wsm_scene_round_rect_set_bottom_left_radius(rect, bottom_left);
+	wsm_scene_round_rect_set_bottom_right_radius(rect, bottom_right);
+	if (border != NULL) {
+		/* The border is drawn inward, so its inner edge follows the rect. */
+		wsm_scene_border_set_size(border,
+			width + 2 * border_width, height + 2 * border_width);
+		wsm_scene_border_set_border_width(border, border_width);
+		wsm_scene_node_set_position(&border->node,
+			x - border_width, y - border_width);
+		wsm_scene_border_set_top_left_radius(border,
+			rect->top_left_radius + border_width);
+		wsm_scene_border_set_top_right_radius(border,
+			rect->top_right_radius + border_width);
+		wsm_scene_border_set_bottom_left_radius(border,
+			rect->bottom_left_radius + border_width);
+		wsm_scene_border_set_bottom_right_radius(border,
+			rect->bottom_right_radius + border_width);
+	}
 }
 
 static void output_frame(struct wl_listener *listener, void *data) {
@@ -655,8 +687,12 @@ static void output_request_state(struct wl_listener *listener, void *data) {
 
 static void output_destroy(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = wl_container_of(listener, output, destroy);
+	wsm_scene_node_destroy(output->round_border_demo ?
+		&output->round_border_demo->node : NULL);
 	wsm_scene_node_destroy(output->round_rect_demo ?
 		&output->round_rect_demo->node : NULL);
+	wsm_scene_node_destroy(output->background_demo ?
+		&output->background_demo->node : NULL);
 
 	wl_list_remove(&output->frame.link);
 	wl_list_remove(&output->request_state.link);
@@ -729,14 +765,34 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	struct wsm_scene_output *scene_output = wsm_scene_output_create(server->scene, wlr_output);
 	wsm_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
 
-	/* Animated round-rectangle example, behind application surfaces. */
+	/* Light-gray output background, behind the animated example. */
+	const float background_color[4] = { .85f, .85f, .85f, 1.f };
+	output->background_demo = wsm_scene_rect_create(server->scene->tree,
+		0, 0, background_color);
+	if (output->background_demo != NULL) {
+		wsm_scene_node_lower_to_bottom(&output->background_demo->node);
+	}
+
+	/* Animated rounded rectangle and border, behind application surfaces. */
 	const float color[4] = { .12f, .72f, .95f, 1.f };
 	output->round_rect_demo = wsm_scene_round_rect_create(server->scene->tree,
 		0, 0, 0, 0, 0, 0, color);
 	if (output->round_rect_demo != NULL) {
-		wsm_scene_node_lower_to_bottom(&output->round_rect_demo->node);
-		update_round_rect_demo(output);
+		if (output->background_demo != NULL) {
+			wsm_scene_node_place_above(&output->round_rect_demo->node,
+				&output->background_demo->node);
+		} else {
+			wsm_scene_node_lower_to_bottom(&output->round_rect_demo->node);
+		}
+		const float border_color[4] = { .12f, .10f, .20f, 1.f };
+		output->round_border_demo = wsm_scene_border_create(server->scene->tree,
+			0, 0, 0, 0, 0, 0, 2.f, border_color);
+		if (output->round_border_demo != NULL) {
+			wsm_scene_node_place_above(&output->round_border_demo->node,
+				&output->round_rect_demo->node);
+		}
 	}
+	update_round_rect_demo(output);
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
