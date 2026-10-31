@@ -372,7 +372,7 @@ static bool scene_node_update_iterator(struct wsm_scene_node *node,
 	struct wsm_scene_update_data *data = _data;
 
 	struct wlr_box box = { .x = lx, .y = ly };
-	scene_node_get_size(node, &box.width, &box.height);
+	wsm_scene_node_get_size(node, &box.width, &box.height);
 
 	pixman_region32_subtract(&node->visible, &node->visible, data->update_region);
 	pixman_region32_union(&node->visible, &node->visible, data->visible);
@@ -382,14 +382,14 @@ static bool scene_node_update_iterator(struct wsm_scene_node *node,
 	if (data->calculate_visibility) {
 		pixman_region32_t opaque;
 		pixman_region32_init(&opaque);
-		scene_node_opaque_region(node, lx, ly, &opaque);
+		wsm_scene_node_opaque_region(node, lx, ly, &opaque);
 		pixman_region32_subtract(data->visible, data->visible, &opaque);
 		pixman_region32_fini(&opaque);
 	}
 
-	update_node_update_outputs(node, data->outputs, NULL, NULL);
+	wsm_scene_node_update_outputs(node, data->outputs, NULL, NULL);
 #if WLR_HAS_XWAYLAND
-	restack_xwayland_surface(node, &box, data);
+	wsm_scene_node_restack_xwayland_surface(node, &box, data);
 #endif
 
 	return false;
