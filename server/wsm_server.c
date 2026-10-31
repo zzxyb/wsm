@@ -11,6 +11,7 @@
 #include "node/wsm_scene_round_rect.h"
 #include "node/wsm_scene_border.h"
 #include "node/wsm_scene_shadow.h"
+#include "node/wsm_scene_blur.h"
 #include "scene/wsm_scene_xdg_surface.h"
 
 #include <assert.h>
@@ -54,6 +55,9 @@ struct tinywl_server {
 	struct wlr_allocator *allocator;
 	struct wsm_scene *scene;
 	struct wsm_scene_output_layout *scene_layout;
+	struct wsm_render_blur_buffer_pass *blur_pass;
+	struct wl_listener blur_pass_destroy;
+	struct wsm_scene_blur *blur_demo;
 
 	struct wlr_xdg_shell *xdg_shell;
 	struct wl_listener new_xdg_toplevel;
@@ -133,6 +137,12 @@ struct tinywl_keyboard {
 	struct wl_listener destroy;
 };
 
+static void raise_blur_demo(struct tinywl_server *server) {
+	if (server->blur_demo != NULL) {
+		wsm_scene_node_raise_to_top(&server->blur_demo->node);
+	}
+}
+
 static void focus_toplevel(struct tinywl_toplevel *toplevel) {
 	/* Note: this function only deals with keyboard focus. */
 	if (toplevel == NULL) {
@@ -161,6 +171,7 @@ static void focus_toplevel(struct tinywl_toplevel *toplevel) {
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat);
 	/* Move the toplevel to the front */
 	wsm_scene_node_raise_to_top(&toplevel->scene_tree->node);
+	raise_blur_demo(server);
 	wl_list_remove(&toplevel->link);
 	wl_list_insert(&server->toplevels, &toplevel->link);
 	/* Activate the new surface */
@@ -593,6 +604,56 @@ static void server_cursor_frame(struct wl_listener *listener, void *data) {
 	wlr_seat_pointer_notify_frame(server->seat);
 }
 
+static void demo_blur_pass_destroyed(struct wl_listener *listener, void *data) {
+	struct tinywl_server *server = wl_container_of(listener, server, blur_pass_destroy);
+	wl_list_remove(&server->blur_pass_destroy.link);
+	wl_list_init(&server->blur_pass_destroy.link);
+	server->blur_pass = NULL;
+}
+
+/* A single stationary panel filters Wayland windows below it and passes input
+ * through. Raise it again whenever applications change their stacking order. */
+static void create_blur_demo(struct tinywl_server *server) {
+	wl_list_init(&server->blur_pass_destroy.link);
+	server->blur_pass = wsm_render_blur_buffer_pass_create(server->renderer);
+	if (server->blur_pass == NULL) {
+		wlr_log(WLR_ERROR, "Cannot create blur demo");
+		return;
+	}
+	server->blur_pass_destroy.notify = demo_blur_pass_destroyed;
+	wl_signal_add(&server->blur_pass->events.destroy, &server->blur_pass_destroy);
+	server->blur_demo = wsm_scene_blur_create(server->scene->tree,
+		0, 0, 24, 24, 24, 24);
+	if (server->blur_demo != NULL) {
+		wsm_scene_blur_set_pass(server->blur_demo, server->blur_pass);
+		wsm_scene_blur_set_blur(server->blur_demo, 2, 1.8f);
+		const float tint[4] = {0, 0, 0, 0};
+		wsm_scene_blur_set_appearance(server->blur_demo, 1.f, 1.f, tint);
+		wsm_scene_blur_set_noise(server->blur_demo, 0.f);
+		wsm_scene_blur_set_material_contrast(server->blur_demo, 0.f);
+	}
+}
+
+static void update_blur_demo(struct tinywl_server *server) {
+	if (server->blur_demo == NULL) {
+		return;
+	}
+	struct wlr_box box;
+	wlr_output_layout_get_box(server->output_layout, NULL, &box);
+	int width = box.width * 4 / 5;
+	int height = box.height * 4 / 5;
+	if (width > 480) {
+		width = 480;
+	}
+	if (height > 320) {
+		height = 320;
+	}
+	wsm_scene_blur_set_size(server->blur_demo, width, height);
+	wsm_scene_node_set_position(&server->blur_demo->node,
+		box.x + (box.width - width) / 2, box.y + (box.height - height) / 2);
+	raise_blur_demo(server);
+}
+
 static void update_round_rect_demo(struct tinywl_output *output) {
 	struct wsm_scene_round_rect *rect = output->round_rect_demo;
 	struct wsm_scene_border *border = output->round_border_demo;
@@ -700,6 +761,13 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	struct wsm_scene_output *scene_output = wsm_scene_get_scene_output(
 		scene, output->wlr_output);
 	update_round_rect_demo(output);
+	update_blur_demo(output->server);
+
+	/* The compositor prepares blur source/output damage before scene commit,
+	 * matching the reference wlroots example. */
+	if (!wsm_scene_blur_prepare_output(output->server->blur_demo, scene_output)) {
+		wlr_log(WLR_ERROR, "Cannot prepare blur damage");
+	}
 
 	/* Render the scene if needed and commit the output */
 	wsm_scene_output_commit(scene_output, NULL);
@@ -710,6 +778,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	if (output->round_rect_demo != NULL) {
 		wlr_output_schedule_frame(output->wlr_output);
 	}
+
 }
 
 static void output_request_state(struct wl_listener *listener, void *data) {
@@ -731,6 +800,7 @@ static void output_destroy(struct wl_listener *listener, void *data) {
 		&output->round_rect_demo->node : NULL);
 	wsm_scene_node_destroy(output->background_demo ?
 		&output->background_demo->node : NULL);
+
 
 	wl_list_remove(&output->frame.link);
 	wl_list_remove(&output->request_state.link);
@@ -846,6 +916,7 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		}
 	}
 	update_round_rect_demo(output);
+	update_blur_demo(server);
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
@@ -989,6 +1060,7 @@ static void server_new_xdg_toplevel(struct wl_listener *listener, void *data) {
 	toplevel->xdg_toplevel = xdg_toplevel;
 	toplevel->scene_tree =
 		wsm_scene_xdg_surface_create(toplevel->server->scene->tree, xdg_toplevel->base);
+	raise_blur_demo(server);
 	toplevel->scene_tree->node.data = toplevel;
 	xdg_toplevel->base->data = toplevel->scene_tree;
 
@@ -1148,6 +1220,7 @@ int main(int argc, char *argv[]) {
 	 */
 	server.scene = wsm_scene_create();
 	server.scene_layout = wsm_scene_attach_output_layout(server.scene, server.output_layout);
+	create_blur_demo(&server);
 
 	/* Set up xdg-shell version 3. The xdg-shell is a Wayland protocol which is
 	 * used for application windows. For more detail on shells, refer to
@@ -1269,6 +1342,7 @@ int main(int argc, char *argv[]) {
 	wl_list_remove(&server.new_output.link);
 
 	wsm_scene_node_destroy(&server.scene->tree->node);
+	wsm_render_blur_buffer_pass_destroy(server.blur_pass);
 	wlr_xcursor_manager_destroy(server.cursor_mgr);
 	wlr_cursor_destroy(server.cursor);
 	wlr_allocator_destroy(server.allocator);

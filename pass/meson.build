@@ -1,4 +1,7 @@
 wsm_sources += files(
+	'blur.c',
+	'gles/blur.c',
+	'pixman/blur.c',
 	'round_rect.c',
 	'round_border.c',
 	'shadow_cache.c',
