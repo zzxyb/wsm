@@ -10,6 +10,7 @@
 #include "node/wsm_scene_rect.h"
 #include "node/wsm_scene_round_rect.h"
 #include "node/wsm_scene_border.h"
+#include "node/wsm_scene_shadow.h"
 #include "scene/wsm_scene_xdg_surface.h"
 
 #include <assert.h>
@@ -17,6 +18,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
@@ -90,6 +92,9 @@ struct tinywl_output {
 	struct wsm_scene_rect *background_demo;
 	struct wsm_scene_round_rect *round_rect_demo;
 	struct wsm_scene_border *round_border_demo;
+	struct wsm_scene_shadow *shadow_demo;
+	struct wsm_scene_shadow_cache *shadow_cache;
+	float shadow_cache_radii[4];
 	int round_rect_phase;
 	int round_rect_direction;
 	struct wl_listener frame;
@@ -653,6 +658,37 @@ static void update_round_rect_demo(struct tinywl_output *output) {
 		wsm_scene_border_set_bottom_right_radius(border,
 			rect->bottom_right_radius + border_width);
 	}
+	if (output->shadow_demo != NULL) {
+		struct wsm_scene_shadow *shadow = output->shadow_demo;
+		/* Match the shadow's inner outline to the rounded rectangle. */
+		wsm_scene_shadow_set_size(shadow, width, height);
+		wsm_scene_shadow_set_corner_radius(shadow,
+			rect->top_left_radius, rect->top_right_radius,
+			rect->bottom_left_radius, rect->bottom_right_radius);
+		wsm_scene_node_set_position(&shadow->node,
+			x - shadow->margins.left, y - shadow->margins.top);
+		const float radii[4] = {
+			rect->top_left_radius, rect->top_right_radius,
+			rect->bottom_left_radius, rect->bottom_right_radius,
+		};
+		if (output->shadow_cache == NULL ||
+				memcmp(output->shadow_cache_radii, radii, sizeof(radii)) != 0) {
+			const struct wsm_scene_shadow_slices margins = {
+				.left = 60, .right = 60, .top = 60, .bottom = 60,
+			};
+			const float shadow_color[4] = { 0.f, 0.f, 0.f, .75f };
+			struct wsm_scene_shadow_cache *cache =
+				wsm_scene_shadow_cache_create_rounded_corners(
+					output->server->renderer, &margins, 64.f, radii,
+					2.f, shadow_color);
+			if (cache != NULL) {
+				wsm_scene_shadow_set_cache(shadow, cache);
+				wsm_scene_shadow_cache_unref(output->shadow_cache);
+				output->shadow_cache = cache;
+				memcpy(output->shadow_cache_radii, radii, sizeof(radii));
+			}
+		}
+	}
 }
 
 static void output_frame(struct wl_listener *listener, void *data) {
@@ -687,6 +723,8 @@ static void output_request_state(struct wl_listener *listener, void *data) {
 
 static void output_destroy(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = wl_container_of(listener, output, destroy);
+	wsm_scene_node_destroy(output->shadow_demo ? &output->shadow_demo->node : NULL);
+	wsm_scene_shadow_cache_unref(output->shadow_cache);
 	wsm_scene_node_destroy(output->round_border_demo ?
 		&output->round_border_demo->node : NULL);
 	wsm_scene_node_destroy(output->round_rect_demo ?
@@ -772,13 +810,28 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	if (output->background_demo != NULL) {
 		wsm_scene_node_lower_to_bottom(&output->background_demo->node);
 	}
+	const struct wsm_scene_shadow_margins shadow_margins = {
+		.left = 60, .right = 60, .top = 60, .bottom = 60,
+	};
+	output->shadow_demo = wsm_scene_shadow_create(server->scene->tree,
+		NULL, 0, 0, &shadow_margins, 1.f);
+	if (output->shadow_demo != NULL) {
+		wsm_scene_shadow_set_inner_offset(output->shadow_demo, 2.f);
+		if (output->background_demo != NULL) {
+			wsm_scene_node_place_above(&output->shadow_demo->node,
+				&output->background_demo->node);
+		}
+	}
 
 	/* Animated rounded rectangle and border, behind application surfaces. */
 	const float color[4] = { .12f, .72f, .95f, 1.f };
 	output->round_rect_demo = wsm_scene_round_rect_create(server->scene->tree,
 		0, 0, 0, 0, 0, 0, color);
 	if (output->round_rect_demo != NULL) {
-		if (output->background_demo != NULL) {
+		if (output->shadow_demo != NULL) {
+			wsm_scene_node_place_above(&output->round_rect_demo->node,
+				&output->shadow_demo->node);
+		} else if (output->background_demo != NULL) {
 			wsm_scene_node_place_above(&output->round_rect_demo->node,
 				&output->background_demo->node);
 		} else {
