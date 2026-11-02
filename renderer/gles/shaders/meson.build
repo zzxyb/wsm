@@ -11,8 +11,8 @@ shaders = [
 
 	'common.vert',
 	'quad.frag',
-	'round_rect.vert',
-	'round_rect.frag',
+	'rect.vert',
+	'rect.frag',
 	'round_border.frag',
 	'shadow_cache.vert',
 	'shadow_cache.frag',

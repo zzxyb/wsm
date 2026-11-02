@@ -1,19 +1,19 @@
-#include "pass/round_rect.h"
+#include "pass/rect.h"
 #include "pass/gles/pass.h"
 #include "pass/pixman/pass.h"
-#include "pass/gles/round_rect.h"
-#include "pass/pixman/round_rect.h"
+#include "pass/gles/rect.h"
+#include "pass/pixman/rect.h"
 #include <math.h>
 
-bool wsm_render_pass_add_round_rect(struct wlr_render_pass *pass,
-		const struct wsm_render_round_rect_options *options) {
+bool wsm_render_pass_add_rect(struct wlr_render_pass *pass,
+		const struct wsm_render_rect_options *options) {
 	if (pass == NULL || options == NULL) {
 		return false;
 	}
 	if (options->box.width <= 0 || options->box.height <= 0) {
 		return true;
 	}
-	struct wsm_render_round_rect_options normalized = *options;
+	struct wsm_render_rect_options normalized = *options;
 	float max_radius = fminf(options->box.width, options->box.height) / 2.f;
 	bool square = true;
 	for (int i = 0; i < 4; i++) {
@@ -31,11 +31,11 @@ bool wsm_render_pass_add_round_rect(struct wlr_render_pass *pass,
 		return true;
 	}
 	if (wlr_render_pass_is_wsm_gles2(pass)) {
-		wsm_gles2_render_pass_add_round_rect(pass, &normalized);
+		wsm_gles2_render_pass_add_rect(pass, &normalized);
 		return true;
 	}
 	if (wlr_render_pass_is_wsm_pixman(pass)) {
-		wsm_pixman_render_pass_add_round_rect(pass, &normalized);
+		wsm_pixman_render_pass_add_rect(pass, &normalized);
 		return true;
 	}
 	return false;
