@@ -1,4 +1,4 @@
-#include "pass/gles/round_rect.h"
+#include "pass/gles/rect.h"
 #include "pass/gles/pass.h"
 #include "renderer/gles/renderer.h"
 #include "util/wsm_log.h"
@@ -6,8 +6,8 @@
 #include <GLES2/gl2.h>
 #include <math.h>
 
-void wsm_gles2_render_pass_add_round_rect(struct wlr_render_pass *target,
-		const struct wsm_render_round_rect_options *options) {
+void wsm_gles2_render_pass_add_rect(struct wlr_render_pass *target,
+		const struct wsm_render_rect_options *options) {
 	const struct wlr_box *box = &options->box;
 	if (box->width <= 0 || box->height <= 0) {
 		return;
@@ -27,15 +27,15 @@ void wsm_gles2_render_pass_add_round_rect(struct wlr_render_pass *target,
 	}
 	wsm_gles2_push_debug(renderer);
 	glEnable(GL_BLEND);
-	glUseProgram(renderer->shaders.round_rect.program);
-	wsm_gles_set_proj_matrix(renderer->shaders.round_rect.proj, pass->projection_matrix, box);
-	glUniform4f(renderer->shaders.round_rect.color, options->color.r, options->color.g,
+	glUseProgram(renderer->shaders.rect.program);
+	wsm_gles_set_proj_matrix(renderer->shaders.rect.proj, pass->projection_matrix, box);
+	glUniform4f(renderer->shaders.rect.color, options->color.r, options->color.g,
 		options->color.b, options->color.a);
-	glUniform4fv(renderer->shaders.round_rect.radius, 1, options->radii);
-	glUniform2f(renderer->shaders.round_rect.size, box->width, box->height);
-	glUniform1f(renderer->shaders.round_rect.smoothness,
+	glUniform4fv(renderer->shaders.rect.radius, 1, options->radii);
+	glUniform2f(renderer->shaders.rect.size, box->width, box->height);
+	glUniform1f(renderer->shaders.rect.smoothness,
 		options->corner_smoothness > 0 ? fmaxf(1.f, options->corner_smoothness) : 4.f);
-	glEnableVertexAttribArray(renderer->shaders.round_rect.pos);
+	glEnableVertexAttribArray(renderer->shaders.rect.pos);
 	for (int i = 0; i < count; i++) {
 		const pixman_box32_t *rect = &rects[i];
 		float x1 = (float)(rect->x1 - box->x) / box->width;
@@ -46,10 +46,10 @@ void wsm_gles2_render_pass_add_round_rect(struct wlr_render_pass *target,
 			x1, y1, x2, y1, x1, y2,
 			x2, y1, x2, y2, x1, y2,
 		};
-		glVertexAttribPointer(renderer->shaders.round_rect.pos, 2, GL_FLOAT, GL_FALSE, 0, vertices);
+		glVertexAttribPointer(renderer->shaders.rect.pos, 2, GL_FLOAT, GL_FALSE, 0, vertices);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
-	glDisableVertexAttribArray(renderer->shaders.round_rect.pos);
+	glDisableVertexAttribArray(renderer->shaders.rect.pos);
 	wsm_gles2_pop_debug(renderer);
 	pixman_region32_fini(&region);
 }

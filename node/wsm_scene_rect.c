@@ -1,10 +1,15 @@
 #include "node/wsm_scene_rect.h"
 #include "scene/wsm_scene.h"
+#include "scene/wsm_scene_output.h"
+#include "node/wsm_scene_tree.h"
+#include "pass/rect.h"
 
 #include <sched.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <math.h>
+#include <wlr/types/wlr_output.h>
 
 #include <wayland-server-core.h>
 #include <wayland-util.h>
@@ -18,6 +23,18 @@ static void scene_node_visibility(struct wsm_scene_node *node,
 	pixman_region32_t *visible);
 static void scene_node_get_size(struct wsm_scene_node *node,
 	int *width, int *height);
+
+static float clamp_radius(float radius, int width, int height) {
+	if (!isfinite(radius) || radius <= 0) {
+		return 0;
+	}
+	return fminf(radius, fminf(width, height) / 2.f);
+}
+
+static bool square_corners(const struct wsm_scene_rect *rect) {
+	return rect->top_left_radius == 0 && rect->top_right_radius == 0 &&
+		rect->bottom_left_radius == 0 && rect->bottom_right_radius == 0;
+}
 
 static void scene_node_destroy(struct wsm_scene_node *node) {
 	struct wsm_scene_rect *scene_rect = wsm_scene_rect_from_node(node);
@@ -97,18 +114,36 @@ static bool scene_nodes_in_box(struct wsm_scene_node *node, struct wlr_box *box,
 	return _scene_nodes_in_box(node, box, iterator, user_data, x, y);
 }
 
+static void solid_region(pixman_region32_t *region, const struct wlr_box *box,
+		const float radii[static 4]) {
+	pixman_region32_union_rect(region, region, box->x, box->y, box->width, box->height);
+	for (int corner = 0; corner < 4; corner++) {
+		if (radii[corner] == 0) {
+			continue;
+		}
+		/* Leave the corner and its antialiasing fringe to the rounded pass. */
+		int extent = (int)ceilf(radii[corner]) + 1;
+		int width = extent < box->width ? extent : box->width;
+		int height = extent < box->height ? extent : box->height;
+		pixman_region32_t cutout;
+		pixman_region32_init_rect(&cutout,
+			box->x + ((corner & 1) ? box->width - width : 0),
+			box->y + ((corner & 2) ? box->height - height : 0), width, height);
+		pixman_region32_subtract(region, region, &cutout);
+		pixman_region32_fini(&cutout);
+	}
+}
+
 static void scene_node_opaque_region(struct wsm_scene_node *node, int x, int y,
 		pixman_region32_t *opaque) {
-	int width, height;
-	scene_node_get_size(node, &width, &height);
-
-	struct wsm_scene_rect *scene_rect = wsm_scene_rect_from_node(node);
-	if (scene_rect->color[3] != 1) {
+	struct wsm_scene_rect *rect = wsm_scene_rect_from_node(node);
+	pixman_region32_clear(opaque);
+	if (rect->color[3] != 1.f) {
 		return;
 	}
-
-	pixman_region32_fini(opaque);
-	pixman_region32_init_rect(opaque, x, y, width, height);
+	const float radii[4] = { rect->top_left_radius, rect->top_right_radius,
+		rect->bottom_left_radius, rect->bottom_right_radius };
+	solid_region(opaque, &(struct wlr_box){x, y, rect->width, rect->height}, radii);
 }
 
 static void scale_region(pixman_region32_t *region, float scale, bool round_up) {
@@ -151,7 +186,7 @@ static bool construct_render_list_iterator(struct wsm_scene_node *node,
 		struct wsm_scene_rect *rect = wsm_scene_rect_from_node(node);
 		float *black = (float[4]){ 0.f, 0.f, 0.f, 1.f };
 
-		if (memcmp(rect->color, black, sizeof(float) * 4) == 0) {
+		if (square_corners(rect) && memcmp(rect->color, black, sizeof(float) * 4) == 0) {
 			return false;
 		}
 	}
@@ -231,26 +266,72 @@ static void scene_node_render(struct wsm_render_list_entry *entry, const struct 
 	scene_node_get_size(node, &dst_box.width, &dst_box.height);
 	transform_output_box(&dst_box, data);
 
-	pixman_region32_t opaque;
-	pixman_region32_init(&opaque);
-	scene_node_opaque_region(node, x, y, &opaque);
-	logical_to_buffer_coords(&opaque, data, false);
-	pixman_region32_subtract(&opaque, &render_region, &opaque);
+	struct wsm_scene_rect *rect = wsm_scene_rect_from_node(node);
+	if (square_corners(rect)) {
+		pixman_region32_t opaque;
+		pixman_region32_init(&opaque);
+		scene_node_opaque_region(node, x, y, &opaque);
+		logical_to_buffer_coords(&opaque, data, false);
+		pixman_region32_subtract(&opaque, &render_region, &opaque);
 
-	struct wsm_scene_rect *scene_rect = wsm_scene_rect_from_node(node);
+		wlr_render_pass_add_rect(data->render_pass, &(struct wlr_render_rect_options){
+			.box = dst_box,
+			.color = {
+				.r = rect->color[0],
+				.g = rect->color[1],
+				.b = rect->color[2],
+				.a = rect->color[3],
+			},
+			.clip = &render_region,
+		});
 
-	wlr_render_pass_add_rect(data->render_pass, &(struct wlr_render_rect_options){
-		.box = dst_box,
-		.color = {
-			.r = scene_rect->color[0],
-			.g = scene_rect->color[1],
-			.b = scene_rect->color[2],
-			.a = scene_rect->color[3],
-		},
-		.clip = &render_region,
-	});
-
-	pixman_region32_fini(&opaque);
+		pixman_region32_fini(&opaque);
+	} else {
+		float source_radii[4] = {
+			rect->top_left_radius, rect->top_right_radius,
+			rect->bottom_left_radius, rect->bottom_right_radius,
+		};
+		float radii[4] = { 0 };
+		for (int corner = 0; corner < 4; corner++) {
+			struct wlr_box point = {
+				.x = x + ((corner & 1) ? rect->width - 1 : 0),
+				.y = y + ((corner & 2) ? rect->height - 1 : 0),
+				.width = 1, .height = 1,
+			};
+			transform_output_box(&point, data);
+			int transformed_corner = (point.x >= dst_box.x + dst_box.width / 2) |
+				((point.y >= dst_box.y + dst_box.height / 2) << 1);
+			radii[transformed_corner] = clamp_radius(source_radii[corner] * data->scale,
+				dst_box.width, dst_box.height);
+		}
+		/* Draw the straight portions with full coverage, including on GLES.
+		 * Only the corner rectangles need the rounded shader and blending. */
+		pixman_region32_t solid;
+		pixman_region32_init(&solid);
+		solid_region(&solid, &dst_box, radii);
+		pixman_region32_intersect(&solid, &solid, &render_region);
+		wlr_render_pass_add_rect(data->render_pass, &(struct wlr_render_rect_options){
+			.box = dst_box,
+			.color = { rect->color[0], rect->color[1],
+				rect->color[2], rect->color[3] },
+			.clip = &solid,
+		});
+		pixman_region32_subtract(&render_region, &render_region, &solid);
+		pixman_region32_fini(&solid);
+		if (!pixman_region32_empty(&render_region)) {
+			wsm_render_pass_add_rect(data->render_pass,
+				&(struct wsm_render_rect_options){
+					.box = dst_box,
+					.color = {
+						.r = rect->color[0], .g = rect->color[1],
+						.b = rect->color[2], .a = rect->color[3],
+					},
+					.radii = { radii[0], radii[1], radii[2], radii[3] },
+					.corner_smoothness = 4.f,
+					.clip = &render_region,
+				});
+		}
+	}
 	pixman_region32_fini(&render_region);
 }
 
@@ -331,6 +412,10 @@ void wsm_scene_rect_set_size(struct wsm_scene_rect *rect, int width, int height)
 
 	rect->width = width;
 	rect->height = height;
+	rect->top_left_radius = clamp_radius(rect->top_left_radius, width, height);
+	rect->top_right_radius = clamp_radius(rect->top_right_radius, width, height);
+	rect->bottom_left_radius = clamp_radius(rect->bottom_left_radius, width, height);
+	rect->bottom_right_radius = clamp_radius(rect->bottom_right_radius, width, height);
 	wsm_scene_node_update(&rect->node, NULL);
 }
 
@@ -354,4 +439,128 @@ struct wsm_scene_rect *wsm_scene_rect_from_node(struct wsm_scene_node *node) {
 		wl_container_of(node, scene_rect, node);
 
 	return scene_rect;
+}
+
+static bool update_corner_visibility(struct wsm_scene_node *node,
+		int x, int y, void *user_data) {
+	struct wsm_scene_update_data *data = user_data;
+	int width, height;
+	wsm_scene_node_get_size(node, &width, &height);
+	pixman_region32_subtract(&node->visible, &node->visible, data->update_region);
+	pixman_region32_union(&node->visible, &node->visible, data->visible);
+	pixman_region32_intersect_rect(&node->visible, &node->visible, x, y, width, height);
+	if (data->calculate_visibility) {
+		pixman_region32_t opaque;
+		pixman_region32_init(&opaque);
+		wsm_scene_node_opaque_region(node, x, y, &opaque);
+		pixman_region32_subtract(data->visible, data->visible, &opaque);
+		pixman_region32_fini(&opaque);
+	}
+	wsm_scene_node_update_outputs(node, data->outputs, NULL, NULL);
+	return false;
+}
+
+static void damage_corner(struct wsm_scene_rect *rect,
+		float old_radius, float new_radius, bool right, bool bottom) {
+	int lx, ly;
+	if (rect->node.scene == NULL || !wsm_scene_node_coords(&rect->node, &lx, &ly)) {
+		return;
+	}
+
+	/* Include both shapes and a pixel of coverage for antialiasing. */
+	int extent = (int)ceilf(fmaxf(old_radius, new_radius)) + 2;
+	int width = extent < rect->width ? extent : rect->width;
+	int height = extent < rect->height ? extent : rect->height;
+	pixman_region32_t logical_damage;
+	pixman_region32_init_rect(&logical_damage,
+		lx + (right ? rect->width - width : 0),
+		ly + (bottom ? rect->height - height : 0), width, height);
+
+	/* A radius change also exposes or occludes the nodes underneath it. */
+	pixman_region32_t visible;
+	pixman_region32_init(&visible);
+	pixman_region32_copy(&visible, &logical_damage);
+	struct wsm_scene_update_data update = {
+		.visible = &visible,
+		.update_region = &logical_damage,
+		.outputs = &rect->node.scene->outputs,
+		.calculate_visibility = rect->node.scene->calculate_visibility,
+	};
+	const pixman_box32_t *box = pixman_region32_extents(&logical_damage);
+	struct wlr_box update_box = { box->x1, box->y1,
+		box->x2 - box->x1, box->y2 - box->y1 };
+	wsm_scene_node_nodes_in_box(&rect->node.scene->tree->node, &update_box,
+		update_corner_visibility, &update);
+	pixman_region32_fini(&visible);
+	pixman_region32_intersect(&logical_damage, &logical_damage, &rect->node.visible);
+
+	/* Convert this corner to each output's buffer coordinates. */
+	struct wsm_scene_output *scene_output;
+	wl_list_for_each(scene_output, &rect->node.scene->outputs, link) {
+		struct wlr_output *output = scene_output->output;
+		pixman_region32_t damage;
+		pixman_region32_init(&damage);
+		pixman_region32_copy(&damage, &logical_damage);
+		pixman_region32_translate(&damage, -scene_output->x, -scene_output->y);
+		scale_region(&damage, output->scale, true);
+		int transformed_width, transformed_height;
+		wlr_output_transformed_resolution(output, &transformed_width, &transformed_height);
+		wlr_region_transform(&damage, &damage,
+			wlr_output_transform_invert(output->transform),
+			transformed_width, transformed_height);
+		pixman_region32_intersect_rect(&damage, &damage,
+			0, 0, output->width, output->height);
+		if (!pixman_region32_empty(&damage)) {
+			wlr_output_schedule_frame(output);
+			wlr_damage_ring_add(&scene_output->damage_ring, &damage);
+			pixman_region32_union(&scene_output->pending_commit_damage,
+				&scene_output->pending_commit_damage, &damage);
+		}
+		pixman_region32_fini(&damage);
+	}
+	pixman_region32_fini(&logical_damage);
+}
+
+bool wsm_scene_rect_set_top_left_radius(struct wsm_scene_rect *rect, float radius) {
+	radius = clamp_radius(radius, rect->width, rect->height);
+	if (rect->top_left_radius == radius) {
+		return false;
+	}
+	float old_radius = rect->top_left_radius;
+	rect->top_left_radius = radius;
+	damage_corner(rect, old_radius, radius, false, false);
+	return true;
+}
+
+bool wsm_scene_rect_set_top_right_radius(struct wsm_scene_rect *rect, float radius) {
+	radius = clamp_radius(radius, rect->width, rect->height);
+	if (rect->top_right_radius == radius) {
+		return false;
+	}
+	float old_radius = rect->top_right_radius;
+	rect->top_right_radius = radius;
+	damage_corner(rect, old_radius, radius, true, false);
+	return true;
+}
+
+bool wsm_scene_rect_set_bottom_left_radius(struct wsm_scene_rect *rect, float radius) {
+	radius = clamp_radius(radius, rect->width, rect->height);
+	if (rect->bottom_left_radius == radius) {
+		return false;
+	}
+	float old_radius = rect->bottom_left_radius;
+	rect->bottom_left_radius = radius;
+	damage_corner(rect, old_radius, radius, false, true);
+	return true;
+}
+
+bool wsm_scene_rect_set_bottom_right_radius(struct wsm_scene_rect *rect, float radius) {
+	radius = clamp_radius(radius, rect->width, rect->height);
+	if (rect->bottom_right_radius == radius) {
+		return false;
+	}
+	float old_radius = rect->bottom_right_radius;
+	rect->bottom_right_radius = radius;
+	damage_corner(rect, old_radius, radius, true, true);
+	return true;
 }

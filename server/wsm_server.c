@@ -8,7 +8,6 @@
 #include "node/wsm_scene_buffer.h"
 #include "node/wsm_scene_tree.h"
 #include "node/wsm_scene_rect.h"
-#include "node/wsm_scene_round_rect.h"
 #include "node/wsm_scene_border.h"
 #include "node/wsm_scene_shadow.h"
 #include "node/wsm_scene_blur.h"
@@ -94,13 +93,13 @@ struct tinywl_output {
 	struct tinywl_server *server;
 	struct wlr_output *wlr_output;
 	struct wsm_scene_rect *background_demo;
-	struct wsm_scene_round_rect *round_rect_demo;
+	struct wsm_scene_rect *rect_demo;
 	struct wsm_scene_border *round_border_demo;
 	struct wsm_scene_shadow *shadow_demo;
 	struct wsm_scene_shadow_cache *shadow_cache;
 	float shadow_cache_radii[4];
-	int round_rect_phase;
-	int round_rect_direction;
+	int rect_phase;
+	int rect_direction;
 	struct wl_listener frame;
 	struct wl_listener request_state;
 	struct wl_listener destroy;
@@ -654,8 +653,8 @@ static void update_blur_demo(struct tinywl_server *server) {
 	raise_blur_demo(server);
 }
 
-static void update_round_rect_demo(struct tinywl_output *output) {
-	struct wsm_scene_round_rect *rect = output->round_rect_demo;
+static void update_rect_demo(struct tinywl_output *output) {
+	struct wsm_scene_rect *rect = output->rect_demo;
 	struct wsm_scene_border *border = output->round_border_demo;
 	const int border_width = 2;
 	struct wlr_box output_box;
@@ -682,27 +681,27 @@ static void update_round_rect_demo(struct tinywl_output *output) {
 	}
 	int x = output_box.x + (output_box.width - width) / 2;
 	int y = output_box.y + (output_box.height - height) / 2;
-	wsm_scene_round_rect_set_size(rect, width, height);
+	wsm_scene_rect_set_size(rect, width, height);
 	wsm_scene_node_set_position(&rect->node, x, y);
 
 	/* One trip from 0 to 64 and back takes 128 committed frames. */
-	output->round_rect_phase += output->round_rect_direction;
-	if (output->round_rect_phase >= 64) {
-		output->round_rect_phase = 64;
-		output->round_rect_direction = -1;
-	} else if (output->round_rect_phase <= 0) {
-		output->round_rect_phase = 0;
-		output->round_rect_direction = 1;
+	output->rect_phase += output->rect_direction;
+	if (output->rect_phase >= 64) {
+		output->rect_phase = 64;
+		output->rect_direction = -1;
+	} else if (output->rect_phase <= 0) {
+		output->rect_phase = 0;
+		output->rect_direction = 1;
 	}
-	float phase = output->round_rect_phase;
+	float phase = output->rect_phase;
 	float top_left = phase * .25f;
 	float top_right = phase * .5f;
 	float bottom_left = phase * .75f;
 	float bottom_right = phase;
-	wsm_scene_round_rect_set_top_left_radius(rect, top_left);
-	wsm_scene_round_rect_set_top_right_radius(rect, top_right);
-	wsm_scene_round_rect_set_bottom_left_radius(rect, bottom_left);
-	wsm_scene_round_rect_set_bottom_right_radius(rect, bottom_right);
+	wsm_scene_rect_set_top_left_radius(rect, top_left);
+	wsm_scene_rect_set_top_right_radius(rect, top_right);
+	wsm_scene_rect_set_bottom_left_radius(rect, bottom_left);
+	wsm_scene_rect_set_bottom_right_radius(rect, bottom_right);
 	if (border != NULL) {
 		/* The border is drawn inward, so its inner edge follows the rect. */
 		wsm_scene_border_set_size(border,
@@ -760,7 +759,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 
 	struct wsm_scene_output *scene_output = wsm_scene_get_scene_output(
 		scene, output->wlr_output);
-	update_round_rect_demo(output);
+	update_rect_demo(output);
 	update_blur_demo(output->server);
 
 	/* The compositor prepares blur source/output damage before scene commit,
@@ -775,7 +774,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	wsm_scene_output_send_frame_done(scene_output, &now);
-	if (output->round_rect_demo != NULL) {
+	if (output->rect_demo != NULL) {
 		wlr_output_schedule_frame(output->wlr_output);
 	}
 
@@ -796,8 +795,8 @@ static void output_destroy(struct wl_listener *listener, void *data) {
 	wsm_scene_shadow_cache_unref(output->shadow_cache);
 	wsm_scene_node_destroy(output->round_border_demo ?
 		&output->round_border_demo->node : NULL);
-	wsm_scene_node_destroy(output->round_rect_demo ?
-		&output->round_rect_demo->node : NULL);
+	wsm_scene_node_destroy(output->rect_demo ?
+		&output->rect_demo->node : NULL);
 	wsm_scene_node_destroy(output->background_demo ?
 		&output->background_demo->node : NULL);
 
@@ -843,7 +842,7 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = calloc(1, sizeof(*output));
 	output->wlr_output = wlr_output;
 	output->server = server;
-	output->round_rect_direction = 1;
+	output->rect_direction = 1;
 
 	/* Sets up a listener for the frame event. */
 	output->frame.notify = output_frame;
@@ -895,27 +894,27 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 
 	/* Animated rounded rectangle and border, behind application surfaces. */
 	const float color[4] = { .12f, .72f, .95f, 1.f };
-	output->round_rect_demo = wsm_scene_round_rect_create(server->scene->tree,
-		0, 0, 0, 0, 0, 0, color);
-	if (output->round_rect_demo != NULL) {
+	output->rect_demo = wsm_scene_rect_create(server->scene->tree,
+		0, 0, color);
+	if (output->rect_demo != NULL) {
 		if (output->shadow_demo != NULL) {
-			wsm_scene_node_place_above(&output->round_rect_demo->node,
+			wsm_scene_node_place_above(&output->rect_demo->node,
 				&output->shadow_demo->node);
 		} else if (output->background_demo != NULL) {
-			wsm_scene_node_place_above(&output->round_rect_demo->node,
+			wsm_scene_node_place_above(&output->rect_demo->node,
 				&output->background_demo->node);
 		} else {
-			wsm_scene_node_lower_to_bottom(&output->round_rect_demo->node);
+			wsm_scene_node_lower_to_bottom(&output->rect_demo->node);
 		}
 		const float border_color[4] = { .12f, .10f, .20f, 1.f };
 		output->round_border_demo = wsm_scene_border_create(server->scene->tree,
 			0, 0, 0, 0, 0, 0, 2.f, border_color);
 		if (output->round_border_demo != NULL) {
 			wsm_scene_node_place_above(&output->round_border_demo->node,
-				&output->round_rect_demo->node);
+				&output->rect_demo->node);
 		}
 	}
-	update_round_rect_demo(output);
+	update_rect_demo(output);
 	update_blur_demo(server);
 }
 

@@ -10,8 +10,8 @@
 #include "pass/gles/pass.h"
 #include "common_vert_src.h"
 #include "quad_frag_src.h"
-#include "round_rect_vert_src.h"
-#include "round_rect_frag_src.h"
+#include "rect_vert_src.h"
+#include "rect_frag_src.h"
 #include "round_border_frag_src.h"
 #include "shadow_cache_vert_src.h"
 #include "shadow_cache_frag_src.h"
@@ -56,7 +56,7 @@ static void gles2_destroy(struct wlr_renderer *wlr_renderer) {
 
 	wsm_gles2_push_debug(renderer);
 	glDeleteProgram(renderer->shaders.quad.program);
-	glDeleteProgram(renderer->shaders.round_rect.program);
+	glDeleteProgram(renderer->shaders.rect.program);
 	glDeleteProgram(renderer->shaders.round_border.program);
 	glDeleteProgram(renderer->shaders.shadow_cache.program);
 	glDeleteProgram(renderer->shaders.tex_rgba.program);
@@ -376,27 +376,27 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 	renderer->shaders.quad.proj = glGetUniformLocation(prog, "proj");
 	renderer->shaders.quad.color = glGetUniformLocation(prog, "color");
 	renderer->shaders.quad.pos_attrib = glGetAttribLocation(prog, "pos");
-	renderer->shaders.round_rect.program = prog =
-		wsm_gles2_link_program(renderer, round_rect_vert_src, round_rect_frag_src);
+	renderer->shaders.rect.program = prog =
+		wsm_gles2_link_program(renderer, rect_vert_src, rect_frag_src);
 	if (!prog) {
 		goto error;
 	}
-	renderer->shaders.round_rect.proj = glGetUniformLocation(prog, "proj");
-	renderer->shaders.round_rect.pos = glGetAttribLocation(prog, "pos");
-	renderer->shaders.round_rect.color = glGetUniformLocation(prog, "color");
-	renderer->shaders.round_rect.radius = glGetUniformLocation(prog, "radius");
-	renderer->shaders.round_rect.size = glGetUniformLocation(prog, "size");
-	renderer->shaders.round_rect.smoothness = glGetUniformLocation(prog, "corner_smoothness");
-	if (renderer->shaders.round_rect.proj < 0 || renderer->shaders.round_rect.pos < 0 ||
-			renderer->shaders.round_rect.color < 0 ||
-			renderer->shaders.round_rect.radius < 0 ||
-			renderer->shaders.round_rect.size < 0 ||
-			renderer->shaders.round_rect.smoothness < 0) {
+	renderer->shaders.rect.proj = glGetUniformLocation(prog, "proj");
+	renderer->shaders.rect.pos = glGetAttribLocation(prog, "pos");
+	renderer->shaders.rect.color = glGetUniformLocation(prog, "color");
+	renderer->shaders.rect.radius = glGetUniformLocation(prog, "radius");
+	renderer->shaders.rect.size = glGetUniformLocation(prog, "size");
+	renderer->shaders.rect.smoothness = glGetUniformLocation(prog, "corner_smoothness");
+	if (renderer->shaders.rect.proj < 0 || renderer->shaders.rect.pos < 0 ||
+			renderer->shaders.rect.color < 0 ||
+			renderer->shaders.rect.radius < 0 ||
+			renderer->shaders.rect.size < 0 ||
+			renderer->shaders.rect.smoothness < 0) {
 		wsm_log(WSM_ERROR, "Failed to locate round rectangle shader inputs");
 		goto error;
 	}
 	renderer->shaders.round_border.program = prog =
-		wsm_gles2_link_program(renderer, round_rect_vert_src, round_border_frag_src);
+		wsm_gles2_link_program(renderer, rect_vert_src, round_border_frag_src);
 	if (!prog) {
 		goto error;
 	}
@@ -491,7 +491,7 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 
 error:
 	glDeleteProgram(renderer->shaders.quad.program);
-	glDeleteProgram(renderer->shaders.round_rect.program);
+	glDeleteProgram(renderer->shaders.rect.program);
 	glDeleteProgram(renderer->shaders.round_border.program);
 	glDeleteProgram(renderer->shaders.shadow_cache.program);
 	glDeleteProgram(renderer->shaders.tex_rgba.program);

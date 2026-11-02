@@ -1,4 +1,4 @@
-#include "pass/pixman/round_rect.h"
+#include "pass/pixman/rect.h"
 
 #include <math.h>
 #include <wlr/render/interface.h>
@@ -35,7 +35,7 @@ static float corner_coverage(int x, int y, int width, int height, float radius, 
 	return inside / 16.f;
 }
 
-static void render_round_rect(struct wlr_render_pass *pass,
+static void render_rect(struct wlr_render_pass *pass,
 		const pixman_region32_t *clip, const struct wlr_box *box,
 		const float color[static 4], const float radii[static 4], float exponent) {
 	if (box->width <= 0 || box->height <= 0) {
@@ -102,12 +102,12 @@ static void render_round_rect(struct wlr_render_pass *pass,
 	}
 }
 
-void wsm_pixman_render_pass_add_round_rect(struct wlr_render_pass *pass,
-		const struct wsm_render_round_rect_options *options) {
+void wsm_pixman_render_pass_add_rect(struct wlr_render_pass *pass,
+		const struct wsm_render_rect_options *options) {
 	const float color[4] = {
 		options->color.r, options->color.g, options->color.b, options->color.a,
 	};
 	float exponent = options->corner_smoothness > 0 ?
 		fmaxf(1.f, options->corner_smoothness) : 4.f;
-	render_round_rect(pass, options->clip, &options->box, color, options->radii, exponent);
+	render_rect(pass, options->clip, &options->box, color, options->radii, exponent);
 }
