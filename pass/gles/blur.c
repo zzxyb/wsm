@@ -1,4 +1,5 @@
 #include "pass/gles/blur.h"
+#include "pass/texture.h"
 #include "blur_quad_vert_src.h"
 #include "round_tex_vert_src.h"
 #include "blur_down_rgba_frag_src.h"
@@ -21,16 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_CORNER_SMOOTHNESS 4.0f
 #define DEFAULT_ITERATIONS 4
 #define DEFAULT_OFFSET 1.8f
-
-static float clamp_corner_smoothness(float smoothness) {
-	if (smoothness <= 0.f) {
-		return DEFAULT_CORNER_SMOOTHNESS;
-	}
-	return smoothness < 1.f ? 1.f : smoothness;
-}
 
 static int clamp_iterations(int iterations, int width, int height) {
 	if (iterations <= 0) {
@@ -70,44 +63,6 @@ static void render_unit_quad(GLint attrib) {
 	glVertexAttribPointer(attrib, 2, GL_FLOAT, GL_FALSE, 0, verts);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glDisableVertexAttribArray(attrib);
-}
-
-static void render_region(const struct wlr_box *box, const pixman_region32_t *clip, GLint attrib) {
-	pixman_region32_t region;
-	pixman_region32_init_rect(&region, box->x, box->y, box->width, box->height);
-	if (clip) {
-		pixman_region32_intersect(&region, &region, clip);
-	}
-
-	int rects_len;
-	const pixman_box32_t *rects = pixman_region32_rectangles(&region, &rects_len);
-	if (rects_len == 0) {
-		pixman_region32_fini(&region);
-		return;
-	}
-
-	glEnableVertexAttribArray(attrib);
-	for (int i = 0; i < rects_len; i++) {
-		const pixman_box32_t *rect = &rects[i];
-		const GLfloat verts[] = {
-			(GLfloat)(rect->x1 - box->x) / box->width,
-			(GLfloat)(rect->y1 - box->y) / box->height,
-			(GLfloat)(rect->x2 - box->x) / box->width,
-			(GLfloat)(rect->y1 - box->y) / box->height,
-			(GLfloat)(rect->x1 - box->x) / box->width,
-			(GLfloat)(rect->y2 - box->y) / box->height,
-			(GLfloat)(rect->x2 - box->x) / box->width,
-			(GLfloat)(rect->y1 - box->y) / box->height,
-			(GLfloat)(rect->x2 - box->x) / box->width,
-			(GLfloat)(rect->y2 - box->y) / box->height,
-			(GLfloat)(rect->x1 - box->x) / box->width,
-			(GLfloat)(rect->y2 - box->y) / box->height,
-		};
-		glVertexAttribPointer(attrib, 2, GL_FLOAT, GL_FALSE, 0, verts);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-	}
-	glDisableVertexAttribArray(attrib);
-	pixman_region32_fini(&region);
 }
 
 static void set_tex_matrix(GLint loc, enum wl_output_transform trans, const struct wlr_fbox *box) {
@@ -214,6 +169,7 @@ static void blur_pass_destroy(struct wsm_render_blur_buffer_pass *pass) {
 	destroy_shader(gles2_pass->down.ext.program);
 	destroy_shader(gles2_pass->up.program);
 	destroy_shader(gles2_pass->round.program);
+	wlr_texture_destroy(gles2_pass->filtered ? &gles2_pass->filtered->base : NULL);
 	for (size_t i = 0; i < sizeof(gles2_pass->levels) / sizeof(gles2_pass->levels[0]); i++) {
 		destroy_level(&gles2_pass->levels[i]);
 	}
@@ -229,10 +185,6 @@ static void get_src_box(
 		return;
 	}
 	*box = options->src_box;
-}
-
-static float get_alpha(const struct wsm_render_blur_buffer_options *options) {
-	return options->alpha == NULL ? 1.f : *options->alpha;
 }
 
 static void setup_blending(enum wlr_render_blend_mode mode) {
@@ -278,9 +230,8 @@ static void render_up(struct wsm_gles_blur_up_shader *shader, struct wsm_gles_bl
 	render_unit_quad(shader->pos);
 }
 
-static void render_final(struct wsm_gles2_render_pass *target,
-	struct wsm_gles_blur_round_shader *shader, struct wsm_gles_blur_texture *src,
-	const struct wsm_render_blur_buffer_options *options, const pixman_region32_t *region) {
+static void render_final(struct wsm_gles_blur_round_shader *shader,
+	struct wsm_gles_blur_texture *src, const struct wsm_render_blur_buffer_options *options) {
 	float width = options->dst_box.width + 2 * options->padding;
 	float height = options->dst_box.height + 2 * options->padding;
 	struct wlr_fbox src_box = {.x = options->padding / width,
@@ -291,24 +242,19 @@ static void render_final(struct wsm_gles2_render_pass *target,
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, src->tex);
 	glUniform1i(shader->tex, 0);
-	glUniform1f(shader->alpha, get_alpha(options));
 	float projection[9];
 	wlr_matrix_identity(projection);
-	wlr_matrix_translate(projection, options->dst_box.x, options->dst_box.y);
-	wlr_matrix_scale(projection, options->dst_box.width, options->dst_box.height);
-	wlr_matrix_multiply(projection, target->projection_matrix, projection);
+	wlr_matrix_translate(projection, -1, -1);
+	wlr_matrix_scale(projection, 2, 2);
 	glUniformMatrix3fv(shader->proj, 1, GL_FALSE, projection);
 	set_tex_matrix(shader->tex_proj, WL_OUTPUT_TRANSFORM_NORMAL, &src_box);
-	glUniform4f(shader->radius, options->top_left_radius, options->top_right_radius,
-		options->bottom_left_radius, options->bottom_right_radius);
 	glUniform2f(shader->size, (float)options->dst_box.width, (float)options->dst_box.height);
-	glUniform1f(shader->corner_smoothness, clamp_corner_smoothness(options->corner_smoothness));
 	glUniform1f(shader->saturation, option_or_default(options->saturation, 1.35f));
 	glUniform1f(shader->brightness, option_or_default(options->brightness, 1.06f));
 	glUniform1f(shader->noise_amount, options->noise_amount);
 	glUniform1f(shader->material_contrast, options->material_contrast);
 	glUniform4fv(shader->tint, 1, options->tint);
-	render_region(&options->dst_box, region, shader->pos);
+	render_unit_quad(shader->pos);
 }
 
 static void blur_pass_render(struct wlr_render_pass *target,
@@ -394,11 +340,46 @@ static void blur_pass_render(struct wlr_render_pass *target,
 		render_up(&blur_pass->up, &blur_pass->levels[i], &blur_pass->levels[i - 1], offset);
 	}
 
+	if (blur_pass->filtered &&
+		(blur_pass->filtered->base.width != (uint32_t)options->dst_box.width ||
+		 blur_pass->filtered->base.height != (uint32_t)options->dst_box.height)) {
+		wlr_texture_destroy(&blur_pass->filtered->base);
+		blur_pass->filtered = NULL;
+	}
+	if (!blur_pass->filtered) {
+		blur_pass->filtered = wsm_gles2_texture_create_render_target(
+			pass->renderer, options->dst_box.width, options->dst_box.height);
+		if (!blur_pass->filtered) {
+			goto out;
+		}
+		glGenFramebuffers(1, &blur_pass->filtered->fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, blur_pass->filtered->fbo);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+			GL_TEXTURE_2D, blur_pass->filtered->tex, 0);
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			wlr_texture_destroy(&blur_pass->filtered->base);
+			blur_pass->filtered = NULL;
+			goto out;
+		}
+	}
+	/* Appearance is applied before the shared texture pass clips the corners. */
+	glBindFramebuffer(GL_FRAMEBUFFER, blur_pass->filtered->fbo);
+	glViewport(0, 0, options->dst_box.width, options->dst_box.height);
+	render_final(&blur_pass->round, &blur_pass->levels[0], options);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, target_fbo);
 	glViewport(0, 0, gles_target->buffer->base->width, gles_target->buffer->base->height);
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-	setup_blending(options->blend_mode);
-	render_final(gles_target, &blur_pass->round, &blur_pass->levels[0], options, &region);
+	float radii[4] = {options->top_left_radius, options->top_right_radius,
+		options->bottom_left_radius, options->bottom_right_radius};
+	wsm_render_pass_add_texture(target, &(struct wlr_render_texture_options){
+		.texture = &blur_pass->filtered->base,
+		.dst_box = options->dst_box,
+		.alpha = options->alpha,
+		.clip = &region,
+		.filter_mode = WLR_SCALE_FILTER_NEAREST,
+		.blend_mode = options->blend_mode,
+	}, radii);
 
 out:
 	glViewport(0, 0, gles_target->buffer->base->width, gles_target->buffer->base->height);
@@ -539,19 +520,16 @@ static bool init_round_shader(
 	shader->proj = glGetUniformLocation(prog, "proj");
 	shader->tex_proj = glGetUniformLocation(prog, "tex_proj");
 	shader->tex = glGetUniformLocation(prog, "tex");
-	shader->alpha = glGetUniformLocation(prog, "alpha");
 	shader->pos = glGetAttribLocation(prog, "pos");
-	shader->radius = glGetUniformLocation(prog, "radius");
 	shader->size = glGetUniformLocation(prog, "size");
-	shader->corner_smoothness = glGetUniformLocation(prog, "corner_smoothness");
 	shader->saturation = glGetUniformLocation(prog, "saturation");
 	shader->brightness = glGetUniformLocation(prog, "brightness");
 	shader->noise_amount = glGetUniformLocation(prog, "noise_amount");
 	shader->material_contrast = glGetUniformLocation(prog, "material_contrast");
 	shader->tint = glGetUniformLocation(prog, "tint");
-	return shader->proj >= 0 && shader->tex_proj >= 0 && shader->tex >= 0 && shader->alpha >= 0 &&
-		   shader->pos >= 0 && shader->radius >= 0 && shader->size >= 0 &&
-		   shader->corner_smoothness >= 0 && shader->saturation >= 0 && shader->brightness >= 0 &&
+	return shader->proj >= 0 && shader->tex_proj >= 0 && shader->tex >= 0 &&
+		   shader->pos >= 0 && shader->size >= 0 &&
+		   shader->saturation >= 0 && shader->brightness >= 0 &&
 		   shader->noise_amount >= 0 && shader->material_contrast >= 0 && shader->tint >= 0;
 }
 

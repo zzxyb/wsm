@@ -138,7 +138,7 @@ struct tinywl_keyboard {
 
 static void raise_blur_demo(struct tinywl_server *server) {
 	if (server->blur_demo != NULL) {
-		wsm_scene_node_raise_to_top(&server->blur_demo->buffer.node);
+		wsm_scene_node_raise_to_top(&server->blur_demo->node);
 	}
 }
 
@@ -622,8 +622,9 @@ static void create_blur_demo(struct tinywl_server *server) {
 	server->blur_pass_destroy.notify = demo_blur_pass_destroyed;
 	wl_signal_add(&server->blur_pass->events.destroy, &server->blur_pass_destroy);
 	server->blur_demo = wsm_scene_blur_create(server->scene->tree,
-		0, 0, 24, 24, 24, 24);
+		0, 0);
 	if (server->blur_demo != NULL) {
+		wsm_scene_blur_set_corner_radius(server->blur_demo, 24, 24, 24, 24);
 		wsm_scene_blur_set_pass(server->blur_demo, server->blur_pass);
 		wsm_scene_blur_set_blur(server->blur_demo, 2, 1.8f);
 		const float tint[4] = {0, 0, 0, 0};
@@ -648,7 +649,7 @@ static void update_blur_demo(struct tinywl_server *server) {
 		height = 320;
 	}
 	wsm_scene_blur_set_size(server->blur_demo, width, height);
-	wsm_scene_node_set_position(&server->blur_demo->buffer.node,
+	wsm_scene_node_set_position(&server->blur_demo->node,
 		box.x + (box.width - width) / 2, box.y + (box.height - height) / 2);
 	raise_blur_demo(server);
 }

@@ -43,18 +43,15 @@ struct wsm_gles_blur_up_shader {
 };
 
 /**
- * @brief Final composition shader with rounded clipping and appearance controls.
+ * @brief Appearance shader for the filtered texture.
  */
 struct wsm_gles_blur_round_shader {
 	GLuint program; /**< Linked shader program. */
 	GLint proj; /**< Destination projection uniform location. */
 	GLint tex_proj; /**< Source texture projection uniform location. */
 	GLint tex; /**< Source texture sampler uniform location. */
-	GLint alpha; /**< Opacity uniform location. */
 	GLint pos; /**< Vertex position attribute location. */
-	GLint radius; /**< Four corner radii uniform location. */
 	GLint size; /**< Destination size uniform location. */
-	GLint corner_smoothness; /**< Rounded corner exponent uniform location. */
 	GLint saturation; /**< Saturation multiplier uniform location. */
 	GLint brightness; /**< Brightness multiplier uniform location. */
 	GLint noise_amount; /**< Noise amplitude uniform location. */
@@ -83,7 +80,8 @@ struct wsm_gles_render_blur_buffer_pass {
 		struct wsm_gles_blur_down_shader ext; /**< Optional downsampling shader for external textures. */
 	} down; /**< Source-specific downsampling shaders. */
 	struct wsm_gles_blur_up_shader up; /**< Upsampling shader. */
-	struct wsm_gles_blur_round_shader round; /**< Rounded final composition shader. */
+	struct wsm_gles_blur_round_shader round; /**< Filtered texture appearance shader. */
+	struct wsm_gles2_texture *filtered; /**< Reusable texture for final rounded composition. */
 	struct wsm_gles_blur_texture levels[WSM_BLUR_BUFFER_MAX_PASSES + 1]; /**< Sampling texture levels. */
 };
 

@@ -499,7 +499,9 @@ static enum scene_direct_scanout_result scene_entry_try_direct_scanout(
 	}
 
 	struct wsm_scene_buffer *buffer = wsm_scene_buffer_from_node(node);
-	if (buffer->buffer == NULL) {
+	if (buffer->buffer == NULL || buffer->top_left_radius > 0 ||
+		buffer->top_right_radius > 0 || buffer->bottom_left_radius > 0 ||
+		buffer->bottom_right_radius > 0) {
 		return SCANOUT_INELIGIBLE;
 	}
 

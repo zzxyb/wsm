@@ -1,4 +1,7 @@
 wsm_sources += files(
+	'texture.c',
+	'gles/texture.c',
+	'pixman/texture.c',
 	'blur.c',
 	'gles/blur.c',
 	'pixman/blur.c',

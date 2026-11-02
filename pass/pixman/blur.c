@@ -1,5 +1,6 @@
 #include "pass/pixman/blur.h"
 #include "pass/pixman/pass.h"
+#include "pass/texture.h"
 #include "texture/pixman/texture.h"
 #include "util/wsm_matrix.h"
 #include <math.h>
@@ -88,7 +89,8 @@ static void render(struct wlr_render_pass *target, struct wsm_render_blur_buffer
 	struct wsm_pixman_render_pass *p = wsm_pixman_render_pass_from_render_pass(target);
 	struct wsm_pixman_texture *texture = wsm_pixman_texture_from_texture(o->texture);
 	struct level source = {0}, levels[WSM_BLUR_BUFFER_MAX_PASSES + 1] = {0}, result = {0};
-	pixman_image_t *copy = NULL, *image = NULL;
+	pixman_image_t *copy = NULL;
+	struct wsm_pixman_texture *filtered = NULL;
 	bool mapped = false;
 	if (!allocate(&source, o->texture->width, o->texture->height)) {
 		goto done;
@@ -157,7 +159,6 @@ static void render(struct wlr_render_pass *target, struct wsm_render_blur_buffer
 	}
 	float radii[4] = {
 		o->top_left_radius, o->top_right_radius, o->bottom_left_radius, o->bottom_right_radius};
-	float exponent = o->corner_smoothness > 0 ? fmaxf(1, o->corner_smoothness) : 4;
 	for (int y = 0; y < result.height; y++) {
 		for (int x = 0; x < result.width; x++) {
 			float color[4];
@@ -178,35 +179,32 @@ static void render(struct wlr_render_pass *target, struct wsm_render_blur_buffer
 			float contrast = smooth(.5f, .95f, luma) - (1 - smooth(.05f, .5f, luma));
 			float noise = sinf(x * 12.9898f + y * 78.233f) * 43758.5453f;
 			noise = (noise - floorf(noise) - .5f) * o->noise_amount;
-			float px = x + .5f - result.width * .5f, py = y + .5f - result.height * .5f;
-			float r = fminf(fmaxf(0, radii[(px >= 0) + 2 * (py >= 0)]),
-				fminf(result.width, result.height) * .5f);
-			float qx = fabsf(px) - result.width * .5f + r, qy = fabsf(py) - result.height * .5f + r;
-			float dist =
-				powf(powf(fmaxf(qx, 0), exponent) + powf(fmaxf(qy, 0), exponent), 1 / exponent) -
-				r + fminf(fmaxf(qx, qy), 0);
-			float alpha = (1 - smooth(-1, 1, dist)) * (o->alpha ? *o->alpha : 1);
 			for (int c = 0; c < 3; c++) {
 				color[c] =
 					fminf(color[3], fmaxf(0, color[c] - contrast * o->material_contrast * color[3] +
 												 noise * color[3]));
 			}
-			for (int c = 0; c < 4; c++) {
-				color[c] *= alpha;
-			}
 			result.pixels[y * result.width + x] = pack(color);
 		}
 	}
-	image = pixman_image_create_bits(
-		PIXMAN_a8r8g8b8, result.width, result.height, result.pixels, result.width * 4);
-	if (!image) {
+	filtered = wsm_pixman_texture_create(
+		p->buffer->renderer, DRM_FORMAT_ARGB8888, result.width, result.height);
+	if (!filtered) {
 		goto done;
 	}
-	pixman_image_set_clip_region32(p->buffer->image, o->clip);
-	pixman_image_composite32(
-		o->blend_mode == WLR_RENDER_BLEND_MODE_NONE ? PIXMAN_OP_SRC : PIXMAN_OP_OVER, image, NULL,
-		p->buffer->image, 0, 0, 0, 0, o->dst_box.x, o->dst_box.y, result.width, result.height);
-	pixman_image_set_clip_region32(p->buffer->image, NULL);
+	filtered->image = pixman_image_create_bits(
+		PIXMAN_a8r8g8b8, result.width, result.height, result.pixels, result.width * 4);
+	if (!filtered->image) {
+		goto done;
+	}
+	wsm_render_pass_add_texture(target, &(struct wlr_render_texture_options){
+		.texture = &filtered->base,
+		.dst_box = o->dst_box,
+		.alpha = o->alpha,
+		.clip = o->clip,
+		.filter_mode = WLR_SCALE_FILTER_NEAREST,
+		.blend_mode = o->blend_mode,
+	}, radii);
 done:
 	if (mapped) {
 		wlr_buffer_end_data_ptr_access(texture->buffer);
@@ -214,8 +212,8 @@ done:
 	if (copy) {
 		pixman_image_unref(copy);
 	}
-	if (image) {
-		pixman_image_unref(image);
+	if (filtered) {
+		wlr_texture_destroy(&filtered->base);
 	}
 	free(source.pixels);
 	free(result.pixels);

@@ -72,6 +72,8 @@ struct wsm_scene_buffer {
 	struct wsm_scene_output *primary_output; /**< Output showing the largest buffer area. */
 
 	float opacity; /**< Buffer opacity. */
+	float top_left_radius, top_right_radius; /**< Top corner radii in logical pixels. */
+	float bottom_left_radius, bottom_right_radius; /**< Bottom corner radii in logical pixels. */
 	enum wlr_scale_filter_mode filter_mode; /**< Scaling filter. */
 	struct wlr_fbox src_box; /**< Source rectangle. */
 	int dst_width, dst_height; /**< Destination dimensions. */
@@ -268,5 +270,27 @@ void wsm_scene_buffer_set_color_range(struct wsm_scene_buffer *scene_buffer,
  */
 void wsm_scene_node_for_each_buffer(struct wsm_scene_node *node,
 	wsm_scene_buffer_iterator_func_t iterator, void *user_data);
+
+/**
+ * @brief Changes rounded clipping of the buffer's destination rectangle.
+ * @details Radii are clamped to half the smaller destination dimension at draw time.
+ *          Zero radii preserve the normal texture path. Changes damage the whole node.
+ * @param buffer Buffer node to update.
+ * @param top_left Finite, nonnegative top-left radius in logical pixels.
+ * @param top_right Finite, nonnegative top-right radius in logical pixels.
+ * @param bottom_left Finite, nonnegative bottom-left radius in logical pixels.
+ * @param bottom_right Finite, nonnegative bottom-right radius in logical pixels.
+ */
+void wsm_scene_buffer_set_corner_radius(struct wsm_scene_buffer *buffer,
+	float top_left, float top_right, float bottom_left, float bottom_right);
+
+/**
+ * @brief Converts logical buffer corner radii to output-buffer coordinates.
+ * @param buffer Buffer whose destination shape is being drawn.
+ * @param data Current output rendering state.
+ * @param radii Destination array in top-left, top-right, bottom-left, bottom-right order.
+ */
+void wsm_scene_buffer_get_corner_radii(struct wsm_scene_buffer *buffer,
+	const struct wsm_render_data *data, float radii[static 4]);
 
 #endif // SCENE_WSM_SCENE_BUFFER_H

@@ -18,6 +18,10 @@
 #include "tex_rgba_frag_src.h"
 #include "tex_rgbx_frag_src.h"
 #include "tex_external_frag_src.h"
+#include "round_tex_vert_src.h"
+#include "buffer_rgba_frag_src.h"
+#include "buffer_rgbx_frag_src.h"
+#include "buffer_external_frag_src.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -62,6 +66,9 @@ static void gles2_destroy(struct wlr_renderer *wlr_renderer) {
 	glDeleteProgram(renderer->shaders.tex_rgba.program);
 	glDeleteProgram(renderer->shaders.tex_rgbx.program);
 	glDeleteProgram(renderer->shaders.tex_ext.program);
+	glDeleteProgram(renderer->shaders.buffer_rgba.texture.program);
+	glDeleteProgram(renderer->shaders.buffer_rgbx.texture.program);
+	glDeleteProgram(renderer->shaders.buffer_ext.texture.program);
 	wsm_gles2_pop_debug(renderer);
 
 	if (renderer->exts.KHR_debug) {
@@ -226,6 +233,25 @@ static void load_gl_proc(void *proc_ptr, const char *name) {
 static void gles2_log(GLenum src, GLenum type, GLuint id, GLenum severity,
 		GLsizei len, const GLchar *msg, const void *user) {
 	_wlr_log(gles2_log_importance_to_wlr(type), "[GLES2] %s", msg);
+}
+
+static bool init_buffer_shader(struct wsm_gles2_renderer *renderer,
+	struct wsm_gles2_buffer_shader *shader, const char *fragment, const char *sampler) {
+	GLuint program = wsm_gles2_link_program(renderer, round_tex_vert_src, fragment);
+	if (!program) {
+		return false;
+	}
+	shader->texture.program = program;
+	shader->texture.proj = glGetUniformLocation(program, "proj");
+	shader->texture.tex_proj = glGetUniformLocation(program, "tex_proj");
+	shader->texture.tex = glGetUniformLocation(program, sampler);
+	shader->texture.alpha = glGetUniformLocation(program, "alpha");
+	shader->texture.pos_attrib = glGetAttribLocation(program, "pos");
+	shader->radius = glGetUniformLocation(program, "radius");
+	shader->size = glGetUniformLocation(program, "size");
+	return shader->texture.proj >= 0 && shader->texture.tex_proj >= 0 &&
+		shader->texture.tex >= 0 && shader->texture.alpha >= 0 &&
+		shader->texture.pos_attrib >= 0 && shader->radius >= 0 && shader->size >= 0;
 }
 
 struct wsm_gles2_renderer *wsm_gles2_renderer_create_with_drm_fd(int drm_fd) {
@@ -474,6 +500,18 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 		renderer->shaders.tex_ext.pos_attrib = glGetAttribLocation(prog, "pos");
 	}
 
+	if (!init_buffer_shader(renderer, &renderer->shaders.buffer_rgba,
+			buffer_rgba_frag_src, "tex") ||
+		!init_buffer_shader(renderer, &renderer->shaders.buffer_rgbx,
+			buffer_rgbx_frag_src, "tex")) {
+		goto error;
+	}
+	if (renderer->exts.OES_egl_image_external &&
+		!init_buffer_shader(renderer, &renderer->shaders.buffer_ext,
+			buffer_external_frag_src, "texture0")) {
+		goto error;
+	}
+
 	wsm_gles2_pop_debug(renderer);
 
 	wsm_egl_unset_current(renderer->egl);
@@ -497,6 +535,9 @@ error:
 	glDeleteProgram(renderer->shaders.tex_rgba.program);
 	glDeleteProgram(renderer->shaders.tex_rgbx.program);
 	glDeleteProgram(renderer->shaders.tex_ext.program);
+	glDeleteProgram(renderer->shaders.buffer_rgba.texture.program);
+	glDeleteProgram(renderer->shaders.buffer_rgbx.texture.program);
+	glDeleteProgram(renderer->shaders.buffer_ext.texture.program);
 
 	wsm_gles2_pop_debug(renderer);
 

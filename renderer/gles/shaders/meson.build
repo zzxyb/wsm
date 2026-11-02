@@ -9,6 +9,9 @@ shaders = [
 	'blur_up.frag',
 	'blur_round.frag',
 
+	'buffer_rgba.frag',
+	'buffer_rgbx.frag',
+	'buffer_external.frag',
 	'common.vert',
 	'quad.frag',
 	'rect.vert',
