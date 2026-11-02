@@ -94,7 +94,7 @@ struct tinywl_output {
 	struct wlr_output *wlr_output;
 	struct wsm_scene_rect *background_demo;
 	struct wsm_scene_rect *rect_demo;
-	struct wsm_scene_border *round_border_demo;
+	struct wsm_scene_border *border_demo;
 	struct wsm_scene_shadow *shadow_demo;
 	struct wsm_scene_shadow_cache *shadow_cache;
 	float shadow_cache_radii[4];
@@ -655,7 +655,7 @@ static void update_blur_demo(struct tinywl_server *server) {
 
 static void update_rect_demo(struct tinywl_output *output) {
 	struct wsm_scene_rect *rect = output->rect_demo;
-	struct wsm_scene_border *border = output->round_border_demo;
+	struct wsm_scene_border *border = output->border_demo;
 	const int border_width = 2;
 	struct wlr_box output_box;
 	wlr_output_layout_get_box(output->server->output_layout,
@@ -793,8 +793,8 @@ static void output_destroy(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = wl_container_of(listener, output, destroy);
 	wsm_scene_node_destroy(output->shadow_demo ? &output->shadow_demo->node : NULL);
 	wsm_scene_shadow_cache_unref(output->shadow_cache);
-	wsm_scene_node_destroy(output->round_border_demo ?
-		&output->round_border_demo->node : NULL);
+	wsm_scene_node_destroy(output->border_demo ?
+		&output->border_demo->node : NULL);
 	wsm_scene_node_destroy(output->rect_demo ?
 		&output->rect_demo->node : NULL);
 	wsm_scene_node_destroy(output->background_demo ?
@@ -907,10 +907,10 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 			wsm_scene_node_lower_to_bottom(&output->rect_demo->node);
 		}
 		const float border_color[4] = { .12f, .10f, .20f, 1.f };
-		output->round_border_demo = wsm_scene_border_create(server->scene->tree,
+		output->border_demo = wsm_scene_border_create(server->scene->tree,
 			0, 0, 0, 0, 0, 0, 2.f, border_color);
-		if (output->round_border_demo != NULL) {
-			wsm_scene_node_place_above(&output->round_border_demo->node,
+		if (output->border_demo != NULL) {
+			wsm_scene_node_place_above(&output->border_demo->node,
 				&output->rect_demo->node);
 		}
 	}

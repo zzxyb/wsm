@@ -13,7 +13,7 @@ shaders = [
 	'quad.frag',
 	'rect.vert',
 	'rect.frag',
-	'round_border.frag',
+	'border.frag',
 	'shadow_cache.vert',
 	'shadow_cache.frag',
 	'tex_rgba.frag',
