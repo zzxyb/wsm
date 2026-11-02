@@ -101,7 +101,7 @@ struct wsm_gles2_renderer {
 			GLint size; /**< Outer size uniform location. */
 			GLint border_width; /**< Border width uniform location. */
 			GLint smoothness; /**< Corner exponent uniform location. */
-		} round_border; /**< Rounded border shader state. */
+		} border; /**< Rounded border shader state. */
 		struct {
 			GLuint program; /**< Linked shadow cache shader program. */
 			GLint pos, size, slices, radius, smoothness; /**< Geometry and corner uniform locations. */

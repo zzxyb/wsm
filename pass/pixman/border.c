@@ -1,4 +1,4 @@
-#include "pass/pixman/round_border.h"
+#include "pass/pixman/border.h"
 #include "pass/pixman/pass.h"
 
 #include <math.h>
@@ -25,8 +25,8 @@ static bool inside_rounded_rect(float x, float y, float width, float height,
 	return powf(qx, exponent) + powf(qy, exponent) <= 1.f;
 }
 
-void wsm_pixman_render_pass_add_round_border(struct wlr_render_pass *target,
-		const struct wsm_render_round_border_options *options) {
+void wsm_pixman_render_pass_add_border(struct wlr_render_pass *target,
+		const struct wsm_render_border_options *options) {
 	struct wsm_pixman_render_pass *pass = wsm_pixman_render_pass_from_render_pass(target);
 	const struct wlr_box *box = &options->box;
 	pixman_region32_t bounds;

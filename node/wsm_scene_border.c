@@ -1,7 +1,7 @@
 #include "node/wsm_scene_border.h"
 #include "scene/wsm_scene.h"
 #include "scene/wsm_scene_output.h"
-#include "pass/round_border.h"
+#include "pass/border.h"
 
 #include <sched.h>
 #include <stdlib.h>
@@ -32,9 +32,9 @@ static float clamp_radius(float radius, int width, int height) {
 }
 
 static void scene_node_destroy(struct wsm_scene_node *node) {
-	struct wsm_scene_border *round_border = wsm_scene_border_from_node(node);
+	struct wsm_scene_border *border = wsm_scene_border_from_node(node);
 
-	free(round_border);
+	free(border);
 }
 
 static bool scene_node_at_iterator(struct wsm_scene_node *node,
@@ -79,9 +79,9 @@ static struct wsm_scene_node *scene_node_at(struct wsm_scene_node *node,
 
 static void scene_node_get_size(struct wsm_scene_node *node,
 		int *width, int *height) {
-	struct wsm_scene_border *round_border = wsm_scene_border_from_node(node);
-	*width = round_border->width;
-	*height = round_border->height;
+	struct wsm_scene_border *border = wsm_scene_border_from_node(node);
+	*width = border->width;
+	*height = border->height;
 }
 
 static bool _scene_nodes_in_box(struct wsm_scene_node *node, struct wlr_box *box,
@@ -221,16 +221,16 @@ static void scene_node_render(struct wsm_render_list_entry *entry, const struct 
 	scene_node_get_size(node, &dst_box.width, &dst_box.height);
 	transform_output_box(&dst_box, data);
 
-	struct wsm_scene_border *round_border = wsm_scene_border_from_node(node);
+	struct wsm_scene_border *border = wsm_scene_border_from_node(node);
 	float source_radii[4] = {
-		round_border->top_left_radius, round_border->top_right_radius,
-		round_border->bottom_left_radius, round_border->bottom_right_radius,
+		border->top_left_radius, border->top_right_radius,
+		border->bottom_left_radius, border->bottom_right_radius,
 	};
 	float radii[4] = { 0 };
 	for (int corner = 0; corner < 4; corner++) {
 		struct wlr_box point = {
-			.x = x + ((corner & 1) ? round_border->width - 1 : 0),
-			.y = y + ((corner & 2) ? round_border->height - 1 : 0),
+			.x = x + ((corner & 1) ? border->width - 1 : 0),
+			.y = y + ((corner & 2) ? border->height - 1 : 0),
 			.width = 1, .height = 1,
 		};
 		transform_output_box(&point, data);
@@ -239,15 +239,15 @@ static void scene_node_render(struct wsm_render_list_entry *entry, const struct 
 		radii[transformed_corner] = clamp_radius(source_radii[corner] * data->scale,
 			dst_box.width, dst_box.height);
 	}
-	wsm_render_pass_add_round_border(data->render_pass,
-        &(struct wsm_render_round_border_options){
+	wsm_render_pass_add_border(data->render_pass,
+        &(struct wsm_render_border_options){
             .box = dst_box,
             .color = {
-                .r = round_border->color[0], .g = round_border->color[1],
-                .b = round_border->color[2], .a = round_border->color[3],
+                .r = border->color[0], .g = border->color[1],
+                .b = border->color[2], .a = border->color[3],
             },
             .radii = { radii[0], radii[1], radii[2], radii[3] },
-			.border_width = round_border->border_width * data->scale,
+			.border_width = border->border_width * data->scale,
             .corner_smoothness = 4.f,
             .clip = &render_region,
         });
@@ -309,24 +309,24 @@ struct wsm_scene_border *wsm_scene_border_create(struct wsm_scene_tree *parent,
 	assert(parent);
 	assert(width >= 0 && height >= 0);
 
-	struct wsm_scene_border *round_border = calloc(1, sizeof(*round_border));
-	if (round_border == NULL) {
+	struct wsm_scene_border *border = calloc(1, sizeof(*border));
+	if (border == NULL) {
 		return NULL;
 	}
-	wsm_scene_node_init(&round_border->node, &scene_node_impl, parent);
+	wsm_scene_node_init(&border->node, &scene_node_impl, parent);
 
-	round_border->width = width;
-	round_border->height = height;
-	round_border->top_left_radius = clamp_radius(top_left_radius, width, height);
-	round_border->top_right_radius = clamp_radius(top_right_radius, width, height);
-	round_border->bottom_left_radius = clamp_radius(bottom_left_radius, width, height);
-	round_border->bottom_right_radius = clamp_radius(bottom_right_radius, width, height);
-	round_border->border_width = clamp_radius(border_width, width, height);
-	memcpy(round_border->color, color, sizeof(round_border->color));
+	border->width = width;
+	border->height = height;
+	border->top_left_radius = clamp_radius(top_left_radius, width, height);
+	border->top_right_radius = clamp_radius(top_right_radius, width, height);
+	border->bottom_left_radius = clamp_radius(bottom_left_radius, width, height);
+	border->bottom_right_radius = clamp_radius(bottom_right_radius, width, height);
+	border->border_width = clamp_radius(border_width, width, height);
+	memcpy(border->color, color, sizeof(border->color));
 
-	wsm_scene_node_update(&round_border->node, NULL);
+	wsm_scene_node_update(&border->node, NULL);
 
-	return round_border;
+	return border;
 }
 
 void wsm_scene_border_set_size(struct wsm_scene_border *rect, int width, int height) {
@@ -461,8 +461,8 @@ bool wsm_scene_node_is_border(const struct wsm_scene_node *node) {
 struct wsm_scene_border *wsm_scene_border_from_node(struct wsm_scene_node *node) {
 	assert(node->impl == &scene_node_impl);
 
-	struct wsm_scene_border *round_border =
-		wl_container_of(node, round_border, node);
+	struct wsm_scene_border *border =
+		wl_container_of(node, border, node);
 
-	return round_border;
+	return border;
 }
