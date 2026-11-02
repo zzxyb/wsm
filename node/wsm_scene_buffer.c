@@ -1,5 +1,7 @@
 #include "node/wsm_scene_buffer.h"
 #include "types/wsm_color.h"
+#include "pass/texture.h"
+#include "pass/rect.h"
 #include "scene/wsm_scene.h"
 #include "node/wsm_scene_node.h"
 #include "node/wsm_scene_tree.h"
@@ -189,26 +191,33 @@ static void scene_node_opaque_region(struct wsm_scene_node *node, int x, int y,
 		pixman_region32_t *opaque) {
 	int width, height;
 	scene_node_get_size(node, &width, &height);
-
-	struct wsm_scene_buffer *scene_buffer = wsm_scene_buffer_from_node(node);
-
-	if (!scene_buffer->buffer) {
+	struct wsm_scene_buffer *buffer = wsm_scene_buffer_from_node(node);
+	if ((!buffer->buffer && !buffer->texture) || buffer->opacity != 1) {
 		return;
 	}
-
-	if (scene_buffer->opacity != 1) {
-		return;
-	}
-
-	if (!scene_buffer->buffer_is_opaque) {
-		pixman_region32_copy(opaque, &scene_buffer->opaque_region);
+	if (buffer->buffer_is_opaque) {
+		pixman_region32_union_rect(opaque, opaque, x, y, width, height);
+	} else {
+		pixman_region32_copy(opaque, &buffer->opaque_region);
 		pixman_region32_intersect_rect(opaque, opaque, 0, 0, width, height);
 		pixman_region32_translate(opaque, x, y);
-		return;
 	}
-
-	pixman_region32_fini(opaque);
-	pixman_region32_init_rect(opaque, x, y, width, height);
+	float radii[4] = {buffer->top_left_radius, buffer->top_right_radius,
+		buffer->bottom_left_radius, buffer->bottom_right_radius};
+	for (int i = 0; i < 4; i++) {
+		float radius = fminf(radii[i], fminf(width, height) * .5f);
+		if (radius <= 0) {
+			continue;
+		}
+		int extent = (int)ceilf(radius) + 1;
+		int w = extent < width ? extent : width;
+		int h = extent < height ? extent : height;
+		pixman_region32_t corner;
+		pixman_region32_init_rect(&corner, x + ((i & 1) ? width - w : 0),
+			y + ((i & 2) ? height - h : 0), w, h);
+		pixman_region32_subtract(opaque, opaque, &corner);
+		pixman_region32_fini(&corner);
+	}
 }
 
 #if WLR_HAS_XWAYLAND
@@ -487,7 +496,9 @@ static bool scene_node_invisible(struct wsm_scene_node *node) {
 }
 
 static bool scene_buffer_is_black_opaque(struct wsm_scene_buffer *scene_buffer) {
-	return scene_buffer->is_single_pixel_buffer &&
+	return scene_buffer->top_left_radius == 0 && scene_buffer->top_right_radius == 0 &&
+		scene_buffer->bottom_left_radius == 0 && scene_buffer->bottom_right_radius == 0 &&
+		scene_buffer->is_single_pixel_buffer &&
 		scene_buffer->single_pixel_buffer_color[0] == 0 &&
 		scene_buffer->single_pixel_buffer_color[1] == 0 &&
 		scene_buffer->single_pixel_buffer_color[2] == 0 &&
@@ -623,10 +634,13 @@ static void scene_node_render(struct wsm_render_list_entry *entry, const struct 
 
 	struct wsm_scene_buffer *scene_buffer = wsm_scene_buffer_from_node(node);
 
+	float radii[4];
+	wsm_scene_buffer_get_corner_radii(scene_buffer, data, radii);
 	if (scene_buffer->is_single_pixel_buffer) {
 		// Render the buffer as a rect, this is likely to be more efficient
-		wlr_render_pass_add_rect(data->render_pass, &(struct wlr_render_rect_options){
+		wsm_render_pass_add_rect(data->render_pass, &(struct wsm_render_rect_options){
 			.box = dst_box,
+			.radii = {radii[0], radii[1], radii[2], radii[3]},
 			.color = {
 				.r = (float)scene_buffer->single_pixel_buffer_color[0] / (float)UINT32_MAX,
 				.g = (float)scene_buffer->single_pixel_buffer_color[1] / (float)UINT32_MAX,
@@ -662,8 +676,8 @@ static void scene_node_render(struct wsm_render_list_entry *entry, const struct 
 		WLR_COLOR_TRANSFER_FUNCTION_SRGB, &srgb_lum);
 	float luminance_multiplier = get_luminance_multiplier(&src_lum, &srgb_lum);
 
-	wlr_render_pass_add_texture(data->render_pass, &(struct wlr_render_texture_options) {
-	.texture = texture,
+	wsm_render_pass_add_texture(data->render_pass, &(struct wlr_render_texture_options){
+		.texture = texture,
 		.src_box = scene_buffer->src_box,
 		.dst_box = dst_box,
 		.transform = transform,
@@ -680,7 +694,7 @@ static void scene_node_render(struct wsm_render_list_entry *entry, const struct 
 		.luminance_multiplier = &luminance_multiplier,
 		.wait_timeline = scene_buffer->wait_timeline,
 		.wait_point = scene_buffer->wait_point,
-	});
+	}, radii);
 
 	struct wsm_scene_output_sample_event sample_event = {
 		.output = data->output,
@@ -1186,4 +1200,35 @@ static void scene_node_for_each_scene_buffer(struct wsm_scene_node *node,
 void wsm_scene_node_for_each_buffer(struct wsm_scene_node *node,
 		wsm_scene_buffer_iterator_func_t user_iterator, void *user_data) {
 	scene_node_for_each_scene_buffer(node, 0, 0, user_iterator, user_data);
+}
+
+void wsm_scene_buffer_set_corner_radius(struct wsm_scene_buffer *buffer,
+	float top_left, float top_right, float bottom_left, float bottom_right) {
+	assert(isfinite(top_left) && top_left >= 0 && isfinite(top_right) && top_right >= 0);
+	assert(isfinite(bottom_left) && bottom_left >= 0 &&
+		isfinite(bottom_right) && bottom_right >= 0);
+	if (buffer->top_left_radius == top_left && buffer->top_right_radius == top_right &&
+		buffer->bottom_left_radius == bottom_left && buffer->bottom_right_radius == bottom_right) {
+		return;
+	}
+	buffer->top_left_radius = top_left;
+	buffer->top_right_radius = top_right;
+	buffer->bottom_left_radius = bottom_left;
+	buffer->bottom_right_radius = bottom_right;
+	wsm_scene_node_update(&buffer->node, NULL);
+}
+
+void wsm_scene_buffer_get_corner_radii(struct wsm_scene_buffer *buffer,
+	const struct wsm_render_data *data, float radii[static 4]) {
+	int width, height;
+	wsm_scene_node_get_size(&buffer->node, &width, &height);
+	float logical[4] = {buffer->top_left_radius, buffer->top_right_radius,
+		buffer->bottom_left_radius, buffer->bottom_right_radius};
+	float max_radius = fminf(width, height) * .5f;
+	for (int i = 0; i < 4; i++) {
+		struct wlr_box corner = {.x = i & 1, .y = (i >> 1) & 1};
+		wlr_box_transform(&corner, &corner, wlr_output_transform_invert(data->transform), 1, 1);
+		radii[(corner.x != 0) + 2 * (corner.y != 0)] =
+			fmaxf(0, fminf(logical[i], max_radius)) * data->scale;
+	}
 }

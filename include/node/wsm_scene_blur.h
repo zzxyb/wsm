@@ -16,7 +16,7 @@
 #include <pixman.h>
 #include <stdbool.h>
 #include "node/wsm_scene_node.h"
-#include "node/wsm_scene_buffer.h"
+#include <wlr/types/wlr_buffer.h>
 
 /**
  * @brief Input sampled by a blur node.
@@ -33,15 +33,18 @@ enum wsm_scene_blur_source {
  *          is detached automatically when it is destroyed.
  */
 struct wsm_scene_blur {
-	struct wsm_scene_buffer buffer; /**< Base node, destination geometry, opacity, and buffer state. */
-	enum wsm_scene_blur_source source; /**< Input mode, changed through the source setters. */
-	struct wsm_render_blur_buffer_pass *pass; /**< Borrowed blur pass, or NULL when detached. */
-	struct wl_listener pass_destroy; /**< Blur pass destruction listener. */
-	struct wl_list captures; /**< List of per-output blur_capture caches. */
+	struct wsm_scene_node node; /**< Base scene node. */
+	int width, height; /**< Destination size in logical pixels. */
+	float opacity; /**< Opacity multiplier. */
 	float top_left_radius; /**< Top-left corner radius in logical pixels. */
 	float top_right_radius; /**< Top-right corner radius in logical pixels. */
 	float bottom_left_radius; /**< Bottom-left corner radius in logical pixels. */
 	float bottom_right_radius; /**< Bottom-right corner radius in logical pixels. */
+	struct wlr_buffer *buffer; /**< Locked source buffer, or NULL. */
+	enum wsm_scene_blur_source source; /**< Input mode, changed through the source setters. */
+	struct wsm_render_blur_buffer_pass *pass; /**< Borrowed blur pass, or NULL when detached. */
+	struct wl_listener pass_destroy; /**< Blur pass destruction listener. */
+	struct wl_list captures; /**< List of per-output blur_capture caches. */
 	int iterations; /**< Requested Dual Kawase down/up sampling iterations. */
 	float offset; /**< Blur sampling offset. */
 	float saturation; /**< Saturation multiplier; 1 preserves saturation. */
@@ -52,19 +55,15 @@ struct wsm_scene_blur {
 };
 
 /**
- * @brief Adds a backdrop blur node to a scene tree.
+ * @brief Adds a backdrop blur node with square corners to a scene tree.
+ * @details Set rounded clipping through wsm_scene_blur_set_corner_radius.
  * @param parent Parent scene tree.
  * @param width Nonnegative filter width in logical pixels.
  * @param height Nonnegative filter height in logical pixels.
- * @param top_left_radius Top-left corner radius in logical pixels.
- * @param top_right_radius Top-right corner radius in logical pixels.
- * @param bottom_left_radius Bottom-left corner radius in logical pixels.
- * @param bottom_right_radius Bottom-right corner radius in logical pixels.
  * @return New blur node, or NULL on allocation failure.
  */
-struct wsm_scene_blur *wsm_scene_blur_create(struct wsm_scene_tree *parent, int width, int height,
-	float top_left_radius, float top_right_radius, float bottom_left_radius,
-	float bottom_right_radius);
+struct wsm_scene_blur *wsm_scene_blur_create(
+	struct wsm_scene_tree *parent, int width, int height);
 
 /**
  * @brief Changes the filter destination size.
@@ -77,15 +76,15 @@ struct wsm_scene_blur *wsm_scene_blur_create(struct wsm_scene_tree *parent, int 
 void wsm_scene_blur_set_size(struct wsm_scene_blur *blur, int width, int height);
 
 /**
- * @brief Changes the filter corner radii.
+ * @brief Sets destination corner radii in logical pixels.
  * @param blur Blur node to update.
- * @param top_left Top-left radius in logical pixels; finite and nonnegative.
- * @param top_right Top-right radius in logical pixels; finite and nonnegative.
- * @param bottom_left Bottom-left radius in logical pixels; finite and nonnegative.
- * @param bottom_right Bottom-right radius in logical pixels; finite and nonnegative.
+ * @param top_left Nonnegative top-left radius.
+ * @param top_right Nonnegative top-right radius.
+ * @param bottom_left Nonnegative bottom-left radius.
+ * @param bottom_right Nonnegative bottom-right radius.
  */
-void wsm_scene_blur_set_corner_radius(struct wsm_scene_blur *blur, float top_left, float top_right,
-	float bottom_left, float bottom_right);
+void wsm_scene_blur_set_corner_radius(struct wsm_scene_blur *blur,
+	float top_left, float top_right, float bottom_left, float bottom_right);
 
 /**
  * @brief Replaces the borrowed blur pass and damages the node.
@@ -182,10 +181,9 @@ struct wsm_scene_blur *wsm_scene_blur_from_node(struct wsm_scene_node *node);
 
 /**
  * @brief Selects a supplied buffer as the blur source and damages the whole node.
- * @details Use the embedded buffer for source cropping, transforms, synchronization,
- *          opacity, input filtering, and output events. Unless both destination
- *          dimensions are positive, the transformed buffer dimensions are used.
- *          Background captures are released.
+ * @details Unless both destination dimensions are positive, native buffer
+ *          dimensions are used. Background captures are released. Blur nodes
+ *          do not accept input or emit buffer frame and sampling events.
  * @param blur Blur node to update.
  * @param buffer Source buffer to lock, or NULL for an empty buffer source.
  */

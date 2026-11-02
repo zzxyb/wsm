@@ -42,7 +42,7 @@ struct wsm_render_blur_buffer_options {
 	float top_right_radius; /**< Top-right corner radius in target pixels. */
 	float bottom_left_radius; /**< Bottom-left corner radius in target pixels. */
 	float bottom_right_radius; /**< Bottom-right corner radius in target pixels. */
-	float corner_smoothness; /**< Rounded corner exponent; 0 selects 4. */
+	float corner_smoothness; /**< Reserved; texture clipping uses exponent 4. */
 	int iterations; /**< Requested iteration count; nonpositive values select 4. */
 	float offset; /**< Nonnegative sampling offset; 0 selects 1.8. */
 	float saturation; /**< Saturation multiplier; 0 selects 1.35. */

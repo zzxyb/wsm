@@ -38,6 +38,15 @@ struct wsm_gles2_tex_shader {
 };
 
 /**
+ * @brief Dedicated buffer texture shader with rounded clipping.
+ */
+struct wsm_gles2_buffer_shader {
+	struct wsm_gles2_tex_shader texture; /**< Texture projection and sampling inputs. */
+	GLint radius; /**< Destination corner radii uniform location. */
+	GLint size; /**< Destination size uniform location. */
+};
+
+/**
  * @brief GLES2 renderer state and backend resources.
  */
 struct wsm_gles2_renderer {
@@ -110,6 +119,9 @@ struct wsm_gles2_renderer {
 		struct wsm_gles2_tex_shader tex_rgba;
 		struct wsm_gles2_tex_shader tex_rgbx;
 		struct wsm_gles2_tex_shader tex_ext;
+		struct wsm_gles2_buffer_shader buffer_rgba; /**< Rounded RGBA texture shader. */
+		struct wsm_gles2_buffer_shader buffer_rgbx; /**< Rounded opaque texture shader. */
+		struct wsm_gles2_buffer_shader buffer_ext; /**< Rounded external texture shader. */
 	} shaders;
 
 	struct wl_list buffers; /**< List of wsm_gles2_buffer.link entries. */
