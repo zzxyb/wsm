@@ -5,3 +5,10 @@ wsm_sources += files(
 	'pixman/pixel_format.c',
 	'pixman/texture.c',
 )
+
+if have_vulkan
+	wsm_sources += files(
+		'vulkan/pixel_format.c',
+		'vulkan/texture.c',
+	)
+endif
