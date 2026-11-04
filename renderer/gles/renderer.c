@@ -379,6 +379,14 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 		}
 	}
 
+	if (check_gl_ext(exts_str, "GL_EXT_copy_image")) {
+		renderer->exts.EXT_copy_image = true;
+		load_gl_proc(&renderer->procs.glCopyImageSubDataEXT, "glCopyImageSubDataEXT");
+	} else if (check_gl_ext(exts_str, "GL_OES_copy_image")) {
+		renderer->exts.EXT_copy_image = true;
+		load_gl_proc(&renderer->procs.glCopyImageSubDataEXT, "glCopyImageSubDataOES");
+	}
+
 	if (renderer->exts.KHR_debug) {
 		glEnable(GL_DEBUG_OUTPUT_KHR);
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_KHR);

@@ -1,4 +1,7 @@
 wsm_sources += files(
+	'copy.c',
+	'gles/copy.c',
+	'pixman/copy.c',
 	'texture.c',
 	'gles/texture.c',
 	'pixman/texture.c',

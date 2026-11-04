@@ -67,6 +67,7 @@ struct wsm_gles2_renderer {
 		bool OES_texture_half_float_linear; /**< Linear half-float filtering support. */
 		bool EXT_texture_norm16; /**< Normalized 16-bit texture support. */
 		bool EXT_disjoint_timer_query; /**< GPU timer query support. */
+		bool EXT_copy_image; /**< Image copy extension support. */
 	} exts;
 
 	struct {
@@ -83,6 +84,7 @@ struct wsm_gles2_renderer {
 		PFNGLGETQUERYOBJECTIVEXTPROC glGetQueryObjectivEXT; /**< Queries an integer result. */
 		PFNGLGETQUERYOBJECTUI64VEXTPROC glGetQueryObjectui64vEXT; /**< Queries a 64-bit result. */
 		PFNGLGETINTEGER64VEXTPROC glGetInteger64vEXT; /**< Queries a 64-bit integer value. */
+		PFNGLCOPYIMAGESUBDATAEXTPROC glCopyImageSubDataEXT; /**< Copies texture regions. */
 	} procs;
 
 	struct {
