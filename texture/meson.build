@@ -3,3 +3,7 @@ wsm_sources += files(
 	'gles/texture.c',
 	'pixman/texture.c',
 )
+
+if have_vulkan
+	wsm_sources += files('vulkan/texture.c')
+endif

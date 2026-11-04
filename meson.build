@@ -231,6 +231,10 @@ wsm_deps = [
 	xkbcommon,
 ]
 
+if have_vulkan
+	wsm_deps += vulkan_dep
+endif
+
 if have_xwayland
 endif
 

@@ -1,0 +1,45 @@
+#ifndef RENDER_COLOR_H
+#define RENDER_COLOR_H
+
+#include <wlr/render/color.h>
+
+void wlr_color_transform_init(struct wlr_color_transform *tr,
+	enum wlr_color_transform_type type);
+
+/**
+ * Get a struct wlr_color_transform_lcms2 from a generic struct wlr_color_transform.
+ * Asserts that the base type is WLR_COLOR_TRANSFORM_LCMS2.
+ */
+struct wlr_color_transform_lcms2 *color_transform_lcms2_from_base(
+	struct wlr_color_transform *tr);
+
+void color_transform_lcms2_finish(struct wlr_color_transform_lcms2 *tr);
+
+/**
+ * Evaluate a LCMS2 color transform for a given RGB triplet.
+ */
+void color_transform_lcms2_eval(struct wlr_color_transform_lcms2 *tr,
+	float out[static 3], const float in[static 3]);
+
+/**
+ * Create a simplified / normalized wlr_color_transform pipeline.
+ * `transforms` may contain NULL transforms, they will be interpreted as the
+ * identity transform, and removed.
+ * `*result` may be set to a transform of a type different from
+ * `wlr_color_transform_pipeline`, or to NULL if all input transforms are NULL
+ */
+bool color_transform_compose(struct wlr_color_transform **result,
+	struct wlr_color_transform **transforms, size_t len);
+
+/**
+ * Compute the matrix to convert RGB color values to CIE 1931 XYZ.
+ */
+void wlr_color_primaries_to_xyz(const struct wlr_color_primaries *primaries, float matrix[static 9]);
+
+/**
+ * Get default luminances for a transfer function.
+ */
+void wlr_color_transfer_function_get_default_luminance(enum wlr_color_transfer_function tf,
+	struct wlr_color_luminances *lum);
+
+#endif

@@ -13,3 +13,5 @@ wsm_sources += files(
 glslang = find_program('glslang', 'glslangValidator', native: true, required: false, disabler: true)
 
 subdir('gles/shaders')
+
+subdir('vulkan')

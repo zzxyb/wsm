@@ -18,3 +18,7 @@ wsm_sources += files(
 	'gles/pass.c',
 	'pixman/pass.c',
 )
+
+if have_vulkan
+	wsm_sources += files('vulkan/pass.c')
+endif
