@@ -1,6 +1,9 @@
 #include "renderer/wsm_renderer.h"
 #include "renderer/gles/renderer.h"
 #include "renderer/pixman/renderer.h"
+#if WSM_HAS_VULKAN
+#include "renderer/vulkan/renderer.h"
+#endif
 #include "util/wsm_env.h"
 #include "util/wsm_log.h"
 
@@ -140,6 +143,7 @@ static struct wlr_renderer *renderer_autocreate(struct wlr_backend *backend, int
 		"auto",
 		"gles2",
 		"pixman",
+		"vulkan",
 		NULL
 	};
 
@@ -161,6 +165,19 @@ static struct wlr_renderer *renderer_autocreate(struct wlr_backend *backend, int
 				log_creation_failure(is_auto, "Failed to create a GLES2 renderer");
 			}
 		}
+	}
+
+	if (strcmp(renderer_name, "vulkan") == 0) {
+#if WSM_HAS_VULKAN
+		if (open_preferred_drm_fd(backend, &drm_fd, &own_drm_fd)) {
+			renderer = wsm_vk_renderer_create_with_drm_fd(drm_fd);
+		} else {
+			wsm_log(WSM_ERROR, "Cannot create Vulkan renderer: no DRM FD available");
+		}
+#else
+		wsm_log(WSM_ERROR, "Vulkan renderer support was disabled at build time");
+#endif
+		goto out;
 	}
 
 	if ((is_auto && !has_render_node(backend)) || strcmp(renderer_name, "pixman") == 0) {

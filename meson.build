@@ -231,6 +231,10 @@ wsm_deps = [
 	xkbcommon,
 ]
 
+if have_vulkan
+	wsm_deps += vulkan_dep
+endif
+
 if have_xwayland
 endif
 
@@ -240,6 +244,7 @@ endif
 executable(
 	'wsm',
 	wsm_sources,
+	c_args: ['-DWSM_HAS_VULKAN=@0@'.format(have_vulkan.to_int())],
 	include_directories: [wsm_inc],
 	dependencies: wsm_deps,
 	link_with: [],
