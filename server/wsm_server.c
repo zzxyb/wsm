@@ -1,4 +1,7 @@
 #include "renderer/wsm_renderer.h"
+#include "pass/copy.h"
+#include <wlr/render/drm_format_set.h>
+#include <drm_fourcc.h>
 #include "scene/wsm_scene.h"
 #include "scene/wsm_scene_surface.h"
 #include "scene/wsm_scene_output.h"
@@ -52,6 +55,8 @@ struct tinywl_server {
 	struct wlr_backend *backend;
 	struct wlr_renderer *renderer;
 	struct wlr_allocator *allocator;
+	bool copy_failed;
+	struct wsm_render_pass_copy *copy_pass;
 	struct wsm_scene *scene;
 	struct wsm_scene_output_layout *scene_layout;
 	struct wsm_render_blur_buffer_pass *blur_pass;
@@ -92,6 +97,10 @@ struct tinywl_output {
 	struct wl_list link;
 	struct tinywl_server *server;
 	struct wlr_output *wlr_output;
+	struct wlr_buffer *copy_buffer;
+	struct wlr_buffer *copy_scratch;
+	struct wlr_texture *copy_texture;
+	struct wsm_scene_buffer *copy_scene;
 	struct wsm_scene_rect *background_demo;
 	struct wsm_scene_rect *rect_demo;
 	struct wsm_scene_border *border_demo;
@@ -752,6 +761,96 @@ static void update_rect_demo(struct tinywl_output *output) {
 	}
 }
 
+/* Copy a central region of the composed output into a separate buffer.
+ * A scratch target keeps both copy textures separate from the active pass. */
+static bool copy_output_demo(struct tinywl_output *output, struct wlr_buffer *buffer) {
+	struct tinywl_server *server = output->server;
+	int width = buffer->width / 2, height = buffer->height / 2;
+	if (width > 360) {
+		width = 360;
+	}
+	if (height > 240) {
+		height = 240;
+	}
+	if (width < 1 || height < 1) {
+		return false;
+	}
+	if (output->copy_buffer != NULL &&
+			(output->copy_buffer->width != width || output->copy_buffer->height != height)) {
+		wlr_texture_destroy(output->copy_texture);
+		output->copy_texture = NULL;
+		wlr_buffer_drop(output->copy_buffer);
+		output->copy_buffer = NULL;
+		wlr_buffer_drop(output->copy_scratch);
+		output->copy_scratch = NULL;
+	}
+	if (output->copy_buffer == NULL) {
+		struct wlr_dmabuf_attributes dmabuf;
+		struct wlr_shm_attributes shm;
+		uint32_t drm_format;
+		uint64_t modifier;
+		if (wlr_buffer_get_dmabuf(buffer, &dmabuf)) {
+			drm_format = dmabuf.format;
+			modifier = dmabuf.modifier;
+		} else if (wlr_buffer_get_shm(buffer, &shm)) {
+			drm_format = shm.format;
+			modifier = DRM_FORMAT_MOD_LINEAR;
+		} else {
+			return false;
+		}
+		const struct wlr_drm_format format = {
+			.format = drm_format, .len = 1, .modifiers = &modifier,
+		};
+		output->copy_buffer = wlr_allocator_create_buffer(server->allocator, width, height, &format);
+		output->copy_scratch = wlr_allocator_create_buffer(server->allocator, 1, 1, &format);
+		if (output->copy_buffer == NULL || output->copy_scratch == NULL) {
+			return false;
+		}
+		output->copy_texture = wlr_texture_from_buffer(server->renderer, output->copy_buffer);
+		if (output->copy_texture == NULL) {
+			return false;
+		}
+	}
+	struct wlr_texture *source = wlr_texture_from_buffer(server->renderer, buffer);
+	if (source == NULL) {
+		return false;
+	}
+	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(server->renderer,
+		output->copy_scratch, NULL);
+	if (pass == NULL) {
+		wlr_texture_destroy(source);
+		return false;
+	}
+	bool ok = wsm_render_pass_copy(pass, server->copy_pass, &(struct wsm_copy_texture_options){
+		.texture = source, .dst_texture = output->copy_texture,
+		.src_x = (buffer->width - width) / 2,
+		.src_y = (buffer->height - height) / 2,
+		.dst_x = 0, .dst_y = 0,
+		.width = width, .height = height,
+	});
+	bool submitted = wlr_render_pass_submit(pass);
+	wlr_texture_destroy(source);
+	return ok && submitted;
+}
+
+static bool update_copy_scene(struct tinywl_output *output) {
+	if (output->copy_scene == NULL) {
+		output->copy_scene = wsm_scene_buffer_create(output->server->scene->tree,
+			output->copy_buffer);
+		if (output->copy_scene == NULL) {
+			return false;
+		}
+		wlr_log(WLR_INFO, "Copy demo: output buffer center -> scene_buffer at (0,0)");
+	} else {
+		wsm_scene_buffer_set_buffer(output->copy_scene, output->copy_buffer);
+	}
+	struct wlr_box box;
+	wlr_output_layout_get_box(output->server->output_layout, output->wlr_output, &box);
+	wsm_scene_node_set_position(&output->copy_scene->node, box.x, box.y);
+	wsm_scene_node_raise_to_top(&output->copy_scene->node);
+	return true;
+}
+
 static void output_frame(struct wl_listener *listener, void *data) {
 	/* This function is called every time an output is ready to display a frame,
 	 * generally at the output's refresh rate (e.g. 60Hz). */
@@ -769,8 +868,29 @@ static void output_frame(struct wl_listener *listener, void *data) {
 		wlr_log(WLR_ERROR, "Cannot prepare blur damage");
 	}
 
-	/* Render the scene if needed and commit the output */
-	wsm_scene_output_commit(scene_output, NULL);
+	/* Build the composed output, then copy its center before presenting it.
+	 * Updating the scene buffer after commit damages it for the next frame. */
+	if (wsm_scene_output_needs_frame(scene_output)) {
+		struct wlr_output_state state;
+		wlr_output_state_init(&state);
+		bool ok = wsm_scene_output_build_state(scene_output, &state, NULL);
+		if (ok && state.buffer != NULL) {
+			ok = copy_output_demo(output, state.buffer);
+		}
+		if (ok) {
+			ok = wlr_output_commit_state(output->wlr_output, &state);
+		}
+		wlr_output_state_finish(&state);
+		if (ok && output->copy_buffer != NULL) {
+			ok = update_copy_scene(output);
+		}
+		if (!ok) {
+			output->server->copy_failed = true;
+			wlr_log(WLR_ERROR, "Cannot copy output buffer for scene_buffer demo");
+			wl_display_terminate(output->server->wl_display);
+			return;
+		}
+	}
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
@@ -792,6 +912,10 @@ static void output_request_state(struct wl_listener *listener, void *data) {
 
 static void output_destroy(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = wl_container_of(listener, output, destroy);
+	wsm_scene_node_destroy(output->copy_scene ? &output->copy_scene->node : NULL);
+	wlr_texture_destroy(output->copy_texture);
+	wlr_buffer_drop(output->copy_buffer);
+	wlr_buffer_drop(output->copy_scratch);
 	wsm_scene_node_destroy(output->shadow_demo ? &output->shadow_demo->node : NULL);
 	wsm_scene_shadow_cache_unref(output->shadow_cache);
 	wsm_scene_node_destroy(output->border_demo ?
@@ -1178,6 +1302,15 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	server.copy_pass = wsm_render_pass_copy_autocreate(server.renderer);
+	if (server.copy_pass == NULL) {
+		wlr_log(WLR_ERROR, "Cannot create output copy pass");
+		wlr_renderer_destroy(server.renderer);
+		wlr_backend_destroy(server.backend);
+		wl_display_destroy(server.wl_display);
+		return 1;
+	}
+
 	wlr_renderer_init_wl_display(server.renderer, server.wl_display);
 
 	/* Autocreates an allocator for us.
@@ -1341,13 +1474,18 @@ int main(int argc, char *argv[]) {
 
 	wl_list_remove(&server.new_output.link);
 
+	while (!wl_list_empty(&server.outputs)) {
+		struct tinywl_output *output = wl_container_of(server.outputs.next, output, link);
+		output_destroy(&output->destroy, NULL);
+	}
 	wsm_scene_node_destroy(&server.scene->tree->node);
 	wsm_render_blur_buffer_pass_destroy(server.blur_pass);
 	wlr_xcursor_manager_destroy(server.cursor_mgr);
 	wlr_cursor_destroy(server.cursor);
 	wlr_allocator_destroy(server.allocator);
+	wsm_render_pass_copy_destroy(server.copy_pass);
 	wlr_renderer_destroy(server.renderer);
 	wlr_backend_destroy(server.backend);
 	wl_display_destroy(server.wl_display);
-	return 0;
+	return server.copy_failed ? 1 : 0;
 }
