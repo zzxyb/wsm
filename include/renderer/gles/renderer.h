@@ -14,6 +14,8 @@
 #ifndef RENDERER_GLES_RENDERER_H
 #define RENDERER_GLES_RENDERER_H
 
+#include "pass/gles/blur.h"
+
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
@@ -53,6 +55,7 @@ struct wsm_gles2_buffer_shader {
  */
 struct wsm_gles2_renderer {
 	struct wlr_renderer base; /**< Generic wlroots renderer interface. */
+	struct wsm_gles2_blur blur; /**< Embedded blur shaders and intermediate textures. */
 
 	struct wsm_egl *egl; /**< EGL state used by the renderer. */
 	int drm_fd; /**< DRM file descriptor used for device resources. */

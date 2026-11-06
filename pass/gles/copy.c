@@ -1,5 +1,3 @@
-#include <assert.h>
-#include <stdlib.h>
 #include "pass/gles/copy.h"
 #include "pass/gles/pass.h"
 #include "texture/gles/texture.h"
@@ -18,11 +16,8 @@ static uint32_t texture_format(struct wsm_gles2_texture *texture) {
 	return texture->drm_format;
 }
 
-static bool render_pass_copy(struct wlr_render_pass *wlr_pass,
+bool wsm_gles2_render_pass_copy(struct wlr_render_pass *wlr_pass,
 		const struct wsm_copy_texture_options *options) {
-	if (!wlr_render_pass_is_wsm_gles2(wlr_pass)) {
-		return false;
-	}
 	struct wsm_gles2_render_pass *pass = wlr_gles2_render_pass_from_render_pass(wlr_pass);
 	struct wsm_gles2_renderer *renderer = pass->buffer->renderer;
 	if (!renderer->procs.glCopyImageSubDataEXT ||
@@ -76,39 +71,4 @@ static bool render_pass_copy(struct wlr_render_pass *wlr_pass,
 	glBindTexture(GL_TEXTURE_2D, binding);
 	wsm_gles2_pop_debug(renderer);
 	return ok;
-}
-
-static void copy_pass_destroy(struct wsm_render_pass_copy *pass) {
-	free(wsm_render_pass_copy_gles_from_pass(pass));
-}
-
-static const struct wsm_copy_texture_impl copy_impl = {
-	.copy = render_pass_copy,
-	.destroy = copy_pass_destroy,
-};
-
-struct wsm_render_pass_copy *wsm_render_pass_copy_gles_create(struct wlr_renderer *renderer) {
-	if (renderer == NULL || !wlr_renderer_is_wsm_gles2(renderer)) {
-		return NULL;
-	}
-	if (wsm_gles2_renderer_from_renderer(renderer)->procs.glCopyImageSubDataEXT == NULL) {
-		return NULL;
-	}
-	struct wsm_render_pass_copy_gles *pass = calloc(1, sizeof(*pass));
-	if (pass == NULL) {
-		return NULL;
-	}
-	wsm_render_pass_copy_init(&pass->base, &copy_impl, renderer);
-	return &pass->base;
-}
-
-bool wsm_render_pass_copy_is_gles(const struct wsm_render_pass_copy *pass) {
-	return pass != NULL && pass->impl == &copy_impl;
-}
-
-struct wsm_render_pass_copy_gles *wsm_render_pass_copy_gles_from_pass(
-		struct wsm_render_pass_copy *pass) {
-	assert(wsm_render_pass_copy_is_gles(pass));
-	struct wsm_render_pass_copy_gles *gles_pass = wl_container_of(pass, gles_pass, base);
-	return gles_pass;
 }

@@ -35,6 +35,7 @@ static void pixman_destroy(struct wlr_renderer *renderer) {
 	struct wsm_pixman_renderer *pixman_renderer =
 		wsm_pixman_renderer_from_renderer(renderer);
 
+
 	struct wsm_pixman_buffer *buffer, *buffer_tmp;
 	wl_list_for_each_safe(buffer, buffer_tmp, &pixman_renderer->buffers, link) {
 		wsm_pixman_buffer_destroy(buffer);

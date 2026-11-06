@@ -2,7 +2,7 @@
  * @file        blur.h
  * @brief       GLES2 blur render pass resources.
  * @details     Defines Dual Kawase shaders, intermediate render textures,
- *              and backend creation and conversion helpers.
+ *              and backend render helpers.
  * @author      YaoBing Xiao
  * @date        2026-11-02
  * @version     v1.0
@@ -13,9 +13,6 @@
 
 #include "pass/blur.h"
 
-#include "renderer/gles/renderer.h"
-#include "pass/gles/pass.h"
-#include "texture/gles/texture.h"
 
 #include <GLES2/gl2.h>
 
@@ -70,11 +67,9 @@ struct wsm_gles_blur_texture {
 };
 
 /**
- * @brief GLES2 blur pass with reusable shaders and texture pyramid.
+ * @brief Renderer-embedded blur shaders and reusable texture pyramid.
  */
-struct wsm_gles_render_blur_buffer_pass {
-	struct wsm_render_blur_buffer_pass base; /**< Common blur pass state. */
-	struct wsm_gles2_renderer *renderer; /**< GLES2 renderer owning the GL resources. */
+struct wsm_gles2_blur {
 	struct {
 		struct wsm_gles_blur_down_shader rgba; /**< Downsampling shader for regular 2D textures. */
 		struct wsm_gles_blur_down_shader ext; /**< Optional downsampling shader for external textures. */
@@ -85,29 +80,20 @@ struct wsm_gles_render_blur_buffer_pass {
 	struct wsm_gles_blur_texture levels[WSM_BLUR_BUFFER_MAX_PASSES + 1]; /**< Sampling texture levels. */
 };
 
-/**
- * @brief Creates the GLES2 backend shaders and blur resources.
- * @details Called by wsm_render_blur_buffer_pass_create, which attaches the
- *          common renderer ownership and destruction listener.
- * @param wlr_renderer wsm GLES2 renderer that owns the GL resources.
- * @return New backend pass, or NULL on creation failure.
- */
-struct wsm_render_blur_buffer_pass *wsm_gles_render_blur_buffer_pass_create(
-	struct wlr_renderer *wlr_renderer);
+struct wsm_gles2_renderer;
 
-/**
- * @brief Checks whether a blur pass uses the GLES2 backend.
- * @param pass Non-NULL blur pass to inspect.
- * @return true for the GLES2 backend, false otherwise.
- */
-bool wsm_render_blur_buffer_pass_is_gles2(const struct wsm_render_blur_buffer_pass *pass);
+/** Initializes blur shaders embedded in the renderer. The EGL context must be current. */
+bool wsm_gles2_blur_init(struct wsm_gles2_renderer *renderer);
 
-/**
- * @brief Casts a GLES2 blur pass to its backend object.
- * @param pass Blur pass known to use the GLES2 backend.
- * @return Enclosing GLES2 blur pass.
- */
-struct wsm_gles_render_blur_buffer_pass *wsm_gles_render_blur_buffer_pass_from_pass(
-	struct wsm_render_blur_buffer_pass *pass);
+/** Releases embedded blur resources. The EGL context must be current. */
+void wsm_gles2_blur_finish(struct wsm_gles2_renderer *renderer);
+
+/** Filters and composites a texture on the active GLES2 render pass. */
+void wsm_gles2_render_pass_add_blur(struct wlr_render_pass *pass,
+	const struct wsm_render_blur_buffer_options *options);
+
+/** Creates or updates a snapshot of the active GLES2 render target. */
+struct wlr_texture *wsm_gles2_render_pass_capture_blur(struct wlr_render_pass *pass,
+	struct wlr_texture *previous, const struct wlr_box *box, const pixman_region32_t *damage);
 
 #endif // EFFECTS_GLES_WSM_BLUR_BUFFER_PASS_H

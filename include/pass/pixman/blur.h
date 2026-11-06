@@ -1,7 +1,7 @@
 /**
  * @file        blur.h
  * @brief       Pixman blur render pass backend.
- * @details     Declares the software Dual Kawase blur backend constructor.
+ * @details     Declares software Dual Kawase rendering and capture operations.
  * @author      YaoBing Xiao
  * @date        2026-11-02
  * @version     v1.0
@@ -12,14 +12,12 @@
 
 #include "pass/blur.h"
 
-/**
- * @brief Creates the Pixman blur backend.
- * @details Called by wsm_render_blur_buffer_pass_create, which attaches the
- *          common renderer ownership and destruction listener.
- * @param renderer wsm Pixman renderer used by the common pass constructor.
- * @return New backend pass, or NULL on allocation failure.
- */
-struct wsm_render_blur_buffer_pass *wsm_pixman_render_blur_buffer_pass_create(
-	struct wlr_renderer *renderer);
+/** Filters and composites a texture on the active Pixman render pass. */
+void wsm_pixman_render_pass_add_blur(struct wlr_render_pass *pass,
+	const struct wsm_render_blur_buffer_options *options);
+
+/** Creates or updates a snapshot of the active Pixman render target. */
+struct wlr_texture *wsm_pixman_render_pass_capture_blur(struct wlr_render_pass *pass,
+	struct wlr_texture *previous, const struct wlr_box *box, const pixman_region32_t *damage);
 
 #endif // WSM_PIXMAN_BLUR_H

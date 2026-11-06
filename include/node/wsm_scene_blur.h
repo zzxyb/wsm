@@ -11,8 +11,6 @@
 #ifndef WSM_SCENE_BLUR_H
 #define WSM_SCENE_BLUR_H
 
-#include "pass/blur.h"
-
 #include <pixman.h>
 #include <stdbool.h>
 #include "node/wsm_scene_node.h"
@@ -29,8 +27,7 @@ enum wsm_scene_blur_source {
 /**
  * @brief Rounded filter over preceding scene content or a supplied buffer.
  * @details Background captures are cached per output and updated from capture damage.
- *          Occluded source content is retained for filtering. The borrowed pass
- *          is detached automatically when it is destroyed.
+ *          Occluded source content is retained for filtering.
  */
 struct wsm_scene_blur {
 	struct wsm_scene_node node; /**< Base scene node. */
@@ -42,8 +39,6 @@ struct wsm_scene_blur {
 	float bottom_right_radius; /**< Bottom-right corner radius in logical pixels. */
 	struct wlr_buffer *buffer; /**< Locked source buffer, or NULL. */
 	enum wsm_scene_blur_source source; /**< Input mode, changed through the source setters. */
-	struct wsm_render_blur_buffer_pass *pass; /**< Borrowed blur pass, or NULL when detached. */
-	struct wl_listener pass_destroy; /**< Blur pass destruction listener. */
 	struct wl_list captures; /**< List of per-output blur_capture caches. */
 	int iterations; /**< Requested Dual Kawase down/up sampling iterations. */
 	float offset; /**< Blur sampling offset. */
@@ -85,13 +80,6 @@ void wsm_scene_blur_set_size(struct wsm_scene_blur *blur, int width, int height)
  */
 void wsm_scene_blur_set_corner_radius(struct wsm_scene_blur *blur,
 	float top_left, float top_right, float bottom_left, float bottom_right);
-
-/**
- * @brief Replaces the borrowed blur pass and damages the node.
- * @param blur Blur node to update.
- * @param pass New pass to borrow, or NULL to detach the filter.
- */
-void wsm_scene_blur_set_pass(struct wsm_scene_blur *blur, struct wsm_render_blur_buffer_pass *pass);
 
 /**
  * @brief Changes the blur sampling parameters.

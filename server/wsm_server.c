@@ -57,12 +57,8 @@ struct tinywl_server {
 	struct wlr_renderer *renderer;
 	struct wlr_allocator *allocator;
 	bool render_demo_failed;
-	struct wsm_render_pass_copy *copy_pass;
-	struct wsm_render_pass_blit *blit_pass;
 	struct wsm_scene *scene;
 	struct wsm_scene_output_layout *scene_layout;
-	struct wsm_render_blur_buffer_pass *blur_pass;
-	struct wl_listener blur_pass_destroy;
 	struct wsm_scene_blur *blur_demo;
 
 	struct wlr_xdg_shell *xdg_shell;
@@ -619,29 +615,13 @@ static void server_cursor_frame(struct wl_listener *listener, void *data) {
 	wlr_seat_pointer_notify_frame(server->seat);
 }
 
-static void demo_blur_pass_destroyed(struct wl_listener *listener, void *data) {
-	struct tinywl_server *server = wl_container_of(listener, server, blur_pass_destroy);
-	wl_list_remove(&server->blur_pass_destroy.link);
-	wl_list_init(&server->blur_pass_destroy.link);
-	server->blur_pass = NULL;
-}
-
 /* A single stationary panel filters Wayland windows below it and passes input
  * through. Raise it again whenever applications change their stacking order. */
 static void create_blur_demo(struct tinywl_server *server) {
-	wl_list_init(&server->blur_pass_destroy.link);
-	server->blur_pass = wsm_render_blur_buffer_pass_create(server->renderer);
-	if (server->blur_pass == NULL) {
-		wlr_log(WLR_ERROR, "Cannot create blur demo");
-		return;
-	}
-	server->blur_pass_destroy.notify = demo_blur_pass_destroyed;
-	wl_signal_add(&server->blur_pass->events.destroy, &server->blur_pass_destroy);
 	server->blur_demo = wsm_scene_blur_create(server->scene->tree,
 		0, 0);
 	if (server->blur_demo != NULL) {
 		wsm_scene_blur_set_corner_radius(server->blur_demo, 24, 24, 24, 24);
-		wsm_scene_blur_set_pass(server->blur_demo, server->blur_pass);
 		wsm_scene_blur_set_blur(server->blur_demo, 2, 1.8f);
 		const float tint[4] = {0, 0, 0, 0};
 		wsm_scene_blur_set_appearance(server->blur_demo, 1.f, 1.f, tint);
@@ -902,7 +882,7 @@ static bool copy_output_demo(struct tinywl_output *output, struct wlr_buffer *bu
 	bool ok = true;
 	for (int i = 0; i < len && ok; i++) {
 		const pixman_box32_t *r = &rects[i];
-		ok = wsm_render_pass_copy(pass, server->copy_pass, &(struct wsm_copy_texture_options){
+		ok = wsm_render_pass_copy(pass, &(struct wsm_copy_texture_options){
 			.texture = source, .dst_texture = output->copy_texture,
 			.src_x = src_box.x + r->x1, .src_y = src_box.y + r->y1,
 			.dst_x = r->x1, .dst_y = r->y1,
@@ -1007,7 +987,7 @@ static bool blit_output_demo(struct tinywl_output *output, struct wlr_buffer *bu
 		const pixman_box32_t *r = &rects[i];
 		/* Align partial blits to the original 2:1 grid, preserving pixel
 		 * centers and filtering at odd damage boundaries. */
-		ok = wsm_render_pass_blit(pass, server->blit_pass, &(struct wsm_blit_texture_options){
+		ok = wsm_render_pass_blit(pass, &(struct wsm_blit_texture_options){
 			.texture = source, .dst_texture = output->blit_texture,
 			.src_box = {
 				.x = src_box.x + r->x1 * 2, .y = src_box.y + r->y1 * 2,
@@ -1527,24 +1507,6 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	server.copy_pass = wsm_render_pass_copy_autocreate(server.renderer);
-	if (server.copy_pass == NULL) {
-		wlr_log(WLR_ERROR, "Cannot create output copy pass");
-		wlr_renderer_destroy(server.renderer);
-		wlr_backend_destroy(server.backend);
-		wl_display_destroy(server.wl_display);
-		return 1;
-	}
-
-	server.blit_pass = wsm_render_pass_blit_autocreate(server.renderer);
-	if (server.blit_pass == NULL) {
-		wlr_log(WLR_ERROR, "Cannot create output blit pass");
-		wlr_renderer_destroy(server.renderer);
-		wlr_backend_destroy(server.backend);
-		wl_display_destroy(server.wl_display);
-		return 1;
-	}
-
 	wlr_renderer_init_wl_display(server.renderer, server.wl_display);
 
 	/* Autocreates an allocator for us.
@@ -1713,12 +1675,9 @@ int main(int argc, char *argv[]) {
 		output_destroy(&output->destroy, NULL);
 	}
 	wsm_scene_node_destroy(&server.scene->tree->node);
-	wsm_render_blur_buffer_pass_destroy(server.blur_pass);
 	wlr_xcursor_manager_destroy(server.cursor_mgr);
 	wlr_cursor_destroy(server.cursor);
 	wlr_allocator_destroy(server.allocator);
-	wsm_render_pass_blit_destroy(server.blit_pass);
-	wsm_render_pass_copy_destroy(server.copy_pass);
 	wlr_renderer_destroy(server.renderer);
 	wlr_backend_destroy(server.backend);
 	wl_display_destroy(server.wl_display);

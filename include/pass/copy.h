@@ -34,50 +34,6 @@ struct wsm_copy_texture_options {
 	uint64_t wait_point; /**< Acquire point on wait_timeline. */
 };
 
-struct wsm_render_pass_copy;
-
-/**
- * @brief Backend callbacks for copying textures and destroying copy passes.
- * @details Implementation tables remain private to each backend.
- */
-struct wsm_copy_texture_impl {
-	bool (*copy)(struct wlr_render_pass *target,
-		const struct wsm_copy_texture_options *options); /**< Copies validated regions; false on failure. */
-	void (*destroy)(struct wsm_render_pass_copy *pass); /**< Releases backend resources and frees the pass. */
-};
-
-/**
- * @brief Renderer-owned texture copy pass.
- * @details Automatically destroyed with its renderer, or explicitly by the caller.
- */
-struct wsm_render_pass_copy {
-	const struct wsm_copy_texture_impl *impl; /**< Private backend implementation. */
-	struct wlr_renderer *renderer; /**< Borrowed renderer owning the copy pass. */
-	struct wl_listener renderer_destroy; /**< Destroys the copy pass with its renderer. */
-};
-
-/**
- * @brief Initializes common copy pass state and renderer ownership.
- * @param pass Backend-allocated copy pass storage.
- * @param impl Private backend callbacks; copy and destroy must be provided.
- * @param renderer Renderer owning the pass and its textures.
- */
-void wsm_render_pass_copy_init(struct wsm_render_pass_copy *pass,
-	const struct wsm_copy_texture_impl *impl, struct wlr_renderer *renderer);
-
-/**
- * @brief Creates a texture copy pass for a wsm GLES2 or Pixman renderer.
- * @param renderer Renderer owning and automatically destroying the copy pass.
- * @return New copy pass, or NULL for an unsupported renderer or allocation failure.
- */
-struct wsm_render_pass_copy *wsm_render_pass_copy_autocreate(struct wlr_renderer *renderer);
-
-/**
- * @brief Removes renderer ownership and releases the copy pass.
- * @param pass Copy pass to destroy, or NULL.
- */
-void wsm_render_pass_copy_destroy(struct wsm_render_pass_copy *pass);
-
 /**
  * @brief Copies a texture region through the active pass backend.
  * @details Copies without scaling, blending, filtering, or applying sampling state.
@@ -86,12 +42,11 @@ void wsm_render_pass_copy_destroy(struct wsm_render_pass_copy *pass);
  *          GLES2 requires GL_TEXTURE_2D textures and EXT_copy_image or OES_copy_image.
  *          Pixman requires a writable destination mapping or owned image and does
  *          not support explicit timelines. Only mipmap level zero is supported.
- * @param target Active render pass belonging to the copy pass renderer.
- * @param pass Renderer-owned copy pass providing the backend implementation.
+ * @param target Active render pass.
  * @param options Borrowed textures, geometry, and optional acquire synchronization.
  * @return true on success, false for invalid options, an unsupported backend, or copy failure.
  */
-bool wsm_render_pass_copy(struct wlr_render_pass *target, struct wsm_render_pass_copy *pass,
+bool wsm_render_pass_copy(struct wlr_render_pass *target,
 	const struct wsm_copy_texture_options *options);
 
 #endif // PASS_COPY_H
