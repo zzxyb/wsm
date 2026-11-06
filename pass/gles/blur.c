@@ -1,4 +1,6 @@
 #include "pass/gles/blur.h"
+#include "pass/gles/pass.h"
+#include "texture/gles/texture.h"
 #include "pass/blit.h"
 #include "pass/texture.h"
 #include "blur_quad_vert_src.h"
@@ -161,21 +163,17 @@ static void destroy_shader(GLuint program) {
 	}
 }
 
-static void blur_pass_destroy(struct wsm_render_blur_buffer_pass *pass) {
-	struct wsm_gles_render_blur_buffer_pass *gles2_pass =
-		wsm_gles_render_blur_buffer_pass_from_pass(pass);
-	struct wsm_egl_context previous;
-	wsm_egl_make_current(gles2_pass->renderer->egl, &previous);
-	destroy_shader(gles2_pass->down.rgba.program);
-	destroy_shader(gles2_pass->down.ext.program);
-	destroy_shader(gles2_pass->up.program);
-	destroy_shader(gles2_pass->round.program);
-	wlr_texture_destroy(gles2_pass->filtered ? &gles2_pass->filtered->base : NULL);
-	for (size_t i = 0; i < sizeof(gles2_pass->levels) / sizeof(gles2_pass->levels[0]); i++) {
-		destroy_level(&gles2_pass->levels[i]);
+void wsm_gles2_blur_finish(struct wsm_gles2_renderer *renderer) {
+	struct wsm_gles2_blur *blur = &renderer->blur;
+	destroy_shader(blur->down.rgba.program);
+	destroy_shader(blur->down.ext.program);
+	destroy_shader(blur->up.program);
+	destroy_shader(blur->round.program);
+	wlr_texture_destroy(blur->filtered ? &blur->filtered->base : NULL);
+	for (size_t i = 0; i < sizeof(blur->levels) / sizeof(blur->levels[0]); i++) {
+		destroy_level(&blur->levels[i]);
 	}
-	wsm_egl_restore_context(&previous);
-	free(gles2_pass);
+	*blur = (struct wsm_gles2_blur){0};
 }
 
 static void get_src_box(
@@ -258,13 +256,11 @@ static void render_final(struct wsm_gles_blur_round_shader *shader,
 	render_unit_quad(shader->pos);
 }
 
-static void blur_pass_render(struct wlr_render_pass *target,
-	struct wsm_render_blur_buffer_pass *pass,
+void wsm_gles2_render_pass_add_blur(struct wlr_render_pass *target,
 	const struct wsm_render_blur_buffer_options *options) {
 	struct wsm_gles2_render_pass *gles_target = wlr_gles2_render_pass_from_render_pass(target);
 	struct wsm_gles2_renderer *renderer = gles_target->buffer->renderer;
-	struct wsm_gles_render_blur_buffer_pass *blur_pass =
-		wsm_gles_render_blur_buffer_pass_from_pass(pass);
+	struct wsm_gles2_blur *blur = &renderer->blur;
 	assert(wlr_texture_is_wsm_gles2(options->texture));
 
 	if (options->dst_box.width <= 0 || options->dst_box.height <= 0) {
@@ -275,11 +271,11 @@ static void blur_pass_render(struct wlr_render_pass *target,
 	struct wsm_gles_blur_down_shader *down_shader = NULL;
 	switch (texture.target) {
 	case GL_TEXTURE_2D:
-		down_shader = &blur_pass->down.rgba;
+		down_shader = &blur->down.rgba;
 		break;
 	case GL_TEXTURE_EXTERNAL_OES:
 		assert(renderer->exts.OES_egl_image_external);
-		down_shader = &blur_pass->down.ext;
+		down_shader = &blur->down.ext;
 		break;
 	default:
 		abort();
@@ -312,7 +308,7 @@ static void blur_pass_render(struct wlr_render_pass *target,
 		width = fmax(1, i == 0 ? (options->dst_box.width + 2 * options->padding) / 2 : width / 2);
 		height =
 			fmax(1, i == 0 ? (options->dst_box.height + 2 * options->padding) / 2 : height / 2);
-		if (!ensure_level(&blur_pass->levels[i], width, height)) {
+		if (!ensure_level(&blur->levels[i], width, height)) {
 			goto out;
 		}
 	}
@@ -330,43 +326,43 @@ static void blur_pass_render(struct wlr_render_pass *target,
 	glTexParameteri(texture.target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(texture.target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	render_down(down_shader, texture.target, texture.tex, options->texture->width,
-		options->texture->height, &blur_pass->levels[0], offset, options->transform, &src_box);
+		options->texture->height, &blur->levels[0], offset, options->transform, &src_box);
 
 	for (int i = 1; i <= iterations; i++) {
-		render_down(&blur_pass->down.rgba, GL_TEXTURE_2D, blur_pass->levels[i - 1].tex,
-			blur_pass->levels[i - 1].width, blur_pass->levels[i - 1].height, &blur_pass->levels[i],
+		render_down(&blur->down.rgba, GL_TEXTURE_2D, blur->levels[i - 1].tex,
+			blur->levels[i - 1].width, blur->levels[i - 1].height, &blur->levels[i],
 			offset, WL_OUTPUT_TRANSFORM_NORMAL, NULL);
 	}
 	for (int i = iterations; i > 0; i--) {
-		render_up(&blur_pass->up, &blur_pass->levels[i], &blur_pass->levels[i - 1], offset);
+		render_up(&blur->up, &blur->levels[i], &blur->levels[i - 1], offset);
 	}
 
-	if (blur_pass->filtered &&
-		(blur_pass->filtered->base.width != (uint32_t)options->dst_box.width ||
-		 blur_pass->filtered->base.height != (uint32_t)options->dst_box.height)) {
-		wlr_texture_destroy(&blur_pass->filtered->base);
-		blur_pass->filtered = NULL;
+	if (blur->filtered &&
+		(blur->filtered->base.width != (uint32_t)options->dst_box.width ||
+		 blur->filtered->base.height != (uint32_t)options->dst_box.height)) {
+		wlr_texture_destroy(&blur->filtered->base);
+		blur->filtered = NULL;
 	}
-	if (!blur_pass->filtered) {
-		blur_pass->filtered = wsm_gles2_texture_create_render_target(
-			pass->renderer, options->dst_box.width, options->dst_box.height);
-		if (!blur_pass->filtered) {
+	if (!blur->filtered) {
+		blur->filtered = wsm_gles2_texture_create_render_target(
+			&renderer->base, options->dst_box.width, options->dst_box.height);
+		if (!blur->filtered) {
 			goto out;
 		}
-		glGenFramebuffers(1, &blur_pass->filtered->fbo);
-		glBindFramebuffer(GL_FRAMEBUFFER, blur_pass->filtered->fbo);
+		glGenFramebuffers(1, &blur->filtered->fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, blur->filtered->fbo);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-			GL_TEXTURE_2D, blur_pass->filtered->tex, 0);
+			GL_TEXTURE_2D, blur->filtered->tex, 0);
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-			wlr_texture_destroy(&blur_pass->filtered->base);
-			blur_pass->filtered = NULL;
+			wlr_texture_destroy(&blur->filtered->base);
+			blur->filtered = NULL;
 			goto out;
 		}
 	}
 	/* Appearance is applied before the shared texture pass clips the corners. */
-	glBindFramebuffer(GL_FRAMEBUFFER, blur_pass->filtered->fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, blur->filtered->fbo);
 	glViewport(0, 0, options->dst_box.width, options->dst_box.height);
-	render_final(&blur_pass->round, &blur_pass->levels[0], options);
+	render_final(&blur->round, &blur->levels[0], options);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, target_fbo);
 	glViewport(0, 0, gles_target->buffer->base->width, gles_target->buffer->base->height);
@@ -374,7 +370,7 @@ static void blur_pass_render(struct wlr_render_pass *target,
 	float radii[4] = {options->top_left_radius, options->top_right_radius,
 		options->bottom_left_radius, options->bottom_right_radius};
 	wsm_render_pass_add_texture(target, &(struct wlr_render_texture_options){
-		.texture = &blur_pass->filtered->base,
+		.texture = &blur->filtered->base,
 		.dst_box = options->dst_box,
 		.alpha = options->alpha,
 		.clip = &region,
@@ -392,8 +388,8 @@ out:
 	pixman_region32_fini(&region);
 }
 
-static struct wlr_texture *capture(struct wlr_render_pass *target,
-	struct wsm_render_blur_buffer_pass *pass, struct wlr_texture *previous,
+struct wlr_texture *wsm_gles2_render_pass_capture_blur(struct wlr_render_pass *target,
+	struct wlr_texture *previous,
 	const struct wlr_box *box, const pixman_region32_t *damage) {
 	struct wsm_gles2_render_pass *p = wlr_gles2_render_pass_from_render_pass(target);
 	struct wlr_box extent =
@@ -419,7 +415,7 @@ static struct wlr_texture *capture(struct wlr_render_pass *target,
 	bool ok = source != NULL;
 	for (int i = 0; i < count && ok; i++) {
 		const pixman_box32_t *r = &rects[i];
-		ok = wsm_render_pass_blit(target, pass->blit,
+		ok = wsm_render_pass_blit(target,
 			&(struct wsm_blit_texture_options){
 				.texture = source,
 				.dst_texture = &texture->base,
@@ -440,12 +436,6 @@ static struct wlr_texture *capture(struct wlr_render_pass *target,
 	}
 	return &texture->base;
 }
-
-static const struct wsm_render_blur_buffer_pass_impl render_pass_impl = {
-	.capture = capture,
-	.destroy = blur_pass_destroy,
-	.render = blur_pass_render,
-};
 
 static bool init_down_shader(struct wsm_gles2_renderer *renderer,
 	struct wsm_gles_blur_down_shader *shader, const GLchar *frag_src) {
@@ -501,55 +491,17 @@ static bool init_round_shader(
 		   shader->noise_amount >= 0 && shader->material_contrast >= 0 && shader->tint >= 0;
 }
 
-struct wsm_render_blur_buffer_pass *wsm_gles_render_blur_buffer_pass_create(
-	struct wlr_renderer *wlr_renderer) {
-	struct wsm_gles_render_blur_buffer_pass *pass = calloc(1, sizeof(*pass));
-	if (pass == NULL) {
-		wlr_log_errno(WLR_ERROR, "failed to allocate wsm_gles_render_blur_buffer_pass");
-		return NULL;
-	}
-
-	struct wsm_gles2_renderer *renderer = wsm_gles2_renderer_from_renderer(wlr_renderer);
-	struct wsm_egl_context previous;
-	if (!wsm_egl_make_current(renderer->egl, &previous)) {
-		free(pass);
-		return NULL;
-	}
-
-	pass->renderer = renderer;
-	wsm_render_blur_buffer_pass_init(&pass->base, &render_pass_impl);
-	wsm_gles2_push_debug(renderer);
-	if (!init_down_shader(renderer, &pass->down.rgba, blur_down_rgba_frag_src) ||
-		!init_up_shader(renderer, &pass->up) || !init_round_shader(renderer, &pass->round)) {
+bool wsm_gles2_blur_init(struct wsm_gles2_renderer *renderer) {
+	struct wsm_gles2_blur *blur = &renderer->blur;
+	if (!init_down_shader(renderer, &blur->down.rgba, blur_down_rgba_frag_src) ||
+		!init_up_shader(renderer, &blur->up) || !init_round_shader(renderer, &blur->round)) {
 		wlr_log(WLR_ERROR, "blur buffer shader lookup failed");
-		goto error;
+		return false;
 	}
-
 	if (renderer->exts.OES_egl_image_external &&
-		!init_down_shader(renderer, &pass->down.ext, blur_down_external_frag_src)) {
+		!init_down_shader(renderer, &blur->down.ext, blur_down_external_frag_src)) {
 		wlr_log(WLR_ERROR, "blur buffer external shader lookup failed");
-		goto error;
+		return false;
 	}
-
-	wsm_gles2_pop_debug(renderer);
-	wsm_egl_restore_context(&previous);
-	pass->renderer = renderer;
-	return &pass->base;
-
-error:
-	blur_pass_destroy(&pass->base);
-	wsm_gles2_pop_debug(renderer);
-	wsm_egl_restore_context(&previous);
-	return NULL;
-}
-
-bool wsm_render_blur_buffer_pass_is_gles2(const struct wsm_render_blur_buffer_pass *pass) {
-	return pass->impl == &render_pass_impl;
-}
-
-struct wsm_gles_render_blur_buffer_pass *wsm_gles_render_blur_buffer_pass_from_pass(
-	struct wsm_render_blur_buffer_pass *pass) {
-	assert(pass->impl == &render_pass_impl);
-	struct wsm_gles_render_blur_buffer_pass *gles2_pass = wl_container_of(pass, gles2_pass, base);
-	return gles2_pass;
+	return true;
 }

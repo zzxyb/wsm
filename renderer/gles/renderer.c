@@ -48,6 +48,8 @@ static void gles2_destroy(struct wlr_renderer *wlr_renderer) {
 
 	wsm_egl_make_current(renderer->egl, NULL);
 
+	wsm_gles2_blur_finish(renderer);
+
 	struct wsm_gles2_texture *tex, *tex_tmp;
 	wl_list_for_each_safe(tex, tex_tmp, &renderer->textures, link) {
 		wsm_gles2_texture_destroy(tex);
@@ -525,6 +527,10 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 		goto error;
 	}
 
+	if (!wsm_gles2_blur_init(renderer)) {
+		goto error;
+	}
+
 	wsm_gles2_pop_debug(renderer);
 
 	wsm_egl_unset_current(renderer->egl);
@@ -541,6 +547,8 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 	return renderer;
 
 error:
+	wsm_gles2_blur_finish(renderer);
+
 	glDeleteProgram(renderer->shaders.quad.program);
 	glDeleteProgram(renderer->shaders.rect.program);
 	glDeleteProgram(renderer->shaders.border.program);

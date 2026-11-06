@@ -11,8 +11,6 @@
 #ifndef EFFECTS_WSM_BLUR_BUFFER_PASS_H
 #define EFFECTS_WSM_BLUR_BUFFER_PASS_H
 
-#include <wayland-server-core.h>
-
 #include <wlr/render/pass.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/render/wlr_texture.h>
@@ -54,90 +52,34 @@ struct wsm_render_blur_buffer_options {
 	uint64_t wait_point; /**< Acquire point on wait_timeline. */
 };
 
-struct wsm_render_blur_buffer_pass;
-
-/**
- * @brief Backend callbacks for blur capture, rendering, and destruction.
- */
-struct wsm_render_blur_buffer_pass_impl {
-	struct wlr_texture *(*capture)(struct wlr_render_pass *target,
-		struct wsm_render_blur_buffer_pass *pass, struct wlr_texture *texture,
-		const struct wlr_box *box, const pixman_region32_t *damage); /**< Captures pixels in target coordinates. */
-	void (*destroy)(struct wsm_render_blur_buffer_pass *pass); /**< Releases resources and frees the pass. */
-	void (*render)(struct wlr_render_pass *target, struct wsm_render_blur_buffer_pass *pass,
-		const struct wsm_render_blur_buffer_options *options); /**< Draws with validated blur options. */
-};
-
-/**
- * @brief Blur resources owned by a renderer and destroyed with it.
- */
-struct wsm_render_blur_buffer_pass {
-	struct wsm_render_pass_blit *blit; /**< Owned abstract blit pass for framebuffer capture. */
-	const struct wsm_render_blur_buffer_pass_impl *impl; /**< Backend implementation. */
-	struct wlr_renderer *renderer; /**< Renderer owning these effect resources. */
-	struct wl_listener renderer_destroy; /**< Renderer destruction listener. */
-	struct {
-		struct wl_signal destroy; /**< Emitted with NULL before backend resources are destroyed. */
-	} events; /**< Pass lifecycle signals. */
-};
-
 /**
  * @brief Captures the entire current render target.
- * @param target Active render pass belonging to the blur pass renderer.
- * @param pass Blur pass providing the capture backend.
+ * @param target Active render pass providing the renderer and its blur resources.
  * @return Owned snapshot texture, or NULL on failure.
  */
-struct wlr_texture *wsm_render_blur_buffer_pass_capture(
-	struct wlr_render_pass *target, struct wsm_render_blur_buffer_pass *pass);
+struct wlr_texture *wsm_render_pass_capture_blur(struct wlr_render_pass *target);
 
 /**
  * @brief Creates or updates a cached render-target snapshot.
- * @details Existing textures must belong to the pass renderer and match the extent.
+ * @details Existing textures must belong to the target renderer and match the extent.
  *          The caller owns the resulting texture and must destroy it when no longer used.
- * @param target Active render pass belonging to the blur pass renderer.
- * @param pass Blur pass providing the capture backend.
+ * @param target Active render pass providing the renderer and its blur resources.
  * @param texture Input/output owned snapshot; NULL contents allocate a new texture.
  * @param box Snapshot extent in target-buffer coordinates, or NULL for the whole target.
  * @param damage Region to copy in target-buffer coordinates, or NULL for the full extent.
  * @return true on success, false for incompatible inputs or capture failure.
  */
-bool wsm_render_blur_buffer_pass_update_capture(struct wlr_render_pass *target,
-	struct wsm_render_blur_buffer_pass *pass, struct wlr_texture **texture,
-	const struct wlr_box *box, const pixman_region32_t *damage);
-
-/**
- * @brief Initializes the common state of a backend blur pass.
- * @details Renderer ownership and the destruction listener are attached by
- *          wsm_render_blur_buffer_pass_create after backend creation.
- * @param pass Pass storage to initialize.
- * @param impl Backend implementation with a render callback.
- */
-void wsm_render_blur_buffer_pass_init(
-	struct wsm_render_blur_buffer_pass *pass, const struct wsm_render_blur_buffer_pass_impl *impl);
-
-/**
- * @brief Emits the destruction signal and releases blur resources.
- * @param pass Blur pass to destroy, or NULL.
- */
-void wsm_render_blur_buffer_pass_destroy(struct wsm_render_blur_buffer_pass *pass);
-
-/**
- * @brief Creates blur resources for a wsm GLES2 or Pixman renderer.
- * @param renderer Renderer that owns and automatically destroys the pass.
- * @return New blur pass, or NULL for an unsupported renderer or creation failure.
- */
-struct wsm_render_blur_buffer_pass *wsm_render_blur_buffer_pass_create(
-	struct wlr_renderer *renderer);
+bool wsm_render_pass_update_blur_capture(struct wlr_render_pass *target,
+	struct wlr_texture **texture, const struct wlr_box *box, const pixman_region32_t *damage);
 
 /**
  * @brief Filters a texture and composites it onto the render target.
  * @details Invalid or incompatible inputs are ignored. Corner radii are clamped
  *          to the destination size before dispatching to the backend.
- * @param target Active render pass belonging to the blur pass renderer.
- * @param pass Blur resources to use.
+ * @param target Active render pass providing the renderer and its blur resources.
  * @param options Borrowed source, geometry, synchronization, and appearance options.
  */
-void wsm_render_blur_buffer_pass_render(struct wlr_render_pass *target,
-	struct wsm_render_blur_buffer_pass *pass, const struct wsm_render_blur_buffer_options *options);
+void wsm_render_pass_add_blur(struct wlr_render_pass *target,
+	const struct wsm_render_blur_buffer_options *options);
 
 #endif // EFFECTS_WSM_BLUR_BUFFER_PASS_H

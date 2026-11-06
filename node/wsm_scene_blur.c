@@ -1,4 +1,5 @@
 #include "node/wsm_scene_blur.h"
+#include "pass/blur.h"
 #include "scene/wsm_scene.h"
 #include "scene/wsm_scene_output.h"
 #include "node/wsm_scene_tree.h"
@@ -21,6 +22,7 @@ struct blur_capture {
 	struct wl_list link;
 	struct wsm_scene_output *output;
 	struct wl_listener output_destroy;
+	struct wl_listener renderer_destroy;
 	struct wlr_texture *texture;
 	struct wlr_texture *filtered;
 	struct wlr_box filtered_box;
@@ -37,6 +39,7 @@ struct blur_capture {
 static void destroy_capture(struct blur_capture *capture) {
 	wl_list_remove(&capture->link);
 	wl_list_remove(&capture->output_destroy.link);
+	wl_list_remove(&capture->renderer_destroy.link);
 	wlr_texture_destroy(capture->texture);
 	wlr_texture_destroy(capture->filtered);
 	pixman_region32_fini(&capture->pending_capture_damage);
@@ -45,6 +48,11 @@ static void destroy_capture(struct blur_capture *capture) {
 
 static void output_destroyed(struct wl_listener *listener, void *data) {
 	struct blur_capture *capture = wl_container_of(listener, capture, output_destroy);
+	destroy_capture(capture);
+}
+
+static void capture_renderer_destroyed(struct wl_listener *listener, void *data) {
+	struct blur_capture *capture = wl_container_of(listener, capture, renderer_destroy);
 	destroy_capture(capture);
 }
 
@@ -65,18 +73,8 @@ static void scene_node_get_size(struct wsm_scene_node *node, int *width, int *he
 	}
 }
 
-static void pass_destroyed(struct wl_listener *listener, void *data) {
-	struct wsm_scene_blur *blur = wl_container_of(listener, blur, pass_destroy);
-	wl_list_remove(&blur->pass_destroy.link);
-	wl_list_init(&blur->pass_destroy.link);
-	clear_captures(blur);
-	blur->pass = NULL;
-	wsm_scene_node_update(&blur->node, NULL);
-}
-
 static void scene_node_destroy(struct wsm_scene_node *node) {
 	struct wsm_scene_blur *blur = wsm_scene_blur_from_node(node);
-	wl_list_remove(&blur->pass_destroy.link);
 	clear_captures(blur);
 	wlr_buffer_unlock(blur->buffer);
 	free(blur);
@@ -117,7 +115,7 @@ static bool scene_node_invisible(struct wsm_scene_node *node) {
 	scene_node_get_size(node, &width, &height);
 	return width <= 0 || height <= 0 || blur->opacity == 0.f ||
 		(blur->source == WSM_SCENE_BLUR_SOURCE_BUFFER &&
-			(!blur->pass || !blur->buffer));
+			!blur->buffer);
 }
 
 static bool construct_render_list_iterator(
@@ -220,6 +218,7 @@ static struct blur_capture *get_capture(
 		}
 		capture->output = data->output;
 		wl_list_init(&capture->output_destroy.link);
+		wl_list_init(&capture->renderer_destroy.link);
 		if (data->output) {
 			capture->output_destroy.notify = output_destroyed;
 			wl_signal_add(&data->output->events.destroy, &capture->output_destroy);
@@ -228,6 +227,19 @@ static struct blur_capture *get_capture(
 		capture->capture_needs_full_update = true;
 		wl_list_insert(&blur->captures, &capture->link);
 	}
+	struct wlr_renderer *renderer = data->output->output->renderer;
+	if ((capture->texture && capture->texture->renderer != renderer) ||
+		(capture->filtered && capture->filtered->renderer != renderer)) {
+		wlr_texture_destroy(capture->texture);
+		capture->texture = NULL;
+		wlr_texture_destroy(capture->filtered);
+		capture->filtered = NULL;
+		capture->filtered_valid = false;
+		capture->capture_needs_full_update = true;
+	}
+	wl_list_remove(&capture->renderer_destroy.link);
+	capture->renderer_destroy.notify = capture_renderer_destroyed;
+	wl_signal_add(&renderer->events.destroy, &capture->renderer_destroy);
 	float radii[4];
 	get_corner_radii(blur, data, radii);
 	if (memcmp(capture->radii, radii, sizeof(radii)) != 0) {
@@ -279,7 +291,7 @@ static struct blur_capture *get_capture(
 bool wsm_scene_blur_prepare(struct wsm_render_list_entry *entry, const struct wsm_render_data *data,
 	pixman_region32_t *damage) {
 	struct wsm_scene_blur *blur = wsm_scene_blur_from_node(entry->node);
-	if (blur->source != WSM_SCENE_BLUR_SOURCE_BACKDROP || !blur->pass) {
+	if (blur->source != WSM_SCENE_BLUR_SOURCE_BACKDROP) {
 		return true;
 	}
 	struct blur_capture *capture = get_capture(entry, data);
@@ -311,7 +323,7 @@ bool wsm_scene_blur_prepare(struct wsm_render_list_entry *entry, const struct ws
 }
 
 bool wsm_scene_blur_prepare_output(struct wsm_scene_blur *blur, struct wsm_scene_output *output) {
-	if (!blur || blur->source != WSM_SCENE_BLUR_SOURCE_BACKDROP || !blur->pass ||
+	if (!blur || blur->source != WSM_SCENE_BLUR_SOURCE_BACKDROP ||
 		wsm_scene_node_invisible(&blur->node)) {
 		return true;
 	}
@@ -366,15 +378,12 @@ static void render_blur(struct wsm_scene_blur *blur, const struct wsm_render_dat
 	for (size_t i = 0; i < 4; i++) {
 		options->tint[i] = blur->tint[i];
 	}
-	wsm_render_blur_buffer_pass_render(data->render_pass, blur->pass, options);
+	wsm_render_pass_add_blur(data->render_pass, options);
 }
 
 static void scene_node_render(
 	struct wsm_render_list_entry *entry, const struct wsm_render_data *data) {
 	struct wsm_scene_blur *blur = wsm_scene_blur_from_node(entry->node);
-	if (!blur->pass) {
-		return;
-	}
 	if (blur->source == WSM_SCENE_BLUR_SOURCE_BUFFER) {
 		render_buffer(entry, data);
 		return;
@@ -420,7 +429,7 @@ static void scene_node_render(
 			capture->sample_box.width, capture->sample_box.height);
 	}
 	pixman_region32_intersect(&capture_region, &capture->pending_capture_damage, &data->damage);
-	if (wsm_render_blur_buffer_pass_update_capture(data->render_pass, blur->pass, &capture->texture,
+	if (wsm_render_pass_update_blur_capture(data->render_pass, &capture->texture,
 			&capture->sample_box, &capture_region)) {
 		pixman_region32_subtract(
 			&capture->pending_capture_damage, &capture->pending_capture_damage, &capture_region);
@@ -440,7 +449,7 @@ static void scene_node_render(
 		/* Cache the composed panel, including its transparent rounded edge's
 		 * underlying pixels. Final composition uses SRC rather than blending
 		 * this already composed image a second time. */
-		if (wsm_render_blur_buffer_pass_update_capture(data->render_pass, blur->pass,
+		if (wsm_render_pass_update_blur_capture(data->render_pass,
 				&capture->filtered, &capture->filtered_box, &region)) {
 			/* Existing valid pixels outside a partial update are preserved. */
 			pixman_box32_t box = {capture->filtered_box.x, capture->filtered_box.y,
@@ -504,11 +513,6 @@ static void render_buffer(
 	transform_output_box(&dst_box, data);
 
 	struct wsm_scene_blur *blur = wsm_scene_blur_from_node(node);
-	if (blur->pass == NULL) {
-		wlr_log(WLR_ERROR, "No blur buffer pass is available for this renderer");
-		pixman_region32_fini(&render_region);
-		return;
-	}
 
 	struct wlr_texture *texture =
 		wlr_texture_from_buffer(data->output->output->renderer, blur->buffer);
@@ -553,7 +557,6 @@ struct wsm_scene_blur *wsm_scene_blur_create(
 	}
 
 	wsm_scene_node_init(&blur->node, &scene_node_impl, parent);
-	wl_list_init(&blur->pass_destroy.link);
 	wl_list_init(&blur->captures);
 	blur->source = WSM_SCENE_BLUR_SOURCE_BACKDROP;
 	blur->width = width;
@@ -572,19 +575,6 @@ struct wsm_scene_blur *wsm_scene_blur_create(
 
 	wsm_scene_node_update(&blur->node.scene->tree->node, NULL);
 	return blur;
-}
-
-void wsm_scene_blur_set_pass(
-	struct wsm_scene_blur *blur, struct wsm_render_blur_buffer_pass *pass) {
-	wl_list_remove(&blur->pass_destroy.link);
-	wl_list_init(&blur->pass_destroy.link);
-	clear_captures(blur);
-	blur->pass = pass;
-	if (pass) {
-		blur->pass_destroy.notify = pass_destroyed;
-		wl_signal_add(&pass->events.destroy, &blur->pass_destroy);
-	}
-	wsm_scene_node_update(&blur->node, NULL);
 }
 
 void wsm_scene_blur_set_blur(struct wsm_scene_blur *blur, int iterations, float offset) {

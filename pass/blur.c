@@ -1,87 +1,44 @@
 #include "pass/blur.h"
-#include "pass/blit.h"
 #include "pass/gles/blur.h"
+#include "pass/gles/pass.h"
 #include "pass/pixman/blur.h"
 #include "pass/pixman/pass.h"
 #include <limits.h>
 #include "renderer/pixman/renderer.h"
-#include <assert.h>
 #include <math.h>
-#include <stdlib.h>
 
-static void handle_renderer_destroy(struct wl_listener *listener, void *data) {
-	struct wsm_render_blur_buffer_pass *pass = wl_container_of(listener, pass, renderer_destroy);
-	wsm_render_blur_buffer_pass_destroy(pass);
-}
-
-void wsm_render_blur_buffer_pass_init(
-	struct wsm_render_blur_buffer_pass *pass, const struct wsm_render_blur_buffer_pass_impl *impl) {
-	assert(impl->render);
-	*pass = (struct wsm_render_blur_buffer_pass){.impl = impl};
-	wl_signal_init(&pass->events.destroy);
-	wl_list_init(&pass->renderer_destroy.link);
-}
-
-void wsm_render_blur_buffer_pass_destroy(struct wsm_render_blur_buffer_pass *pass) {
-	if (!pass) {
-		return;
+static struct wlr_renderer *get_renderer(struct wlr_render_pass *target) {
+	if (target && wlr_render_pass_is_wsm_gles2(target)) {
+		return &wlr_gles2_render_pass_from_render_pass(target)->buffer->renderer->base;
 	}
-	wl_list_remove(&pass->renderer_destroy.link);
-	wl_signal_emit_mutable(&pass->events.destroy, NULL);
-	assert(wl_list_empty(&pass->events.destroy.listener_list));
-	wsm_render_pass_blit_destroy(pass->blit);
-	pass->impl->destroy(pass);
+	if (target && wlr_render_pass_is_wsm_pixman(target)) {
+		return &wsm_pixman_render_pass_from_render_pass(target)->buffer->renderer->base;
+	}
+	return NULL;
 }
 
-struct wsm_render_blur_buffer_pass *wsm_render_blur_buffer_pass_create(
-	struct wlr_renderer *renderer) {
-	struct wsm_render_blur_buffer_pass *pass = NULL;
-	if (wlr_renderer_is_wsm_gles2(renderer)) {
-		pass = wsm_gles_render_blur_buffer_pass_create(renderer);
-	} else if (wlr_renderer_is_wsm_pixman(renderer)) {
-		pass = wsm_pixman_render_blur_buffer_pass_create(renderer);
+static struct wlr_texture *capture(struct wlr_render_pass *target,
+	struct wlr_texture *texture, const struct wlr_box *box, const pixman_region32_t *damage) {
+	if (target && wlr_render_pass_is_wsm_gles2(target)) {
+		return wsm_gles2_render_pass_capture_blur(target, texture, box, damage);
 	}
-	if (pass) {
-		pass->renderer = renderer;
-		pass->renderer_destroy.notify = handle_renderer_destroy;
-		wl_signal_add(&renderer->events.destroy, &pass->renderer_destroy);
-		/* Register after blur so blur releases its blit pass first on renderer destruction. */
-		pass->blit = wsm_render_pass_blit_autocreate(renderer);
-		if (pass->blit == NULL) {
-			wsm_render_blur_buffer_pass_destroy(pass);
-			return NULL;
-		}
+	if (target && wlr_render_pass_is_wsm_pixman(target)) {
+		return wsm_pixman_render_pass_capture_blur(target, texture, box, damage);
 	}
-	return pass;
+	return NULL;
 }
 
-static bool matches_target(
-	struct wlr_render_pass *target, struct wsm_render_blur_buffer_pass *pass) {
-	if (wlr_render_pass_is_wsm_gles2(target)) {
-		return &wlr_gles2_render_pass_from_render_pass(target)->buffer->renderer->base ==
-			   pass->renderer;
-	}
-	if (wlr_render_pass_is_wsm_pixman(target)) {
-		return &wsm_pixman_render_pass_from_render_pass(target)->buffer->renderer->base ==
-			   pass->renderer;
-	}
-	return false;
+struct wlr_texture *wsm_render_pass_capture_blur(struct wlr_render_pass *target) {
+	return capture(target, NULL, NULL, NULL);
 }
 
-struct wlr_texture *wsm_render_blur_buffer_pass_capture(
-	struct wlr_render_pass *target, struct wsm_render_blur_buffer_pass *pass) {
-	return target && pass && matches_target(target, pass)
-			   ? pass->impl->capture(target, pass, NULL, NULL, NULL)
-			   : NULL;
-}
-
-bool wsm_render_blur_buffer_pass_update_capture(struct wlr_render_pass *target,
-	struct wsm_render_blur_buffer_pass *pass, struct wlr_texture **texture,
-	const struct wlr_box *box, const pixman_region32_t *damage) {
-	if (!target || !pass || !texture || !matches_target(target, pass)) {
+bool wsm_render_pass_update_blur_capture(struct wlr_render_pass *target,
+	struct wlr_texture **texture, const struct wlr_box *box, const pixman_region32_t *damage) {
+	struct wlr_renderer *renderer = get_renderer(target);
+	if (!renderer || !texture) {
 		return false;
 	}
-	if (*texture && (*texture)->renderer != pass->renderer) {
+	if (*texture && (*texture)->renderer != renderer) {
 		return false;
 	}
 	if (box && (box->width <= 0 || box->height <= 0)) {
@@ -95,7 +52,7 @@ bool wsm_render_blur_buffer_pass_update_capture(struct wlr_render_pass *target,
 	if (*texture && damage && pixman_region32_empty(damage)) {
 		return true;
 	}
-	struct wlr_texture *updated = pass->impl->capture(target, pass, *texture, box, damage);
+	struct wlr_texture *updated = capture(target, *texture, box, damage);
 	if (!updated) {
 		return false;
 	}
@@ -103,15 +60,15 @@ bool wsm_render_blur_buffer_pass_update_capture(struct wlr_render_pass *target,
 	return true;
 }
 
-void wsm_render_blur_buffer_pass_render(struct wlr_render_pass *target,
-	struct wsm_render_blur_buffer_pass *pass,
+void wsm_render_pass_add_blur(struct wlr_render_pass *target,
 	const struct wsm_render_blur_buffer_options *options) {
-	if (!target || !pass || !options || !options->texture ||
-		options->texture->renderer != pass->renderer || options->dst_box.width <= 0 ||
+	struct wlr_renderer *renderer = get_renderer(target);
+	if (!renderer || !options || !options->texture ||
+		options->texture->renderer != renderer || options->dst_box.width <= 0 ||
 		options->dst_box.height <= 0 || !isfinite(options->offset) || options->offset < 0 ||
 		options->padding < 0 || options->padding > 4096 ||
 		options->dst_box.width > INT_MAX - 2 * options->padding ||
-		options->dst_box.height > INT_MAX - 2 * options->padding || !matches_target(target, pass)) {
+		options->dst_box.height > INT_MAX - 2 * options->padding) {
 		return;
 	}
 	if (!isfinite(options->src_box.x) || !isfinite(options->src_box.y) ||
@@ -139,5 +96,9 @@ void wsm_render_blur_buffer_pass_render(struct wlr_render_pass *target,
 	normalized.top_right_radius = radii[1];
 	normalized.bottom_left_radius = radii[2];
 	normalized.bottom_right_radius = radii[3];
-	pass->impl->render(target, pass, &normalized);
+	if (wlr_render_pass_is_wsm_gles2(target)) {
+		wsm_gles2_render_pass_add_blur(target, &normalized);
+	} else if (wlr_render_pass_is_wsm_pixman(target)) {
+		wsm_pixman_render_pass_add_blur(target, &normalized);
+	}
 }

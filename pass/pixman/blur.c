@@ -78,7 +78,7 @@ static float smooth(float a, float b, float x) {
 	return t * t * (3 - 2 * t);
 }
 
-static void render(struct wlr_render_pass *target, struct wsm_render_blur_buffer_pass *pass,
+void wsm_pixman_render_pass_add_blur(struct wlr_render_pass *target,
 	const struct wsm_render_blur_buffer_options *o) {
 	uint64_t wait_point = o->wait_point;
 	if (o->wait_timeline &&
@@ -222,11 +222,8 @@ done:
 	}
 }
 
-static void destroy(struct wsm_render_blur_buffer_pass *pass) {
-	free(pass);
-}
-static struct wlr_texture *capture(struct wlr_render_pass *target,
-	struct wsm_render_blur_buffer_pass *pass, struct wlr_texture *previous,
+struct wlr_texture *wsm_pixman_render_pass_capture_blur(struct wlr_render_pass *target,
+	struct wlr_texture *previous,
 	const struct wlr_box *box, const pixman_region32_t *damage) {
 	struct wsm_pixman_render_pass *p = wsm_pixman_render_pass_from_render_pass(target);
 	struct wlr_box extent =
@@ -262,15 +259,4 @@ static struct wlr_texture *capture(struct wlr_render_pass *target,
 	}
 	pixman_region32_fini(&region);
 	return &texture->base;
-}
-
-static const struct wsm_render_blur_buffer_pass_impl impl = {
-	.capture = capture, .render = render, .destroy = destroy};
-struct wsm_render_blur_buffer_pass *wsm_pixman_render_blur_buffer_pass_create(
-	struct wlr_renderer *renderer) {
-	struct wsm_render_blur_buffer_pass *pass = calloc(1, sizeof(*pass));
-	if (pass) {
-		wsm_render_blur_buffer_pass_init(pass, &impl);
-	}
-	return pass;
 }

@@ -1,5 +1,3 @@
-#include <assert.h>
-#include <stdlib.h>
 #include "pass/pixman/copy.h"
 #include "pass/pixman/pass.h"
 #include "texture/pixman/texture.h"
@@ -10,11 +8,8 @@ static pixman_image_t *image_view(pixman_image_t *image) {
 		pixman_image_get_data(image), pixman_image_get_stride(image));
 }
 
-static bool render_pass_copy(struct wlr_render_pass *wlr_pass,
+bool wsm_pixman_render_pass_copy(struct wlr_render_pass *wlr_pass,
 		const struct wsm_copy_texture_options *options) {
-	if (!wlr_render_pass_is_wsm_pixman(wlr_pass)) {
-		return false;
-	}
 	struct wsm_pixman_render_pass *pass = wsm_pixman_render_pass_from_render_pass(wlr_pass);
 	if (options->wait_timeline != NULL ||
 			options->texture->renderer != &pass->buffer->renderer->base ||
@@ -60,36 +55,4 @@ static bool render_pass_copy(struct wlr_render_pass *wlr_pass,
 		wlr_buffer_end_data_ptr_access(src->buffer);
 	}
 	return ok;
-}
-
-static void copy_pass_destroy(struct wsm_render_pass_copy *pass) {
-	free(wsm_render_pass_copy_pixman_from_pass(pass));
-}
-
-static const struct wsm_copy_texture_impl copy_impl = {
-	.copy = render_pass_copy,
-	.destroy = copy_pass_destroy,
-};
-
-struct wsm_render_pass_copy *wsm_render_pass_copy_pixman_create(struct wlr_renderer *renderer) {
-	if (renderer == NULL || !wlr_renderer_is_wsm_pixman(renderer)) {
-		return NULL;
-	}
-	struct wsm_render_pass_copy_pixman *pass = calloc(1, sizeof(*pass));
-	if (pass == NULL) {
-		return NULL;
-	}
-	wsm_render_pass_copy_init(&pass->base, &copy_impl, renderer);
-	return &pass->base;
-}
-
-bool wsm_render_pass_copy_is_pixman(const struct wsm_render_pass_copy *pass) {
-	return pass != NULL && pass->impl == &copy_impl;
-}
-
-struct wsm_render_pass_copy_pixman *wsm_render_pass_copy_pixman_from_pass(
-		struct wsm_render_pass_copy *pass) {
-	assert(wsm_render_pass_copy_is_pixman(pass));
-	struct wsm_render_pass_copy_pixman *pixman_pass = wl_container_of(pass, pixman_pass, base);
-	return pixman_pass;
 }

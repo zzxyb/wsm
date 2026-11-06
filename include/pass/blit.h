@@ -33,50 +33,6 @@ struct wsm_blit_texture_options {
 	uint64_t wait_point; /**< Acquire point on wait_timeline. */
 };
 
-struct wsm_render_pass_blit;
-
-/**
- * @brief Backend callbacks for blitting textures and destroying blit passes.
- * @details Implementation tables remain private to each backend.
- */
-struct wsm_blit_texture_impl {
-	bool (*blit)(struct wlr_render_pass *target,
-		const struct wsm_blit_texture_options *options); /**< Blits validated regions; false on failure. */
-	void (*destroy)(struct wsm_render_pass_blit *pass); /**< Releases backend resources and frees the pass. */
-};
-
-/**
- * @brief Renderer-owned texture blit pass.
- * @details Automatically destroyed with its renderer, or explicitly by the caller.
- */
-struct wsm_render_pass_blit {
-	const struct wsm_blit_texture_impl *impl; /**< Private backend implementation. */
-	struct wlr_renderer *renderer; /**< Borrowed renderer owning the blit pass. */
-	struct wl_listener renderer_destroy; /**< Destroys the blit pass with its renderer. */
-};
-
-/**
- * @brief Initializes common blit pass state and renderer ownership.
- * @param pass Backend-allocated blit pass storage.
- * @param impl Private backend callbacks; blit and destroy must be provided.
- * @param renderer Renderer owning the pass and its textures.
- */
-void wsm_render_pass_blit_init(struct wsm_render_pass_blit *pass,
-	const struct wsm_blit_texture_impl *impl, struct wlr_renderer *renderer);
-
-/**
- * @brief Creates a texture blit pass for a wsm GLES2 or Pixman renderer.
- * @param renderer Renderer owning and automatically destroying the blit pass.
- * @return New blit pass, or NULL for an unsupported renderer or allocation failure.
- */
-struct wsm_render_pass_blit *wsm_render_pass_blit_autocreate(struct wlr_renderer *renderer);
-
-/**
- * @brief Removes renderer ownership and releases the blit pass.
- * @param pass Blit pass to destroy, or NULL.
- */
-void wsm_render_pass_blit_destroy(struct wsm_render_pass_blit *pass);
-
 /**
  * @brief Blits a color texture rectangle, with scaling, filtering, and axis reversal.
  * @details Coordinates refer to texture pixels, with the same origin as texture data.
@@ -95,12 +51,11 @@ void wsm_render_pass_blit_destroy(struct wsm_render_pass_blit *pass);
  *          Pixman requires writable destination storage and rejects explicit timelines.
  *          Borrowed textures must remain alive until pass submission. The caller
  *          must arrange destination synchronization before reusing its storage.
- * @param target Active render pass belonging to the blit pass renderer.
- * @param pass Renderer-owned blit pass providing the backend implementation.
+ * @param target Active render pass.
  * @param options Borrowed textures, geometry, and optional acquire synchronization.
  * @return true on success, false for invalid options, an unsupported backend, or blit failure.
  */
-bool wsm_render_pass_blit(struct wlr_render_pass *target, struct wsm_render_pass_blit *pass,
+bool wsm_render_pass_blit(struct wlr_render_pass *target,
 	const struct wsm_blit_texture_options *options);
 
 #endif // PASS_BLIT_H

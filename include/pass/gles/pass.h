@@ -59,7 +59,8 @@ bool wlr_render_pass_is_wsm_gles2(const struct wlr_render_pass *wlr_pass);
 /**
  * @brief Casts a generic render pass to a GLES2 render pass.
  * @param wlr_pass Render pass known to be GLES2-backed.
- * @return Enclosing GLES2 render pass, or NULL when the type does not match.
+ * @return Enclosing GLES2 render pass.
+ * @pre The pass must use the wsm GLES2 backend.
  */
 struct wsm_gles2_render_pass *wlr_gles2_render_pass_from_render_pass(
 	struct wlr_render_pass *wlr_pass);

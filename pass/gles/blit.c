@@ -1,5 +1,3 @@
-#include <assert.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include "pass/gles/blit.h"
 #include "pass/gles/pass.h"
@@ -94,11 +92,8 @@ static bool blit(struct wsm_gles2_renderer *renderer,
 	return ok;
 }
 
-static bool render_pass_blit(struct wlr_render_pass *wlr_pass,
+bool wsm_gles2_render_pass_blit(struct wlr_render_pass *wlr_pass,
 		const struct wsm_blit_texture_options *options) {
-	if (!wlr_render_pass_is_wsm_gles2(wlr_pass)) {
-		return false;
-	}
 	struct wsm_gles2_render_pass *pass = wlr_gles2_render_pass_from_render_pass(wlr_pass);
 	struct wsm_gles2_renderer *renderer = pass->buffer->renderer;
 	if (options->texture->renderer != &renderer->base ||
@@ -131,36 +126,4 @@ static bool render_pass_blit(struct wlr_render_pass *wlr_pass,
 	}
 
 	return blit(renderer, options);
-}
-
-static void blit_pass_destroy(struct wsm_render_pass_blit *pass) {
-	free(wsm_render_pass_blit_gles_from_pass(pass));
-}
-
-static const struct wsm_blit_texture_impl blit_impl = {
-	.blit = render_pass_blit,
-	.destroy = blit_pass_destroy,
-};
-
-struct wsm_render_pass_blit *wsm_render_pass_blit_gles_create(struct wlr_renderer *renderer) {
-	if (renderer == NULL || !wlr_renderer_is_wsm_gles2(renderer)) {
-		return NULL;
-	}
-	struct wsm_render_pass_blit_gles *pass = calloc(1, sizeof(*pass));
-	if (pass == NULL) {
-		return NULL;
-	}
-	wsm_render_pass_blit_init(&pass->base, &blit_impl, renderer);
-	return &pass->base;
-}
-
-bool wsm_render_pass_blit_is_gles(const struct wsm_render_pass_blit *pass) {
-	return pass != NULL && pass->impl == &blit_impl;
-}
-
-struct wsm_render_pass_blit_gles *wsm_render_pass_blit_gles_from_pass(
-		struct wsm_render_pass_blit *pass) {
-	assert(wsm_render_pass_blit_is_gles(pass));
-	struct wsm_render_pass_blit_gles *gles_pass = wl_container_of(pass, gles_pass, base);
-	return gles_pass;
 }
