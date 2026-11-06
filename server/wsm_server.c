@@ -977,6 +977,14 @@ static bool blit_output_demo(struct tinywl_output *output, struct wlr_buffer *bu
 		if (output->blit_buffer == NULL) {
 			return false;
 		}
+	}
+	if (output->blit_texture == NULL) {
+		/* Scaling requires a render target; blit never creates framebuffers. */
+		struct wlr_render_pass *init = wlr_renderer_begin_buffer_pass(server->renderer,
+			output->blit_buffer, NULL);
+		if (init == NULL || !wlr_render_pass_submit(init)) {
+			return false;
+		}
 		output->blit_texture = wlr_texture_from_buffer(server->renderer, output->blit_buffer);
 		if (output->blit_texture == NULL) {
 			return false;

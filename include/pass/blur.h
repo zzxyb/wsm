@@ -60,7 +60,8 @@ struct wsm_render_blur_buffer_pass;
  * @brief Backend callbacks for blur capture, rendering, and destruction.
  */
 struct wsm_render_blur_buffer_pass_impl {
-	struct wlr_texture *(*capture)(struct wlr_render_pass *target, struct wlr_texture *texture,
+	struct wlr_texture *(*capture)(struct wlr_render_pass *target,
+		struct wsm_render_blur_buffer_pass *pass, struct wlr_texture *texture,
 		const struct wlr_box *box, const pixman_region32_t *damage); /**< Captures pixels in target coordinates. */
 	void (*destroy)(struct wsm_render_blur_buffer_pass *pass); /**< Releases resources and frees the pass. */
 	void (*render)(struct wlr_render_pass *target, struct wsm_render_blur_buffer_pass *pass,
@@ -71,6 +72,7 @@ struct wsm_render_blur_buffer_pass_impl {
  * @brief Blur resources owned by a renderer and destroyed with it.
  */
 struct wsm_render_blur_buffer_pass {
+	struct wsm_render_pass_blit *blit; /**< Owned abstract blit pass for framebuffer capture. */
 	const struct wsm_render_blur_buffer_pass_impl *impl; /**< Backend implementation. */
 	struct wlr_renderer *renderer; /**< Renderer owning these effect resources. */
 	struct wl_listener renderer_destroy; /**< Renderer destruction listener. */

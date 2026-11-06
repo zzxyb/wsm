@@ -225,7 +225,8 @@ done:
 static void destroy(struct wsm_render_blur_buffer_pass *pass) {
 	free(pass);
 }
-static struct wlr_texture *capture(struct wlr_render_pass *target, struct wlr_texture *previous,
+static struct wlr_texture *capture(struct wlr_render_pass *target,
+	struct wsm_render_blur_buffer_pass *pass, struct wlr_texture *previous,
 	const struct wlr_box *box, const pixman_region32_t *damage) {
 	struct wsm_pixman_render_pass *p = wsm_pixman_render_pass_from_render_pass(target);
 	struct wlr_box extent =
