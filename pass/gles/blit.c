@@ -1,29 +1,18 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <drm_fourcc.h>
 #include "pass/gles/blit.h"
 #include "pass/gles/pass.h"
 #include "texture/gles/texture.h"
 #include "util/wsm_log.h"
 
-/* Core ES3 and the NV/ANGLE extensions use the same framebuffer tokens. */
+/* Core ES3 framebuffer tokens, absent from the GLES2 headers. */
 #ifndef GL_READ_FRAMEBUFFER
 #define GL_READ_FRAMEBUFFER 0x8CA8
 #define GL_DRAW_FRAMEBUFFER 0x8CA9
 #define GL_READ_FRAMEBUFFER_BINDING 0x8CAA
 #define GL_DRAW_FRAMEBUFFER_BINDING 0x8CA6
 #endif
-
-static uint32_t texture_format(struct wsm_gles2_texture *texture) {
-	if (texture->buffer != NULL) {
-		struct wlr_dmabuf_attributes dmabuf;
-		if (wlr_buffer_get_dmabuf(texture->buffer->base, &dmabuf)) {
-			return dmabuf.format;
-		}
-	}
-	return texture->drm_format;
-}
 
 static bool render_pass_blit(struct wlr_render_pass *wlr_pass,
 		const struct wsm_blit_texture_options *options) {
@@ -46,13 +35,6 @@ static bool render_pass_blit(struct wlr_render_pass *wlr_pass,
 		return false;
 	}
 	const struct wlr_box *s = &options->src_box, *d = &options->dst_box;
-	if (renderer->exts.ANGLE_framebuffer_blit &&
-			(options->filter_mode != WLR_SCALE_FILTER_NEAREST ||
-			 s->width != d->width || s->height != d->height ||
-			 texture_format(src) == DRM_FORMAT_INVALID ||
-			 texture_format(src) != texture_format(dst))) {
-		return false;
-	}
 	if (options->wait_timeline != NULL) {
 		int fd = wlr_drm_syncobj_timeline_export_sync_file(
 			options->wait_timeline, options->wait_point);

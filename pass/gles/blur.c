@@ -396,25 +396,6 @@ out:
 #define GL_DRAW_FRAMEBUFFER 0x8CA9
 #endif
 
-typedef void(GL_APIENTRYP blit_framebuffer_func_t)(
-	GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum);
-
-/* Same blit path and GLES2 fallback as wlroots' framebuffer blur node. */
-static blit_framebuffer_func_t get_blit_framebuffer(void) {
-	const char *version = (const char *)glGetString(GL_VERSION);
-	const char *extensions = (const char *)glGetString(GL_EXTENSIONS);
-	if (strstr(version, "OpenGL ES 3")) {
-		return (blit_framebuffer_func_t)eglGetProcAddress("glBlitFramebuffer");
-	}
-	if (strstr(extensions, "GL_ANGLE_framebuffer_blit")) {
-		return (blit_framebuffer_func_t)eglGetProcAddress("glBlitFramebufferANGLE");
-	}
-	if (strstr(extensions, "GL_NV_framebuffer_blit")) {
-		return (blit_framebuffer_func_t)eglGetProcAddress("glBlitFramebufferNV");
-	}
-	return NULL;
-}
-
 static struct wlr_texture *capture(struct wlr_render_pass *target, struct wlr_texture *previous,
 	const struct wlr_box *box, const pixman_region32_t *damage) {
 	struct wsm_gles2_render_pass *p = wlr_gles2_render_pass_from_render_pass(target);
@@ -436,7 +417,7 @@ static struct wlr_texture *capture(struct wlr_render_pass *target, struct wlr_te
 	if (damage) {
 		pixman_region32_intersect(&region, &region, damage);
 	}
-	blit_framebuffer_func_t blit = get_blit_framebuffer();
+	PFNGLBLITFRAMEBUFFERPROC blit = p->buffer->renderer->procs.glBlitFramebuffer;
 	if (blit && !texture->fbo) {
 		glGenFramebuffers(1, &texture->fbo);
 		glBindFramebuffer(GL_FRAMEBUFFER, texture->fbo);

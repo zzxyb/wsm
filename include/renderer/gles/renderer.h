@@ -21,6 +21,8 @@
 #include <wlr/render/wlr_renderer.h>
 
 typedef void (GL_APIENTRYP PFNGLGETINTEGER64VEXTPROC) (GLenum pname, GLint64 *data);
+typedef void (GL_APIENTRYP PFNGLBLITFRAMEBUFFERPROC)(
+	GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum);
 
 struct wsm_gles2_buffer;
 struct wsm_egl;
@@ -67,7 +69,6 @@ struct wsm_gles2_renderer {
 		bool OES_texture_half_float_linear; /**< Linear half-float filtering support. */
 		bool EXT_texture_norm16; /**< Normalized 16-bit texture support. */
 		bool EXT_disjoint_timer_query; /**< GPU timer query support. */
-		bool ANGLE_framebuffer_blit; /**< Restricted GLES2 framebuffer blit support. */
 		bool EXT_copy_image; /**< Image copy extension support. */
 	} exts;
 
@@ -85,7 +86,7 @@ struct wsm_gles2_renderer {
 		PFNGLGETQUERYOBJECTIVEXTPROC glGetQueryObjectivEXT; /**< Queries an integer result. */
 		PFNGLGETQUERYOBJECTUI64VEXTPROC glGetQueryObjectui64vEXT; /**< Queries a 64-bit result. */
 		PFNGLGETINTEGER64VEXTPROC glGetInteger64vEXT; /**< Queries a 64-bit integer value. */
-		PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebuffer; /**< Core or extension framebuffer blit. */
+		PFNGLBLITFRAMEBUFFERPROC glBlitFramebuffer; /**< Core ES3 framebuffer blit. */
 		PFNGLCOPYIMAGESUBDATAEXTPROC glCopyImageSubDataEXT; /**< Copies texture regions. */
 	} procs;
 

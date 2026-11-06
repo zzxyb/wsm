@@ -85,9 +85,7 @@ void wsm_render_pass_blit_destroy(struct wsm_render_pass_blit *pass);
  *          the corresponding axis. No blending or texture sampling state is applied.
  *          Source and destination storage must not alias each other or the pass target.
  *          Only mipmap level zero and single-sample color textures are supported.
- *          GLES requires framebuffer-renderable GL_TEXTURE_2D textures and ES 3
- *          or NV_framebuffer_blit. ANGLE_framebuffer_blit only supports equal-size,
- *          nearest blits without relative axis reversal and with matching formats.
+ *          GLES requires framebuffer-renderable GL_TEXTURE_2D textures and ES 3.
  *          Other format conversions depend on backend framebuffer support.
  *          Pixman requires writable destination storage and rejects explicit timelines.
  *          Borrowed textures must remain alive until pass submission. The caller
