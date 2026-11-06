@@ -1,4 +1,7 @@
 wsm_sources += files(
+	'blit.c',
+	'gles/blit.c',
+	'pixman/blit.c',
 	'copy.c',
 	'gles/copy.c',
 	'pixman/copy.c',
