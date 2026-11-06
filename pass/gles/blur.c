@@ -1,4 +1,5 @@
 #include "pass/gles/blur.h"
+#include "pass/blit.h"
 #include "pass/texture.h"
 #include "blur_quad_vert_src.h"
 #include "round_tex_vert_src.h"
@@ -391,18 +392,12 @@ out:
 	pixman_region32_fini(&region);
 }
 
-#ifndef GL_READ_FRAMEBUFFER
-#define GL_READ_FRAMEBUFFER 0x8CA8
-#define GL_DRAW_FRAMEBUFFER 0x8CA9
-#endif
-
-static struct wlr_texture *capture(struct wlr_render_pass *target, struct wlr_texture *previous,
+static struct wlr_texture *capture(struct wlr_render_pass *target,
+	struct wsm_render_blur_buffer_pass *pass, struct wlr_texture *previous,
 	const struct wlr_box *box, const pixman_region32_t *damage) {
 	struct wsm_gles2_render_pass *p = wlr_gles2_render_pass_from_render_pass(target);
 	struct wlr_box extent =
 		box ? *box : (struct wlr_box){0, 0, p->buffer->base->width, p->buffer->base->height};
-	GLint target_fbo;
-	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &target_fbo);
 	struct wsm_gles2_texture *texture =
 		previous ? wsm_gles2_texture_from_texture(previous)
 				 : wsm_gles2_texture_create_render_target(
@@ -417,40 +412,32 @@ static struct wlr_texture *capture(struct wlr_render_pass *target, struct wlr_te
 	if (damage) {
 		pixman_region32_intersect(&region, &region, damage);
 	}
-	PFNGLBLITFRAMEBUFFERPROC blit = p->buffer->renderer->procs.glBlitFramebuffer;
-	if (blit && !texture->fbo) {
-		glGenFramebuffers(1, &texture->fbo);
-		glBindFramebuffer(GL_FRAMEBUFFER, texture->fbo);
-		glFramebufferTexture2D(
-			GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->tex, 0);
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-			glDeleteFramebuffers(1, &texture->fbo);
-			texture->fbo = 0;
-			blit = NULL;
-		}
-	}
+	struct wlr_texture *source = wlr_texture_from_buffer(&p->buffer->renderer->base,
+		p->buffer->base);
 	int count;
 	const pixman_box32_t *rects = pixman_region32_rectangles(&region, &count);
-	if (blit) {
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, target_fbo);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, texture->fbo);
-		for (int i = 0; i < count; i++) {
-			const pixman_box32_t *r = &rects[i];
-			blit(r->x1, r->y1, r->x2, r->y2, r->x1 - extent.x, r->y1 - extent.y, r->x2 - extent.x,
-				r->y2 - extent.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-		}
-	} else {
-		glBindFramebuffer(GL_FRAMEBUFFER, target_fbo);
-		glBindTexture(GL_TEXTURE_2D, texture->tex);
-		for (int i = 0; i < count; i++) {
-			const pixman_box32_t *r = &rects[i];
-			glCopyTexSubImage2D(GL_TEXTURE_2D, 0, r->x1 - extent.x, r->y1 - extent.y, r->x1, r->y1,
-				r->x2 - r->x1, r->y2 - r->y1);
-		}
+	bool ok = source != NULL;
+	for (int i = 0; i < count && ok; i++) {
+		const pixman_box32_t *r = &rects[i];
+		ok = wsm_render_pass_blit(target, pass->blit,
+			&(struct wsm_blit_texture_options){
+				.texture = source,
+				.dst_texture = &texture->base,
+				.src_box = {r->x1, r->y1, r->x2 - r->x1, r->y2 - r->y1},
+				.dst_box = {r->x1 - extent.x, r->y1 - extent.y,
+					r->x2 - r->x1, r->y2 - r->y1},
+				.filter_mode = WLR_SCALE_FILTER_NEAREST,
+			});
 	}
-	glBindFramebuffer(GL_FRAMEBUFFER, target_fbo);
+	wlr_texture_destroy(source);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	pixman_region32_fini(&region);
+	if (!ok) {
+		if (!previous) {
+			wlr_texture_destroy(&texture->base);
+		}
+		return NULL;
+	}
 	return &texture->base;
 }
 

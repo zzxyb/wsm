@@ -83,9 +83,14 @@ void wsm_render_pass_blit_destroy(struct wsm_render_pass_blit *pass);
  *          Each rectangle maps (x,y) to (x+width,y+height); both endpoints must be
  *          within the texture and extents must be nonzero. Negative extents flip
  *          the corresponding axis. No blending or texture sampling state is applied.
- *          Source and destination storage must not alias each other or the pass target.
+ *          Destination storage must not alias the source or the pass target.
  *          Only mipmap level zero and single-sample color textures are supported.
- *          GLES requires framebuffer-renderable GL_TEXTURE_2D textures and ES 3.
+ *          GLES requires a source texture backed by an existing framebuffer, which
+ *          may be the active pass target.
+ *          A framebuffer-backed destination supports scaling and axis reversal
+ *          with ES 3. A plain GL_TEXTURE_2D destination only supports equal positive
+ *          source and destination extents, via a framebuffer-to-texture copy.
+ *          GLES never creates framebuffers for source or destination textures.
  *          Other format conversions depend on backend framebuffer support.
  *          Pixman requires writable destination storage and rejects explicit timelines.
  *          Borrowed textures must remain alive until pass submission. The caller

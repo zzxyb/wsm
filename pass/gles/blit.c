@@ -14,6 +14,86 @@
 #define GL_DRAW_FRAMEBUFFER_BINDING 0x8CA6
 #endif
 
+/* Only existing render targets qualify as framebuffer-backed textures. */
+static GLuint texture_framebuffer(struct wsm_gles2_texture *texture) {
+	return texture->fbo ? texture->fbo : texture->buffer ? texture->buffer->fbo : 0;
+}
+
+static bool blit(struct wsm_gles2_renderer *renderer,
+		const struct wsm_blit_texture_options *options) {
+	struct wsm_gles2_texture *source = wsm_gles2_texture_from_texture(options->texture);
+	struct wsm_gles2_texture *destination = wsm_gles2_texture_from_texture(options->dst_texture);
+	GLuint src_fbo = texture_framebuffer(source);
+	GLuint dst_fbo = texture_framebuffer(destination);
+	if (src_fbo == 0 || !glIsFramebuffer(src_fbo)) {
+		return false;
+	}
+	const struct wlr_box *src = &options->src_box, *dst = &options->dst_box;
+	bool has_blit = renderer->procs.glBlitFramebuffer != NULL;
+	if (dst_fbo != 0) {
+		if (!has_blit || src_fbo == dst_fbo || !glIsFramebuffer(dst_fbo)) {
+			return false;
+		}
+	} else {
+		/* A plain texture has no draw framebuffer: only a direct pixel copy is possible. */
+		if (destination->target != GL_TEXTURE_2D || destination->tex == 0 ||
+				src->width <= 0 || src->height <= 0 ||
+				src->width != dst->width || src->height != dst->height) {
+			return false;
+		}
+	}
+
+	wsm_gles2_push_debug(renderer);
+	GLint read_fbo, draw_fbo, binding = 0;
+	if (has_blit) {
+		glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_fbo);
+		glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fbo);
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, src_fbo);
+	} else {
+		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &read_fbo);
+		draw_fbo = read_fbo;
+		glBindFramebuffer(GL_FRAMEBUFFER, src_fbo);
+	}
+	GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
+	bool ok = false;
+	if (glCheckFramebufferStatus(has_blit ? GL_READ_FRAMEBUFFER : GL_FRAMEBUFFER) !=
+			GL_FRAMEBUFFER_COMPLETE) {
+		goto out;
+	}
+	if (dst_fbo == 0) {
+		glGetIntegerv(GL_TEXTURE_BINDING_2D, &binding);
+		glBindTexture(GL_TEXTURE_2D, destination->tex);
+		glCopyTexSubImage2D(GL_TEXTURE_2D, 0, dst->x, dst->y,
+			src->x, src->y, src->width, src->height);
+		glBindTexture(GL_TEXTURE_2D, binding);
+	} else {
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst_fbo);
+		if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			goto out;
+		}
+		/* The caller supplies copy rectangles independently of render-pass scissoring. */
+		glDisable(GL_SCISSOR_TEST);
+		renderer->procs.glBlitFramebuffer(src->x, src->y,
+			src->x + src->width, src->y + src->height, dst->x, dst->y,
+			dst->x + dst->width, dst->y + dst->height, GL_COLOR_BUFFER_BIT,
+			options->filter_mode == WLR_SCALE_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
+	}
+	ok = glGetError() == GL_NO_ERROR;
+
+ out:
+	if (has_blit) {
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw_fbo);
+	} else {
+		glBindFramebuffer(GL_FRAMEBUFFER, read_fbo);
+	}
+	if (scissor) {
+		glEnable(GL_SCISSOR_TEST);
+	}
+	wsm_gles2_pop_debug(renderer);
+	return ok;
+}
+
 static bool render_pass_blit(struct wlr_render_pass *wlr_pass,
 		const struct wsm_blit_texture_options *options) {
 	if (!wlr_render_pass_is_wsm_gles2(wlr_pass)) {
@@ -21,20 +101,17 @@ static bool render_pass_blit(struct wlr_render_pass *wlr_pass,
 	}
 	struct wsm_gles2_render_pass *pass = wlr_gles2_render_pass_from_render_pass(wlr_pass);
 	struct wsm_gles2_renderer *renderer = pass->buffer->renderer;
-	if (renderer->procs.glBlitFramebuffer == NULL ||
-			options->texture->renderer != &renderer->base ||
+	if (options->texture->renderer != &renderer->base ||
 			!wlr_texture_is_wsm_gles2(options->texture) ||
 			!wlr_texture_is_wsm_gles2(options->dst_texture)) {
 		return false;
 	}
 	struct wsm_gles2_texture *src = wsm_gles2_texture_from_texture(options->texture);
 	struct wsm_gles2_texture *dst = wsm_gles2_texture_from_texture(options->dst_texture);
-	if (src->target != GL_TEXTURE_2D || dst->target != GL_TEXTURE_2D ||
-			src->tex == dst->tex || src->buffer == pass->buffer || dst->buffer == pass->buffer ||
+	if ((src->tex != 0 && src->tex == dst->tex) || dst->buffer == pass->buffer ||
 			(src->buffer != NULL && src->buffer == dst->buffer)) {
 		return false;
 	}
-	const struct wlr_box *s = &options->src_box, *d = &options->dst_box;
 	if (options->wait_timeline != NULL) {
 		int fd = wlr_drm_syncobj_timeline_export_sync_file(
 			options->wait_timeline, options->wait_point);
@@ -53,42 +130,7 @@ static bool render_pass_blit(struct wlr_render_pass *wlr_pass,
 		}
 	}
 
-	wsm_gles2_push_debug(renderer);
-	GLint read_fbo, draw_fbo;
-	glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_fbo);
-	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fbo);
-	GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
-	GLuint fbos[2] = {0};
-	glGenFramebuffers(2, fbos);
-	bool ok = false;
-	if (fbos[0] == 0 || fbos[1] == 0) {
-		goto out;
-	}
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbos[0]);
-	glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-		GL_TEXTURE_2D, src->tex, 0);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbos[1]);
-	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-		GL_TEXTURE_2D, dst->tex, 0);
-	if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE ||
-			glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		goto out;
-	}
-	/* Ignore damage scissoring left by earlier draws in this pass. */
-	glDisable(GL_SCISSOR_TEST);
-	renderer->procs.glBlitFramebuffer(s->x, s->y, s->x + s->width, s->y + s->height,
-		d->x, d->y, d->x + d->width, d->y + d->height, GL_COLOR_BUFFER_BIT,
-		options->filter_mode == WLR_SCALE_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
-	ok = glGetError() == GL_NO_ERROR;
- out:
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw_fbo);
-	if (scissor) {
-		glEnable(GL_SCISSOR_TEST);
-	}
-	glDeleteFramebuffers(2, fbos);
-	wsm_gles2_pop_debug(renderer);
-	return ok;
+	return blit(renderer, options);
 }
 
 static void blit_pass_destroy(struct wsm_render_pass_blit *pass) {
@@ -101,8 +143,7 @@ static const struct wsm_blit_texture_impl blit_impl = {
 };
 
 struct wsm_render_pass_blit *wsm_render_pass_blit_gles_create(struct wlr_renderer *renderer) {
-	if (renderer == NULL || !wlr_renderer_is_wsm_gles2(renderer) ||
-			wsm_gles2_renderer_from_renderer(renderer)->procs.glBlitFramebuffer == NULL) {
+	if (renderer == NULL || !wlr_renderer_is_wsm_gles2(renderer)) {
 		return NULL;
 	}
 	struct wsm_render_pass_blit_gles *pass = calloc(1, sizeof(*pass));

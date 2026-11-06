@@ -1,4 +1,5 @@
 #include "pass/blur.h"
+#include "pass/blit.h"
 #include "pass/gles/blur.h"
 #include "pass/pixman/blur.h"
 #include "pass/pixman/pass.h"
@@ -28,6 +29,7 @@ void wsm_render_blur_buffer_pass_destroy(struct wsm_render_blur_buffer_pass *pas
 	wl_list_remove(&pass->renderer_destroy.link);
 	wl_signal_emit_mutable(&pass->events.destroy, NULL);
 	assert(wl_list_empty(&pass->events.destroy.listener_list));
+	wsm_render_pass_blit_destroy(pass->blit);
 	pass->impl->destroy(pass);
 }
 
@@ -43,6 +45,12 @@ struct wsm_render_blur_buffer_pass *wsm_render_blur_buffer_pass_create(
 		pass->renderer = renderer;
 		pass->renderer_destroy.notify = handle_renderer_destroy;
 		wl_signal_add(&renderer->events.destroy, &pass->renderer_destroy);
+		/* Register after blur so blur releases its blit pass first on renderer destruction. */
+		pass->blit = wsm_render_pass_blit_autocreate(renderer);
+		if (pass->blit == NULL) {
+			wsm_render_blur_buffer_pass_destroy(pass);
+			return NULL;
+		}
 	}
 	return pass;
 }
@@ -63,7 +71,7 @@ static bool matches_target(
 struct wlr_texture *wsm_render_blur_buffer_pass_capture(
 	struct wlr_render_pass *target, struct wsm_render_blur_buffer_pass *pass) {
 	return target && pass && matches_target(target, pass)
-			   ? pass->impl->capture(target, NULL, NULL, NULL)
+			   ? pass->impl->capture(target, pass, NULL, NULL, NULL)
 			   : NULL;
 }
 
@@ -87,7 +95,7 @@ bool wsm_render_blur_buffer_pass_update_capture(struct wlr_render_pass *target,
 	if (*texture && damage && pixman_region32_empty(damage)) {
 		return true;
 	}
-	struct wlr_texture *updated = pass->impl->capture(target, *texture, box, damage);
+	struct wlr_texture *updated = pass->impl->capture(target, pass, *texture, box, damage);
 	if (!updated) {
 		return false;
 	}
