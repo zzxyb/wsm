@@ -382,11 +382,6 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 	const char *version = (const char *)glGetString(GL_VERSION);
 	if (version != NULL && strncmp(version, "OpenGL ES 3.", 12) == 0) {
 		load_gl_proc(&renderer->procs.glBlitFramebuffer, "glBlitFramebuffer");
-	} else if (check_gl_ext(exts_str, "GL_NV_framebuffer_blit")) {
-		load_gl_proc(&renderer->procs.glBlitFramebuffer, "glBlitFramebufferNV");
-	} else if (check_gl_ext(exts_str, "GL_ANGLE_framebuffer_blit")) {
-		renderer->exts.ANGLE_framebuffer_blit = true;
-		load_gl_proc(&renderer->procs.glBlitFramebuffer, "glBlitFramebufferANGLE");
 	}
 
 	if (check_gl_ext(exts_str, "GL_EXT_copy_image")) {
