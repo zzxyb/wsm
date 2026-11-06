@@ -1,5 +1,6 @@
 #include "renderer/wsm_renderer.h"
 #include "pass/copy.h"
+#include "pass/blit.h"
 #include <wlr/render/drm_format_set.h>
 #include <drm_fourcc.h>
 #include "scene/wsm_scene.h"
@@ -55,8 +56,9 @@ struct tinywl_server {
 	struct wlr_backend *backend;
 	struct wlr_renderer *renderer;
 	struct wlr_allocator *allocator;
-	bool copy_failed;
+	bool render_demo_failed;
 	struct wsm_render_pass_copy *copy_pass;
+	struct wsm_render_pass_blit *blit_pass;
 	struct wsm_scene *scene;
 	struct wsm_scene_output_layout *scene_layout;
 	struct wsm_render_blur_buffer_pass *blur_pass;
@@ -98,9 +100,14 @@ struct tinywl_output {
 	struct tinywl_server *server;
 	struct wlr_output *wlr_output;
 	struct wlr_buffer *copy_buffer;
-	struct wlr_buffer *copy_scratch;
+	struct wlr_buffer *demo_scratch;
 	struct wlr_texture *copy_texture;
 	struct wsm_scene_buffer *copy_scene;
+	struct wlr_box copy_src_box;
+	struct wlr_buffer *blit_buffer;
+	struct wlr_texture *blit_texture;
+	struct wsm_scene_buffer *blit_scene;
+	struct wlr_box blit_src_box;
 	struct wsm_scene_rect *background_demo;
 	struct wsm_scene_rect *rect_demo;
 	struct wsm_scene_border *border_demo;
@@ -660,7 +667,29 @@ static void update_blur_demo(struct tinywl_server *server) {
 	wsm_scene_blur_set_size(server->blur_demo, width, height);
 	wsm_scene_node_set_position(&server->blur_demo->node,
 		box.x + (box.width - width) / 2, box.y + (box.height - height) / 2);
-	raise_blur_demo(server);
+	/* Stacking changes are handled when applications are raised or created. */
+}
+
+/* Hidden examples must not drive animation frames behind opaque windows. */
+static bool output_demo_animation_visible(struct tinywl_output *output) {
+	struct wsm_scene_node *nodes[] = {
+		output->rect_demo ? &output->rect_demo->node : NULL,
+		output->border_demo ? &output->border_demo->node : NULL,
+		output->shadow_demo ? &output->shadow_demo->node : NULL,
+	};
+	pixman_region32_t visible;
+	pixman_region32_init(&visible);
+	for (size_t i = 0; i < sizeof(nodes) / sizeof(nodes[0]); i++) {
+		if (nodes[i] != NULL) {
+			wsm_scene_node_visibility(nodes[i], &visible);
+		}
+	}
+	struct wlr_box box;
+	wlr_output_layout_get_box(output->server->output_layout, output->wlr_output, &box);
+	pixman_region32_intersect_rect(&visible, &visible, box.x, box.y, box.width, box.height);
+	bool animated = !pixman_region32_empty(&visible);
+	pixman_region32_fini(&visible);
+	return animated;
 }
 
 static void update_rect_demo(struct tinywl_output *output) {
@@ -694,24 +723,26 @@ static void update_rect_demo(struct tinywl_output *output) {
 	wsm_scene_rect_set_size(rect, width, height);
 	wsm_scene_node_set_position(&rect->node, x, y);
 
-	/* One trip from 0 to 64 and back takes 128 committed frames. */
-	output->rect_phase += output->rect_direction;
-	if (output->rect_phase >= 64) {
-		output->rect_phase = 64;
-		output->rect_direction = -1;
-	} else if (output->rect_phase <= 0) {
-		output->rect_phase = 0;
-		output->rect_direction = 1;
+	if (output_demo_animation_visible(output)) {
+		/* One trip from 0 to 64 and back takes 128 committed frames. */
+		output->rect_phase += output->rect_direction;
+		if (output->rect_phase >= 64) {
+			output->rect_phase = 64;
+			output->rect_direction = -1;
+		} else if (output->rect_phase <= 0) {
+			output->rect_phase = 0;
+			output->rect_direction = 1;
+		}
+		float phase = output->rect_phase;
+		float top_left = phase * .25f;
+		float top_right = phase * .5f;
+		float bottom_left = phase * .75f;
+		float bottom_right = phase;
+		wsm_scene_rect_set_top_left_radius(rect, top_left);
+		wsm_scene_rect_set_top_right_radius(rect, top_right);
+		wsm_scene_rect_set_bottom_left_radius(rect, bottom_left);
+		wsm_scene_rect_set_bottom_right_radius(rect, bottom_right);
 	}
-	float phase = output->rect_phase;
-	float top_left = phase * .25f;
-	float top_right = phase * .5f;
-	float bottom_left = phase * .75f;
-	float bottom_right = phase;
-	wsm_scene_rect_set_top_left_radius(rect, top_left);
-	wsm_scene_rect_set_top_right_radius(rect, top_right);
-	wsm_scene_rect_set_bottom_left_radius(rect, bottom_left);
-	wsm_scene_rect_set_bottom_right_radius(rect, bottom_right);
 	if (border != NULL) {
 		/* The border is drawn inward, so its inner edge follows the rect. */
 		wsm_scene_border_set_size(border,
@@ -761,9 +792,61 @@ static void update_rect_demo(struct tinywl_output *output) {
 	}
 }
 
+/* Allocate demo targets with the composed output's format and modifier. */
+static struct wlr_buffer *create_output_demo_buffer(struct tinywl_server *server,
+		struct wlr_buffer *source, int width, int height) {
+	struct wlr_dmabuf_attributes dmabuf;
+	struct wlr_shm_attributes shm;
+	uint32_t drm_format;
+	uint64_t modifier;
+	if (wlr_buffer_get_dmabuf(source, &dmabuf)) {
+		drm_format = dmabuf.format;
+		modifier = dmabuf.modifier;
+	} else if (wlr_buffer_get_shm(source, &shm)) {
+		drm_format = shm.format;
+		modifier = DRM_FORMAT_MOD_LINEAR;
+	} else {
+		return NULL;
+	}
+	const struct wlr_drm_format format = {
+		.format = drm_format, .len = 1, .modifiers = &modifier,
+	};
+	return wlr_allocator_create_buffer(server->allocator, width, height, &format);
+}
+
+/* Commit damage describes scene changes in output-buffer coordinates, unlike
+ * swapchain repaint damage which can also contain unchanged, older contents. */
+static void output_demo_damage(pixman_region32_t *dst_damage,
+		const pixman_region32_t *src_damage, const struct wlr_box *src_box,
+		int divisor, bool full_update) {
+	pixman_region32_clear(dst_damage);
+	if (full_update || src_damage == NULL) {
+		pixman_region32_union_rect(dst_damage, dst_damage, 0, 0,
+			src_box->width / divisor, src_box->height / divisor);
+		return;
+	}
+	pixman_region32_t clipped;
+	pixman_region32_init(&clipped);
+	pixman_region32_intersect_rect(&clipped, src_damage,
+		src_box->x, src_box->y, src_box->width, src_box->height);
+	pixman_region32_translate(&clipped, -src_box->x, -src_box->y);
+	int len;
+	const pixman_box32_t *rects = pixman_region32_rectangles(&clipped, &len);
+	for (int i = 0; i < len; i++) {
+		/* Round outward. A half-size bilinear pixel samples exactly the
+		 * corresponding 2x2 source pixels, so no extra padding is needed. */
+		int x1 = rects[i].x1 / divisor, y1 = rects[i].y1 / divisor;
+		int x2 = (rects[i].x2 + divisor - 1) / divisor;
+		int y2 = (rects[i].y2 + divisor - 1) / divisor;
+		pixman_region32_union_rect(dst_damage, dst_damage, x1, y1, x2 - x1, y2 - y1);
+	}
+	pixman_region32_fini(&clipped);
+}
+
 /* Copy a central region of the composed output into a separate buffer.
  * A scratch target keeps both copy textures separate from the active pass. */
-static bool copy_output_demo(struct tinywl_output *output, struct wlr_buffer *buffer) {
+static bool copy_output_demo(struct tinywl_output *output, struct wlr_buffer *buffer,
+		const pixman_region32_t *damage, pixman_region32_t *dst_damage) {
 	struct tinywl_server *server = output->server;
 	int width = buffer->width / 2, height = buffer->height / 2;
 	if (width > 360) {
@@ -775,35 +858,28 @@ static bool copy_output_demo(struct tinywl_output *output, struct wlr_buffer *bu
 	if (width < 1 || height < 1) {
 		return false;
 	}
+	struct wlr_box src_box = {
+		.x = (buffer->width - width) / 2, .y = (buffer->height - height) / 2,
+		.width = width, .height = height,
+	};
+	output_demo_damage(dst_damage, damage, &src_box, 1,
+		output->copy_buffer == NULL || !wlr_box_equal(&src_box, &output->copy_src_box));
+	if (pixman_region32_empty(dst_damage)) {
+		return true;
+	}
 	if (output->copy_buffer != NULL &&
 			(output->copy_buffer->width != width || output->copy_buffer->height != height)) {
 		wlr_texture_destroy(output->copy_texture);
 		output->copy_texture = NULL;
 		wlr_buffer_drop(output->copy_buffer);
 		output->copy_buffer = NULL;
-		wlr_buffer_drop(output->copy_scratch);
-		output->copy_scratch = NULL;
+		wlr_buffer_drop(output->demo_scratch);
+		output->demo_scratch = NULL;
 	}
 	if (output->copy_buffer == NULL) {
-		struct wlr_dmabuf_attributes dmabuf;
-		struct wlr_shm_attributes shm;
-		uint32_t drm_format;
-		uint64_t modifier;
-		if (wlr_buffer_get_dmabuf(buffer, &dmabuf)) {
-			drm_format = dmabuf.format;
-			modifier = dmabuf.modifier;
-		} else if (wlr_buffer_get_shm(buffer, &shm)) {
-			drm_format = shm.format;
-			modifier = DRM_FORMAT_MOD_LINEAR;
-		} else {
-			return false;
-		}
-		const struct wlr_drm_format format = {
-			.format = drm_format, .len = 1, .modifiers = &modifier,
-		};
-		output->copy_buffer = wlr_allocator_create_buffer(server->allocator, width, height, &format);
-		output->copy_scratch = wlr_allocator_create_buffer(server->allocator, 1, 1, &format);
-		if (output->copy_buffer == NULL || output->copy_scratch == NULL) {
+		output->copy_buffer = create_output_demo_buffer(server, buffer, width, height);
+		output->demo_scratch = create_output_demo_buffer(server, buffer, 1, 1);
+		if (output->copy_buffer == NULL || output->demo_scratch == NULL) {
 			return false;
 		}
 		output->copy_texture = wlr_texture_from_buffer(server->renderer, output->copy_buffer);
@@ -816,24 +892,33 @@ static bool copy_output_demo(struct tinywl_output *output, struct wlr_buffer *bu
 		return false;
 	}
 	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(server->renderer,
-		output->copy_scratch, NULL);
+		output->demo_scratch, NULL);
 	if (pass == NULL) {
 		wlr_texture_destroy(source);
 		return false;
 	}
-	bool ok = wsm_render_pass_copy(pass, server->copy_pass, &(struct wsm_copy_texture_options){
-		.texture = source, .dst_texture = output->copy_texture,
-		.src_x = (buffer->width - width) / 2,
-		.src_y = (buffer->height - height) / 2,
-		.dst_x = 0, .dst_y = 0,
-		.width = width, .height = height,
-	});
+	int len;
+	const pixman_box32_t *rects = pixman_region32_rectangles(dst_damage, &len);
+	bool ok = true;
+	for (int i = 0; i < len && ok; i++) {
+		const pixman_box32_t *r = &rects[i];
+		ok = wsm_render_pass_copy(pass, server->copy_pass, &(struct wsm_copy_texture_options){
+			.texture = source, .dst_texture = output->copy_texture,
+			.src_x = src_box.x + r->x1, .src_y = src_box.y + r->y1,
+			.dst_x = r->x1, .dst_y = r->y1,
+			.width = r->x2 - r->x1, .height = r->y2 - r->y1,
+		});
+	}
 	bool submitted = wlr_render_pass_submit(pass);
 	wlr_texture_destroy(source);
+	if (ok && submitted) {
+		output->copy_src_box = src_box;
+	}
 	return ok && submitted;
 }
 
-static bool update_copy_scene(struct tinywl_output *output) {
+static bool update_copy_scene(struct tinywl_output *output,
+		const pixman_region32_t *damage) {
 	if (output->copy_scene == NULL) {
 		output->copy_scene = wsm_scene_buffer_create(output->server->scene->tree,
 			output->copy_buffer);
@@ -841,13 +926,131 @@ static bool update_copy_scene(struct tinywl_output *output) {
 			return false;
 		}
 		wlr_log(WLR_INFO, "Copy demo: output buffer center -> scene_buffer at (0,0)");
-	} else {
-		wsm_scene_buffer_set_buffer(output->copy_scene, output->copy_buffer);
+	} else if (damage != NULL && !pixman_region32_empty(damage)) {
+		wsm_scene_buffer_set_buffer_with_damage(output->copy_scene, output->copy_buffer, damage);
 	}
 	struct wlr_box box;
 	wlr_output_layout_get_box(output->server->output_layout, output->wlr_output, &box);
 	wsm_scene_node_set_position(&output->copy_scene->node, box.x, box.y);
-	wsm_scene_node_raise_to_top(&output->copy_scene->node);
+	/* Keep both previews above clients without swapping them on every frame. */
+	if (output->blit_scene != NULL) {
+		wsm_scene_node_place_below(&output->copy_scene->node, &output->blit_scene->node);
+	} else {
+		wsm_scene_node_raise_to_top(&output->copy_scene->node);
+	}
+	return true;
+}
+
+/* Scale a central region down by two, using the scratch target from the copy demo. */
+static bool blit_output_demo(struct tinywl_output *output, struct wlr_buffer *buffer,
+		const pixman_region32_t *damage, pixman_region32_t *dst_damage) {
+	struct tinywl_server *server = output->server;
+	int width = buffer->width / 4, height = buffer->height / 4;
+	if (width > 240) {
+		width = 240;
+	}
+	if (height > 160) {
+		height = 160;
+	}
+	if (width < 1 || height < 1 || output->demo_scratch == NULL) {
+		return false;
+	}
+	struct wlr_box src_box = {
+		.x = (buffer->width - width * 2) / 2,
+		.y = (buffer->height - height * 2) / 2,
+		.width = width * 2, .height = height * 2,
+	};
+	output_demo_damage(dst_damage, damage, &src_box, 2,
+		output->blit_buffer == NULL || !wlr_box_equal(&src_box, &output->blit_src_box));
+	if (pixman_region32_empty(dst_damage)) {
+		return true;
+	}
+	if (output->blit_buffer != NULL &&
+			(output->blit_buffer->width != width || output->blit_buffer->height != height)) {
+		wlr_texture_destroy(output->blit_texture);
+		output->blit_texture = NULL;
+		wlr_buffer_drop(output->blit_buffer);
+		output->blit_buffer = NULL;
+	}
+	if (output->blit_buffer == NULL) {
+		output->blit_buffer = create_output_demo_buffer(server, buffer, width, height);
+		if (output->blit_buffer == NULL) {
+			return false;
+		}
+		output->blit_texture = wlr_texture_from_buffer(server->renderer, output->blit_buffer);
+		if (output->blit_texture == NULL) {
+			return false;
+		}
+	}
+	struct wlr_texture *source = wlr_texture_from_buffer(server->renderer, buffer);
+	if (source == NULL) {
+		return false;
+	}
+	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(server->renderer,
+		output->demo_scratch, NULL);
+	if (pass == NULL) {
+		wlr_texture_destroy(source);
+		return false;
+	}
+	int len;
+	const pixman_box32_t *rects = pixman_region32_rectangles(dst_damage, &len);
+	bool ok = true;
+	for (int i = 0; i < len && ok; i++) {
+		const pixman_box32_t *r = &rects[i];
+		/* Align partial blits to the original 2:1 grid, preserving pixel
+		 * centers and filtering at odd damage boundaries. */
+		ok = wsm_render_pass_blit(pass, server->blit_pass, &(struct wsm_blit_texture_options){
+			.texture = source, .dst_texture = output->blit_texture,
+			.src_box = {
+				.x = src_box.x + r->x1 * 2, .y = src_box.y + r->y1 * 2,
+				.width = (r->x2 - r->x1) * 2, .height = (r->y2 - r->y1) * 2,
+			},
+			.dst_box = { r->x1, r->y1, r->x2 - r->x1, r->y2 - r->y1 },
+			.filter_mode = WLR_SCALE_FILTER_BILINEAR,
+		});
+	}
+	bool submitted = wlr_render_pass_submit(pass);
+	wlr_texture_destroy(source);
+	if (ok && submitted) {
+		output->blit_src_box = src_box;
+	}
+	return ok && submitted;
+}
+
+static bool update_blit_scene(struct tinywl_output *output,
+		const pixman_region32_t *damage) {
+	if (output->blit_scene == NULL) {
+		output->blit_scene = wsm_scene_buffer_create(output->server->scene->tree,
+			output->blit_buffer);
+		if (output->blit_scene == NULL) {
+			return false;
+		}
+		wlr_log(WLR_INFO, "Blit demo: output buffer center -> half-size scene_buffer at top-right");
+	} else if (damage != NULL && !pixman_region32_empty(damage)) {
+		wsm_scene_buffer_set_buffer_with_damage(output->blit_scene, output->blit_buffer, damage);
+	}
+	struct wlr_box box;
+	wlr_output_layout_get_box(output->server->output_layout, output->wlr_output, &box);
+	int width = output->blit_buffer->width;
+	int height = output->blit_buffer->height;
+	/* Express the preview size in layout coordinates, including scale/rotation. */
+	if (output->wlr_output->transform & WL_OUTPUT_TRANSFORM_90) {
+		int tmp = width;
+		width = height;
+		height = tmp;
+	}
+	width = width / output->wlr_output->scale;
+	height = height / output->wlr_output->scale;
+	if (width < 1) {
+		width = 1;
+	}
+	if (height < 1) {
+		height = 1;
+	}
+	wsm_scene_buffer_set_transform(output->blit_scene, output->wlr_output->transform);
+	wsm_scene_buffer_set_dest_size(output->blit_scene, width, height);
+	wsm_scene_node_set_position(&output->blit_scene->node, box.x + box.width - width, box.y);
+	wsm_scene_node_raise_to_top(&output->blit_scene->node);
 	return true;
 }
 
@@ -868,25 +1071,36 @@ static void output_frame(struct wl_listener *listener, void *data) {
 		wlr_log(WLR_ERROR, "Cannot prepare blur damage");
 	}
 
-	/* Build the composed output, then copy its center before presenting it.
-	 * Updating the scene buffer after commit damages it for the next frame. */
+	/* Refresh only previews whose source region changed. Publishing a changed
+	 * buffer after commit damages its scene node for the next frame. */
 	if (wsm_scene_output_needs_frame(scene_output)) {
 		struct wlr_output_state state;
 		wlr_output_state_init(&state);
+		pixman_region32_t copy_damage, blit_damage;
+		pixman_region32_init(&copy_damage);
+		pixman_region32_init(&blit_damage);
 		bool ok = wsm_scene_output_build_state(scene_output, &state, NULL);
 		if (ok && state.buffer != NULL) {
-			ok = copy_output_demo(output, state.buffer);
+			const pixman_region32_t *damage =
+				(state.committed & WLR_OUTPUT_STATE_DAMAGE) ? &state.damage : NULL;
+			ok = copy_output_demo(output, state.buffer, damage, &copy_damage) &&
+				blit_output_demo(output, state.buffer, damage, &blit_damage);
 		}
 		if (ok) {
 			ok = wlr_output_commit_state(output->wlr_output, &state);
 		}
 		wlr_output_state_finish(&state);
-		if (ok && output->copy_buffer != NULL) {
-			ok = update_copy_scene(output);
+		if (ok && output->blit_buffer != NULL) {
+			ok = update_blit_scene(output, &blit_damage);
 		}
+		if (ok && output->copy_buffer != NULL) {
+			ok = update_copy_scene(output, &copy_damage);
+		}
+		pixman_region32_fini(&copy_damage);
+		pixman_region32_fini(&blit_damage);
 		if (!ok) {
-			output->server->copy_failed = true;
-			wlr_log(WLR_ERROR, "Cannot copy output buffer for scene_buffer demo");
+			output->server->render_demo_failed = true;
+			wlr_log(WLR_ERROR, "Cannot copy/blit output buffer for scene_buffer demos");
 			wl_display_terminate(output->server->wl_display);
 			return;
 		}
@@ -895,7 +1109,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	wsm_scene_output_send_frame_done(scene_output, &now);
-	if (output->rect_demo != NULL) {
+	if (output_demo_animation_visible(output)) {
 		wlr_output_schedule_frame(output->wlr_output);
 	}
 
@@ -912,10 +1126,13 @@ static void output_request_state(struct wl_listener *listener, void *data) {
 
 static void output_destroy(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = wl_container_of(listener, output, destroy);
+	wsm_scene_node_destroy(output->blit_scene ? &output->blit_scene->node : NULL);
+	wlr_texture_destroy(output->blit_texture);
+	wlr_buffer_drop(output->blit_buffer);
 	wsm_scene_node_destroy(output->copy_scene ? &output->copy_scene->node : NULL);
 	wlr_texture_destroy(output->copy_texture);
 	wlr_buffer_drop(output->copy_buffer);
-	wlr_buffer_drop(output->copy_scratch);
+	wlr_buffer_drop(output->demo_scratch);
 	wsm_scene_node_destroy(output->shadow_demo ? &output->shadow_demo->node : NULL);
 	wsm_scene_shadow_cache_unref(output->shadow_cache);
 	wsm_scene_node_destroy(output->border_demo ?
@@ -1311,6 +1528,15 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	server.blit_pass = wsm_render_pass_blit_autocreate(server.renderer);
+	if (server.blit_pass == NULL) {
+		wlr_log(WLR_ERROR, "Cannot create output blit pass");
+		wlr_renderer_destroy(server.renderer);
+		wlr_backend_destroy(server.backend);
+		wl_display_destroy(server.wl_display);
+		return 1;
+	}
+
 	wlr_renderer_init_wl_display(server.renderer, server.wl_display);
 
 	/* Autocreates an allocator for us.
@@ -1483,9 +1709,10 @@ int main(int argc, char *argv[]) {
 	wlr_xcursor_manager_destroy(server.cursor_mgr);
 	wlr_cursor_destroy(server.cursor);
 	wlr_allocator_destroy(server.allocator);
+	wsm_render_pass_blit_destroy(server.blit_pass);
 	wsm_render_pass_copy_destroy(server.copy_pass);
 	wlr_renderer_destroy(server.renderer);
 	wlr_backend_destroy(server.backend);
 	wl_display_destroy(server.wl_display);
-	return server.copy_failed ? 1 : 0;
+	return server.render_demo_failed ? 1 : 0;
 }
