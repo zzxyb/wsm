@@ -1,7 +1,7 @@
 /**
  * @file        wsm_cairo.h
- * @brief       Cairo drawing and surface helpers for wlframe.
- * @details     This file provides helpers for converting wlframe and Wayland
+ * @brief       Cairo drawing and surface helpers for wsm.
+ * @details     This file provides helpers for converting wsm and Wayland
  *              drawing values to Cairo APIs, including ARGB colors, subpixel
  *              order values, and image surface scaling.
  * @author      YaoBing Xiao

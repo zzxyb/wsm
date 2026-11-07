@@ -1,6 +1,6 @@
 /**
  * @file        wsm_parser.h
- * @brief       Configuration and command line option parsing utilities for wlframe.
+ * @brief       Configuration and command line option parsing utilities for wsm.
  * @details     This file defines lightweight structures for parsed configuration
  *              sections and entries, plus helpers for command line options and
  *              typed value extraction from configuration sections.

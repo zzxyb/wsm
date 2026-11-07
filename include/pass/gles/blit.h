@@ -1,7 +1,8 @@
 /**
  * @file        blit.h
  * @brief       GLES2 texture blit backend.
- * @details     Operates on the active backend render pass.
+ * @details     Declares texture region blits with geometry and synchronization
+ *              options on the active GLES2 render pass.
  * @author      YaoBing Xiao
  * @date        2026-11-06
  * @version     v1.0

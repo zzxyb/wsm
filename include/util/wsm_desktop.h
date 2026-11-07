@@ -1,6 +1,6 @@
 /**
  * @file        wsm_desktop.h
- * @brief       Desktop integration helpers for wlframe.
+ * @brief       Desktop integration helpers for wsm.
  * @details     This file defines the desktop interface state used for icon
  *              themes, font settings, cursor settings, color scheme tracking,
  *              and desktop file based application icon/name lookup.

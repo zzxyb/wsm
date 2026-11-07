@@ -1,6 +1,6 @@
 /**
  * @file        wsm_list.h
- * @brief       Dynamic pointer list utility for wlframe.
+ * @brief       Dynamic pointer list utility for wsm.
  * @details     This file provides a simple growable list for storing pointer
  *              values. It supports append, insert, delete, concatenate, sort,
  *              search, swap, and item cleanup helpers.

@@ -1,6 +1,6 @@
 /**
  * @file        wsm_pango.h
- * @brief       Pango and Cairo text rendering helpers for wlframe.
+ * @brief       Pango and Cairo text rendering helpers for wsm.
  * @details     This file provides helpers for escaping markup, creating Pango
  *              layouts, measuring text, querying font metrics, and rendering
  *              formatted text through a Cairo context.

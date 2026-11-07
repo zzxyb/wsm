@@ -6,6 +6,9 @@
  * @author      YaoBing Xiao
  * @date        2026-10-21
  * @version     v1.0
+ * @par Copyright(c):
+ * @par History:
+ *      version: v1.0, YaoBing Xiao, 2026-10-21, initial version\n
  */
 
 #ifndef PASS_PIXMAN_RECT_H

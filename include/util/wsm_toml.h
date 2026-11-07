@@ -1,6 +1,6 @@
 /**
  * @file        wsm_toml.h
- * @brief       Flat TOML document utility for wlframe.
+ * @brief       Flat TOML document utility for wsm.
  * @details     This file provides a small key/value TOML helper for loading,
  *              editing, querying, and saving scalar TOML values. Table entries
  *              are exposed as dotted keys, for example "output.name".

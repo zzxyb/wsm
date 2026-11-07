@@ -1,9 +1,14 @@
 /**
  * @file        texture.h
  * @brief       GLES2 rounded texture render pass.
+ * @details     Declares texture drawing with destination-space corner radii
+ *              on the active GLES2 render pass.
  * @author      YaoBing Xiao
  * @date        2026-11-02
  * @version     v1.0
+ * @par Copyright(c):
+ * @par History:
+ *      version: v1.0, YaoBing Xiao, 2026-11-02, initial version\n
  */
 #ifndef PASS_GLES_TEXTURE_H
 #define PASS_GLES_TEXTURE_H

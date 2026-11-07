@@ -8,7 +8,7 @@
  * @version     v1.0
  * @par Copyright(c):
  * @par History:
- *      version: v1.0, YaoBing Xiao, 2026-10-22, initial version
+ *      version: v1.0, YaoBing Xiao, 2026-10-22, initial version\n
  */
 
 #ifndef PASS_SHADOW_H

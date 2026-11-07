@@ -1,6 +1,6 @@
 /**
  * @file        wsm_env.h
- * @brief       Environment variable parsing helpers for wlframe.
+ * @brief       Environment variable parsing helpers for wsm.
  * @details     This file provides small helpers for reading boolean and
  *              enumerated switch values from environment variables.
  * @author      YaoBing Xiao
