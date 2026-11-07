@@ -24,9 +24,6 @@ struct blur_capture {
 	struct wl_listener output_destroy;
 	struct wl_listener renderer_destroy;
 	struct wlr_texture *texture;
-	struct wlr_texture *filtered;
-	struct wlr_box filtered_box;
-	bool filtered_valid;
 	float radii[4];
 	struct wlr_box box, sample_box;
 	int width, height;
@@ -41,9 +38,18 @@ static void destroy_capture(struct blur_capture *capture) {
 	wl_list_remove(&capture->output_destroy.link);
 	wl_list_remove(&capture->renderer_destroy.link);
 	wlr_texture_destroy(capture->texture);
-	wlr_texture_destroy(capture->filtered);
 	pixman_region32_fini(&capture->pending_capture_damage);
 	free(capture);
+}
+
+static void clear_output_capture(struct wsm_scene_blur *blur,
+	struct wsm_scene_output *output) {
+	struct blur_capture *capture, *tmp;
+	wl_list_for_each_safe(capture, tmp, &blur->captures, link) {
+		if (capture->output == output) {
+			destroy_capture(capture);
+		}
+	}
 }
 
 static void output_destroyed(struct wl_listener *listener, void *data) {
@@ -228,13 +234,9 @@ static struct blur_capture *get_capture(
 		wl_list_insert(&blur->captures, &capture->link);
 	}
 	struct wlr_renderer *renderer = data->output->output->renderer;
-	if ((capture->texture && capture->texture->renderer != renderer) ||
-		(capture->filtered && capture->filtered->renderer != renderer)) {
+	if (capture->texture && capture->texture->renderer != renderer) {
 		wlr_texture_destroy(capture->texture);
 		capture->texture = NULL;
-		wlr_texture_destroy(capture->filtered);
-		capture->filtered = NULL;
-		capture->filtered_valid = false;
 		capture->capture_needs_full_update = true;
 	}
 	wl_list_remove(&capture->renderer_destroy.link);
@@ -267,18 +269,6 @@ static struct blur_capture *get_capture(
 		capture->scale != data->scale || capture->transform != data->transform) {
 		capture->capture_needs_full_update = true;
 	}
-	struct wlr_box filtered_box;
-	wlr_box_intersection(&filtered_box, &box, &(struct wlr_box){0, 0, width, height});
-	if (capture->capture_needs_full_update ||
-		!wlr_box_equal(&capture->filtered_box, &filtered_box)) {
-		capture->filtered_valid = false;
-	}
-	if (capture->filtered && (capture->filtered->width != (uint32_t)filtered_box.width ||
-								 capture->filtered->height != (uint32_t)filtered_box.height)) {
-		wlr_texture_destroy(capture->filtered);
-		capture->filtered = NULL;
-	}
-	capture->filtered_box = filtered_box;
 	capture->box = box;
 	capture->sample_box = sample_box;
 	capture->width = width;
@@ -323,12 +313,17 @@ bool wsm_scene_blur_prepare(struct wsm_render_list_entry *entry, const struct ws
 }
 
 bool wsm_scene_blur_prepare_output(struct wsm_scene_blur *blur, struct wsm_scene_output *output) {
-	if (!blur || blur->source != WSM_SCENE_BLUR_SOURCE_BACKDROP ||
+	if (!blur) {
+		return true;
+	}
+	if (blur->source != WSM_SCENE_BLUR_SOURCE_BACKDROP ||
 		wsm_scene_node_invisible(&blur->node)) {
+		clear_output_capture(blur, output);
 		return true;
 	}
 	int x, y;
 	if (!wsm_scene_node_coords(&blur->node, &x, &y)) {
+		clear_output_capture(blur, output);
 		return true;
 	}
 	struct wsm_render_data data = {
@@ -342,6 +337,7 @@ bool wsm_scene_blur_prepare_output(struct wsm_scene_blur *blur, struct wsm_scene
 	struct wlr_box intersection;
 	if (!wlr_box_intersection(&intersection, &data.logical,
 			&(struct wlr_box){x, y, blur->width, blur->height})) {
+		clear_output_capture(blur, output);
 		return true;
 	}
 	struct wsm_render_list_entry entry = {.node = &blur->node, .x = x, .y = y};
@@ -404,23 +400,6 @@ static void scene_node_render(
 		return;
 	}
 	struct wlr_box box = capture->box;
-	/* Buffer-age repair can intersect an unchanged blur. Recompose its cached
-	 * result without repeating capture or down/up filtering. */
-	if (capture->filtered_valid && !capture->capture_needs_full_update &&
-		pixman_region32_empty(&capture->pending_capture_damage)) {
-		wlr_render_pass_add_texture(data->render_pass, &(struct wlr_render_texture_options){
-			.texture = capture->filtered,
-			.dst_box = capture->filtered_box,
-			.clip = &region,
-			.filter_mode = WLR_SCALE_FILTER_NEAREST,
-			.blend_mode = WLR_RENDER_BLEND_MODE_NONE,
-		});
-		pixman_region32_fini(&region);
-		return;
-	}
-	bool filtered_was_valid = capture->filtered_valid;
-	capture->filtered_valid = false;
-
 	pixman_region32_t capture_region;
 	pixman_region32_init(&capture_region);
 	if (capture->capture_needs_full_update) {
@@ -435,6 +414,24 @@ static void scene_node_render(
 			&capture->pending_capture_damage, &capture->pending_capture_damage, &capture_region);
 		capture->capture_needs_full_update =
 			!pixman_region32_empty(&capture->pending_capture_damage);
+		/* Buffer-age repairs may redraw this panel without changing its
+		 * background. Restore the unfiltered pixels before alpha blending,
+		 * including rounded edges, so an old blur is never blended twice. */
+		pixman_region32_t repair;
+		pixman_region32_init(&repair);
+		pixman_region32_subtract(&repair, &region, &capture_region);
+		if (!pixman_region32_empty(&repair)) {
+			wlr_render_pass_add_texture(data->render_pass, &(struct wlr_render_texture_options){
+				.texture = capture->texture,
+				.src_box = {box.x - capture->sample_box.x, box.y - capture->sample_box.y,
+					box.width, box.height},
+				.dst_box = box,
+				.clip = &repair,
+				.filter_mode = WLR_SCALE_FILTER_NEAREST,
+				.blend_mode = WLR_RENDER_BLEND_MODE_NONE,
+			});
+		}
+		pixman_region32_fini(&repair);
 		int padding = wsm_scene_blur_get_damage_expansion(blur, data->scale);
 		render_blur(blur, data,
 			&(struct wsm_render_blur_buffer_options){
@@ -446,20 +443,6 @@ static void scene_node_render(
 				.dst_box = box,
 				.clip = &region,
 			});
-		/* Cache the composed panel, including its transparent rounded edge's
-		 * underlying pixels. Final composition uses SRC rather than blending
-		 * this already composed image a second time. */
-		if (wsm_render_pass_update_blur_capture(data->render_pass,
-				&capture->filtered, &capture->filtered_box, &region)) {
-			/* Existing valid pixels outside a partial update are preserved. */
-			pixman_box32_t box = {capture->filtered_box.x, capture->filtered_box.y,
-				capture->filtered_box.x + capture->filtered_box.width,
-				capture->filtered_box.y + capture->filtered_box.height};
-			capture->filtered_valid =
-				!capture->capture_needs_full_update &&
-				(filtered_was_valid ||
-					pixman_region32_contains_rectangle(&region, &box) == PIXMAN_REGION_IN);
-		}
 	}
 	pixman_region32_fini(&capture_region);
 	pixman_region32_fini(&region);
