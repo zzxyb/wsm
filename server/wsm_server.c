@@ -104,7 +104,6 @@ struct tinywl_output {
 	struct wlr_texture *blit_texture;
 	struct wsm_scene_buffer *blit_scene;
 	struct wlr_box blit_src_box;
-	struct wsm_scene_rect *background_demo;
 	struct wsm_scene_rect *rect_demo;
 	struct wsm_scene_border *border_demo;
 	struct wsm_scene_shadow *shadow_demo;
@@ -679,12 +678,6 @@ static void update_rect_demo(struct tinywl_output *output) {
 	struct wlr_box output_box;
 	wlr_output_layout_get_box(output->server->output_layout,
 		output->wlr_output, &output_box);
-	if (output->background_demo != NULL) {
-		wsm_scene_rect_set_size(output->background_demo,
-			output_box.width, output_box.height);
-		wsm_scene_node_set_position(&output->background_demo->node,
-			output_box.x, output_box.y);
-	}
 	if (rect == NULL) {
 		return;
 	}
@@ -1127,8 +1120,6 @@ static void output_destroy(struct wl_listener *listener, void *data) {
 		&output->border_demo->node : NULL);
 	wsm_scene_node_destroy(output->rect_demo ?
 		&output->rect_demo->node : NULL);
-	wsm_scene_node_destroy(output->background_demo ?
-		&output->background_demo->node : NULL);
 
 
 	wl_list_remove(&output->frame.link);
@@ -1202,13 +1193,6 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	struct wsm_scene_output *scene_output = wsm_scene_output_create(server->scene, wlr_output);
 	wsm_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
 
-	/* Light-gray output background, behind the animated example. */
-	const float background_color[4] = { .85f, .85f, .85f, 1.f };
-	output->background_demo = wsm_scene_rect_create(server->scene->tree,
-		0, 0, background_color);
-	if (output->background_demo != NULL) {
-		wsm_scene_node_lower_to_bottom(&output->background_demo->node);
-	}
 	const struct wsm_scene_shadow_margins shadow_margins = {
 		.left = 60, .right = 60, .top = 60, .bottom = 60,
 	};
@@ -1216,10 +1200,7 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		NULL, 0, 0, &shadow_margins, 1.f);
 	if (output->shadow_demo != NULL) {
 		wsm_scene_shadow_set_inner_offset(output->shadow_demo, 2.f);
-		if (output->background_demo != NULL) {
-			wsm_scene_node_place_above(&output->shadow_demo->node,
-				&output->background_demo->node);
-		}
+		wsm_scene_node_lower_to_bottom(&output->shadow_demo->node);
 	}
 
 	/* Animated rounded rectangle and border, behind application surfaces. */
@@ -1230,9 +1211,7 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		if (output->shadow_demo != NULL) {
 			wsm_scene_node_place_above(&output->rect_demo->node,
 				&output->shadow_demo->node);
-		} else if (output->background_demo != NULL) {
-			wsm_scene_node_place_above(&output->rect_demo->node,
-				&output->background_demo->node);
+
 		} else {
 			wsm_scene_node_lower_to_bottom(&output->rect_demo->node);
 		}
