@@ -29,7 +29,8 @@ enum wsm_scene_blur_source {
 
 /**
  * @brief Rounded filter over preceding scene content or a supplied buffer.
- * @details Background captures are cached per output and updated from capture damage.
+ * @details One unfiltered background capture is cached per output and updated
+ *          from capture damage. Composed blur results are not cached.
  *          Occluded source content is retained for filtering.
  */
 struct wsm_scene_blur {
@@ -137,7 +138,8 @@ int wsm_scene_blur_get_damage_expansion(const struct wsm_scene_blur *blur, float
 /**
  * @brief Prepares capture state and expands pending output damage.
  * @details Call before scene output commit or state construction. Prepare multiple
- *          blur nodes in scene order, from back to front.
+ *          blur nodes in scene order, from back to front. Releases this output's
+ *          capture when the node is inactive or no longer intersects the output.
  * @param blur Backdrop blur node, or NULL for no work.
  * @param output Scene output to prepare.
  * @return true on success or when no work is needed, false on capture allocation failure.
