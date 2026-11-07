@@ -1,7 +1,8 @@
 /**
  * @file        blit.h
- * @brief       PIXMAN texture blit backend.
- * @details     Operates on the active backend render pass.
+ * @brief       Pixman texture blit backend.
+ * @details     Declares texture region blits with geometry and synchronization
+ *              options on the active Pixman render pass.
  * @author      YaoBing Xiao
  * @date        2026-11-06
  * @version     v1.0

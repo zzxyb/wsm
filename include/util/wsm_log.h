@@ -1,6 +1,6 @@
 /**
  * @file        wsm_log.h
- * @brief       Logging, assertion, and abort helpers for wlframe.
+ * @brief       Logging, assertion, and abort helpers for wsm.
  * @details     This file defines log importance levels, printf-checked logging
  *              functions, file/line aware logging macros, assertion helpers,
  *              abort helpers, and small time utility declarations used by the

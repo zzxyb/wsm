@@ -5,6 +5,9 @@
  * @author      YaoBing Xiao
  * @date        2026-11-02
  * @version     v1.0
+ * @par Copyright(c):
+ * @par History:
+ *      version: v1.0, YaoBing Xiao, 2026-11-02, initial version\n
  */
 
 #ifndef WSM_PIXMAN_BLUR_H

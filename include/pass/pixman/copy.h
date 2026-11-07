@@ -1,7 +1,8 @@
 /**
  * @file        copy.h
- * @brief       PIXMAN texture copy backend.
- * @details     Operates on the active backend render pass.
+ * @brief       Pixman texture copy backend.
+ * @details     Declares texture region copies with geometry and synchronization
+ *              options on the active Pixman render pass.
  * @author      YaoBing Xiao
  * @date        2026-11-04
  * @version     v1.0

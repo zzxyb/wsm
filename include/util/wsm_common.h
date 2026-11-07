@@ -1,6 +1,6 @@
 /**
  * @file        wsm_common.h
- * @brief       Common utility macros and helpers for wlframe.
+ * @brief       Common utility macros and helpers for wsm.
  * @details     This file contains shared helpers for string formatting,
  *              lenient string handling, color conversion, time conversion,
  *              bounds macros, and small inline convenience functions.
