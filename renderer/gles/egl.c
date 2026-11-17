@@ -13,7 +13,6 @@
 #include <xf86drm.h>
 
 #include <wlr/util/region.h>
-#include <wlr/util/log.h>
 
 static enum wsm_log_importance egl_log_importance_to_wsm(EGLint type) {
 	switch (type) {

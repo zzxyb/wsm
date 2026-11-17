@@ -3,14 +3,15 @@
 #include "scene/wsm_scene.h"
 #include "scene/wsm_scene_output.h"
 #include "node/wsm_scene_tree.h"
+
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <wlr/util/region.h>
 #include <wlr/util/transform.h>
 #include <wlr/types/wlr_output.h>
-#include <wlr/util/log.h>
 #include <wlr/types/wlr_buffer.h>
 
 static void render_buffer(

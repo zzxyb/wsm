@@ -1,7 +1,8 @@
-#include <stdlib.h>
 #include "pass/pixman/blit.h"
 #include "pass/pixman/pass.h"
 #include "texture/pixman/texture.h"
+
+#include <stdlib.h>
 
 static pixman_image_t *image_view(pixman_image_t *image) {
 	return pixman_image_create_bits_no_clear(pixman_image_get_format(image),

@@ -3,8 +3,9 @@
 #include "renderer/gles/renderer.h"
 #include "util/wsm_log.h"
 
-#include <GLES2/gl2.h>
 #include <math.h>
+
+#include <GLES2/gl2.h>
 
 void wsm_gles2_render_pass_add_border(struct wlr_render_pass *target,
 		const struct wsm_render_border_options *options) {

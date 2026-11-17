@@ -2,6 +2,7 @@
 #include "renderer/gles/renderer.h"
 #include "renderer/pixman/renderer.h"
 #include "util/wsm_env.h"
+#include "util/wsm_log.h"
 
 #include <assert.h>
 #include <fcntl.h>
@@ -11,24 +12,22 @@
 
 #include <xf86drm.h>
 
-#include <wlr/util/log.h>
-
 static int open_drm_render_node(void) {
 	uint32_t flags = 0;
 	int devices_len = drmGetDevices2(flags, NULL, 0);
 	if (devices_len < 0) {
-		wlr_log(WLR_ERROR, "drmGetDevices2 failed: %s", strerror(-devices_len));
+		wsm_log(WSM_ERROR, "drmGetDevices2 failed: %s", strerror(-devices_len));
 		return -1;
 	}
 	drmDevice **devices = calloc(devices_len, sizeof(*devices));
 	if (devices == NULL) {
-		wlr_log_errno(WLR_ERROR, "Allocation failed");
+		wsm_log_errno(WSM_ERROR, "Allocation failed");
 		return -1;
 	}
 	devices_len = drmGetDevices2(flags, devices, devices_len);
 	if (devices_len < 0) {
 		free(devices);
-		wlr_log(WLR_ERROR, "drmGetDevices2 failed: %s", strerror(-devices_len));
+		wsm_log(WSM_ERROR, "drmGetDevices2 failed: %s", strerror(-devices_len));
 		return -1;
 	}
 
@@ -37,17 +36,17 @@ static int open_drm_render_node(void) {
 		drmDevice *dev = devices[i];
 		if (dev->available_nodes & (1 << DRM_NODE_RENDER)) {
 			const char *name = dev->nodes[DRM_NODE_RENDER];
-			wlr_log(WLR_DEBUG, "Opening DRM render node '%s'", name);
+			wsm_log(WSM_DEBUG, "Opening DRM render node '%s'", name);
 			fd = open(name, O_RDWR | O_CLOEXEC);
 			if (fd < 0) {
-				wlr_log_errno(WLR_ERROR, "Failed to open '%s'", name);
+				wsm_log_errno(WSM_ERROR, "Failed to open '%s'", name);
 				goto out;
 			}
 			break;
 		}
 	}
 	if (fd < 0) {
-		wlr_log(WLR_ERROR, "Failed to find any DRM render node");
+		wsm_log(WSM_ERROR, "Failed to find any DRM render node");
 	}
 
 out:
@@ -74,16 +73,16 @@ static bool open_preferred_drm_fd(struct wlr_backend *backend, int *drm_fd_ptr,
 	// Allow the user to override the render node
 	const char *render_name = getenv("WLR_RENDER_DRM_DEVICE");
 	if (render_name != NULL) {
-		wlr_log(WLR_INFO,
+		wsm_log(WSM_INFO,
 			"Opening DRM render node '%s' from WLR_RENDER_DRM_DEVICE",
 			render_name);
 		int drm_fd = open(render_name, O_RDWR | O_CLOEXEC);
 		if (drm_fd < 0) {
-			wlr_log_errno(WLR_ERROR, "Failed to open '%s'", render_name);
+			wsm_log_errno(WSM_ERROR, "Failed to open '%s'", render_name);
 			return false;
 		}
 		if (drmGetNodeTypeFromFd(drm_fd) != DRM_NODE_RENDER) {
-			wlr_log(WLR_ERROR, "'%s' is not a DRM render node", render_name);
+			wsm_log(WSM_ERROR, "'%s' is not a DRM render node", render_name);
 			close(drm_fd);
 			return false;
 		}
@@ -133,7 +132,7 @@ static bool has_render_node(struct wlr_backend *backend) {
 }
 
 static void log_creation_failure(bool is_auto, const char *msg) {
-	wlr_log(is_auto ? WLR_DEBUG : WLR_ERROR, "%s%s", msg, is_auto ? ". Skipping!" : "");
+	wsm_log(is_auto ? WSM_DEBUG : WSM_ERROR, "%s%s", msg, is_auto ? ". Skipping!" : "");
 }
 
 static struct wlr_renderer *renderer_autocreate(struct wlr_backend *backend, int drm_fd) {
@@ -176,7 +175,7 @@ static struct wlr_renderer *renderer_autocreate(struct wlr_backend *backend, int
 
 out:
 	if (renderer == NULL) {
-		wlr_log(WLR_ERROR, "Could not initialize renderer");
+		wsm_log(WSM_ERROR, "Could not initialize renderer");
 	}
 	if (own_drm_fd && drm_fd >= 0) {
 		close(drm_fd);

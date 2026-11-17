@@ -1,6 +1,7 @@
 #include "pass/pixman/rect.h"
 
 #include <math.h>
+
 #include <wlr/render/interface.h>
 
 static void add_colored_rect(struct wlr_render_pass *pass,

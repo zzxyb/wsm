@@ -85,7 +85,7 @@ static void surface_addon_destroy(struct wlr_addon *addon) {
 }
 
 static const struct wlr_addon_interface surface_addon_impl = {
-	.name = "wlr_scene_surface",
+	.name = "wsm_scene_surface",
 	.destroy = surface_addon_destroy,
 };
 

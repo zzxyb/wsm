@@ -3,8 +3,9 @@
 #include "pass/gles/pass.h"
 #include "pass/pixman/blur.h"
 #include "pass/pixman/pass.h"
-#include <limits.h>
 #include "renderer/pixman/renderer.h"
+
+#include <limits.h>
 #include <math.h>
 
 static struct wlr_renderer *get_renderer(struct wlr_render_pass *target) {

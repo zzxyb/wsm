@@ -21,6 +21,7 @@
 
 #include <wlr/render/drm_format_set.h>
 #include <wlr/render/wlr_renderer.h>
+#include <wlr/util/log.h>
 
 typedef void (GL_APIENTRYP PFNGLGETINTEGER64VEXTPROC) (GLenum pname, GLint64 *data);
 typedef void (GL_APIENTRYP PFNGLBLITFRAMEBUFFERPROC)(
@@ -175,7 +176,7 @@ void wsm_gles2_push_debug_(struct wsm_gles2_renderer *renderer,
 	const char *file, const char *func);
 
 /** @brief Pushes a debug group using the current source location. */
-#define wsm_gles2_push_debug(renderer) wsm_gles2_push_debug_(renderer, _WSM_FILENAME, __func__)
+#define wsm_gles2_push_debug(renderer) wsm_gles2_push_debug_(renderer, _WLR_FILENAME, __func__)
 
 /**
  * @brief Pops the current GLES debug group.

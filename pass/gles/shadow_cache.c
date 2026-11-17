@@ -4,11 +4,13 @@
 #include "texture/gles/texture.h"
 #include "util/wsm_log.h"
 
-#include <GLES2/gl2.h>
 #include <limits.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
+
+#include <GLES2/gl2.h>
+
 #include <wlr/render/wlr_texture.h>
 
 struct wsm_scene_shadow_cache *wsm_gles2_shadow_cache_create(

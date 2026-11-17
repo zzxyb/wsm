@@ -3,6 +3,7 @@
 #include "pass/gles/texture.h"
 #include "pass/pixman/pass.h"
 #include "pass/pixman/texture.h"
+
 #include <math.h>
 
 bool wsm_render_pass_add_texture(struct wlr_render_pass *pass,

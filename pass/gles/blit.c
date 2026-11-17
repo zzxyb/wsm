@@ -1,8 +1,8 @@
 #include <unistd.h>
+
 #include "pass/gles/blit.h"
 #include "pass/gles/pass.h"
 #include "texture/gles/texture.h"
-#include "util/wsm_log.h"
 
 /* Core ES3 framebuffer tokens, absent from the GLES2 headers. */
 #ifndef GL_READ_FRAMEBUFFER

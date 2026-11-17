@@ -2,6 +2,7 @@
 #include "node/wsm_scene_shadow.h"
 
 #include <math.h>
+
 #include <wlr/render/pass.h>
 #include <wlr/util/transform.h>
 
