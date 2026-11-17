@@ -5,6 +5,7 @@
 #include "scene/wsm_scene_subsurface_tree.h"
 
 #include <stdlib.h>
+
 #include <wlr/types/wlr_xdg_shell.h>
 
 static void scene_xdg_surface_handle_tree_destroy(struct wl_listener *listener,

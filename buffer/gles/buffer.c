@@ -11,7 +11,7 @@ static void handle_buffer_destroy(struct wlr_addon *addon) {
 }
 
 static const struct wlr_addon_interface buffer_addon_impl = {
-	.name = "wlr_gles2_buffer",
+	.name = "wsm_gles2_buffer",
 	.destroy = handle_buffer_destroy,
 };
 

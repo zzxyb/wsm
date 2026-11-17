@@ -9,7 +9,6 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
-
 #include <drm_fourcc.h>
 
 #include <wlr/util/addon.h>

@@ -1,6 +1,7 @@
 #include "node/wsm_scene_tree.h"
 #include "scene/wsm_scene.h"
 #include "scene/wsm_scene_output.h"
+#include "util/wsm_log.h"
 
 #include <wayland-server-core.h>
 #include <wayland-util.h>
@@ -9,7 +10,6 @@
 #include <stdlib.h>
 
 #include <wlr/config.h>
-#include <wlr/util/log.h>
 #include <wlr/util/region.h>
 #include <wlr/util/transform.h>
 
@@ -308,7 +308,7 @@ static const struct wsm_scene_node_impl scene_node_impl = {
 static struct wsm_scene_tree *scene_tree_create(struct wsm_scene_tree *parent) {
 	struct wsm_scene_tree *tree = calloc(1, sizeof(*tree));
 	if (tree == NULL) {
-		wlr_log_errno(WLR_ERROR, "Allocation failed");
+		wsm_log_errno(WSM_ERROR, "Allocation failed");
 		return NULL;
 	}
 

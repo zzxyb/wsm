@@ -1,10 +1,8 @@
 #include "renderer/pixman/pixel_format.h"
+#include "util/wsm_log.h"
 
 #include <inttypes.h>
-
 #include <drm_fourcc.h>
-
-#include <wlr/util/log.h>
 
 static const struct wsm_pixman_pixel_format formats[] = {
 	{
@@ -109,7 +107,7 @@ pixman_format_code_t get_pixman_format_from_drm(uint32_t fmt) {
 		}
 	}
 
-	wlr_log(WLR_ERROR, "DRM format 0x%"PRIX32" has no pixman equivalent", fmt);
+	wsm_log(WSM_ERROR, "DRM format 0x%"PRIX32" has no pixman equivalent", fmt);
 	return 0;
 }
 
@@ -120,7 +118,7 @@ uint32_t get_drm_format_from_pixman(pixman_format_code_t fmt) {
 		}
 	}
 
-	wlr_log(WLR_ERROR, "pixman format 0x%"PRIX32" has no drm equivalent", fmt);
+	wsm_log(WSM_ERROR, "pixman format 0x%"PRIX32" has no drm equivalent", fmt);
 	return DRM_FORMAT_INVALID;
 }
 

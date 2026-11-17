@@ -4,6 +4,7 @@
 #include "util/wsm_log.h"
 
 #include <GLES2/gl2.h>
+
 #include <math.h>
 
 void wsm_gles2_render_pass_add_rect(struct wlr_render_pass *target,

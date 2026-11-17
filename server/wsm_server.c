@@ -1,6 +1,7 @@
 #include "renderer/wsm_renderer.h"
 #include "pass/copy.h"
 #include "pass/blit.h"
+#include "util/wsm_log.h"
 #include <wlr/render/drm_format_set.h>
 #include <drm_fourcc.h>
 #include "scene/wsm_scene.h"
@@ -25,8 +26,13 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
 #include <wayland-server-core.h>
+
+#include <xkbcommon/xkbcommon.h>
+
 #include <wlr/backend.h>
+#include <wlr/util/log.h>
 #include <wlr/render/allocator.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_cursor.h>
@@ -41,8 +47,6 @@
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
-#include <wlr/util/log.h>
-#include <xkbcommon/xkbcommon.h>
 
 /* For brevity's sake, struct members are annotated where they are used. */
 enum tinywl_cursor_mode {
@@ -898,7 +902,7 @@ static bool update_copy_scene(struct tinywl_output *output,
 		if (output->copy_scene == NULL) {
 			return false;
 		}
-		wlr_log(WLR_INFO, "Copy demo: output buffer center -> scene_buffer at (0,0)");
+		wsm_log(WSM_INFO, "Copy demo: output buffer center -> scene_buffer at (0,0)");
 	} else if (damage != NULL && !pixman_region32_empty(damage)) {
 		wsm_scene_buffer_set_buffer_with_damage(output->copy_scene, output->copy_buffer, damage);
 	}
@@ -1006,7 +1010,7 @@ static bool update_blit_scene(struct tinywl_output *output,
 		if (output->blit_scene == NULL) {
 			return false;
 		}
-		wlr_log(WLR_INFO, "Blit demo: output buffer center -> half-size scene_buffer at top-right");
+		wsm_log(WSM_INFO, "Blit demo: output buffer center -> half-size scene_buffer at top-right");
 	} else if (damage != NULL && !pixman_region32_empty(damage)) {
 		wsm_scene_buffer_set_buffer_with_damage(output->blit_scene, output->blit_buffer, damage);
 	}
@@ -1049,7 +1053,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	/* The compositor prepares blur source/output damage before scene commit,
 	 * matching the reference wlroots example. */
 	if (!wsm_scene_blur_prepare_output(output->server->blur_demo, scene_output)) {
-		wlr_log(WLR_ERROR, "Cannot prepare blur damage");
+		wsm_log(WSM_ERROR, "Cannot prepare blur damage");
 	}
 
 	/* Refresh only previews whose source region changed. Publishing a changed
@@ -1081,7 +1085,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 		pixman_region32_fini(&blit_damage);
 		if (!ok) {
 			output->server->render_demo_failed = true;
-			wlr_log(WLR_ERROR, "Cannot copy/blit output buffer for scene_buffer demos");
+			wsm_log(WSM_ERROR, "Cannot copy/blit output buffer for scene_buffer demos");
 			wl_display_terminate(output->server->wl_display);
 			return;
 		}
@@ -1444,6 +1448,7 @@ static void server_new_xdg_popup(struct wl_listener *listener, void *data) {
 
 int main(int argc, char *argv[]) {
 	wlr_log_init(WLR_DEBUG, NULL);
+	wsm_log_init(WSM_DEBUG, NULL);
 	char *startup_cmd = NULL;
 
 	int c;
@@ -1472,7 +1477,7 @@ int main(int argc, char *argv[]) {
 	 * if an X11 server is running. */
 	server.backend = wlr_backend_autocreate(wl_display_get_event_loop(server.wl_display), NULL);
 	if (server.backend == NULL) {
-		wlr_log(WLR_ERROR, "failed to create wlr_backend");
+		wsm_log(WSM_ERROR, "failed to create wlr_backend");
 		return 1;
 	}
 
@@ -1482,7 +1487,7 @@ int main(int argc, char *argv[]) {
 	 * supports for shared memory, this configures that for clients. */
 	server.renderer = wlr_renderer_autocreate_wsm(server.backend);
 	if (server.renderer == NULL) {
-		wlr_log(WLR_ERROR, "failed to create wlr_renderer");
+		wsm_log(WSM_ERROR, "failed to create wlr_renderer");
 		return 1;
 	}
 
@@ -1495,7 +1500,7 @@ int main(int argc, char *argv[]) {
 	server.allocator = wlr_allocator_autocreate(server.backend,
 		server.renderer);
 	if (server.allocator == NULL) {
-		wlr_log(WLR_ERROR, "failed to create wlr_allocator");
+		wsm_log(WSM_ERROR, "failed to create wlr_allocator");
 		return 1;
 	}
 
@@ -1624,7 +1629,7 @@ int main(int argc, char *argv[]) {
 	 * compositor. Starting the backend rigged up all of the necessary event
 	 * loop configuration to listen to libinput events, DRM events, generate
 	 * frame events at the refresh rate, and so on. */
-	wlr_log(WLR_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s",
+	wsm_log(WSM_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s",
 			socket);
 	wl_display_run(server.wl_display);
 

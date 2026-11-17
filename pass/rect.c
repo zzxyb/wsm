@@ -3,6 +3,7 @@
 #include "pass/pixman/pass.h"
 #include "pass/gles/rect.h"
 #include "pass/pixman/rect.h"
+
 #include <math.h>
 
 bool wsm_render_pass_add_rect(struct wlr_render_pass *pass,

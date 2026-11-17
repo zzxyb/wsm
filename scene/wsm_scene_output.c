@@ -4,6 +4,7 @@
 #include "node/wsm_scene_tree.h"
 #include "util/wsm_time.h"
 #include "util/wsm_common.h"
+#include "util/wsm_log.h"
 #include "types/wsm_color.h"
 #include "scene/wsm_scene_surface.h"
 
@@ -22,7 +23,6 @@
 #include <wlr/types/wlr_gamma_control_v1.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_presentation_time.h>
-#include <wlr/util/log.h>
 #include <wlr/util/region.h>
 #include <wlr/util/transform.h>
 #include <wlr/render/color.h>
@@ -159,7 +159,7 @@ static void scene_output_handle_destroy(struct wlr_addon *addon) {
 }
 
 static const struct wlr_addon_interface output_addon_impl = {
-	.name = "wlr_scene_output",
+	.name = "wsm_scene_output",
 	.destroy = scene_output_handle_destroy,
 };
 
@@ -815,7 +815,7 @@ bool wsm_scene_output_build_state(struct wsm_scene_output *scene_output,
 	bool scanout = scanout_result == SCANOUT_SUCCESS;
 	if (scene_output->prev_scanout != scanout) {
 		scene_output->prev_scanout = scanout;
-		wlr_log(WLR_DEBUG, "Direct scan-out %s",
+		wsm_log(WSM_DEBUG, "Direct scan-out %s",
 			scanout ? "enabled" : "disabled");
 	}
 

@@ -1,5 +1,6 @@
 #include "types/wsm_color.h"
 #include "util/wsm_matrix.h"
+#include "util/wsm_log.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -7,7 +8,6 @@
 #include <lcms2.h>
 
 #include <wlr/render/color.h>
-#include <wlr/util/log.h>
 
 // See H.273 ColourPrimaries
 
@@ -119,7 +119,7 @@ static const cmsCIExyYTRIPLE srgb_primaries = {
 };
 
 static void handle_lcms_error(cmsContext ctx, cmsUInt32Number code, const char *text) {
-	wlr_log(WLR_ERROR, "[lcms] %s", text);
+	wsm_log(WSM_ERROR, "[lcms] %s", text);
 }
 
 struct wlr_color_transform *wlr_color_transform_init_linear_to_icc(
@@ -128,7 +128,7 @@ struct wlr_color_transform *wlr_color_transform_init_linear_to_icc(
 
 	cmsContext ctx = cmsCreateContext(NULL, NULL);
 	if (ctx == NULL) {
-		wlr_log(WLR_ERROR, "cmsCreateContext failed");
+		wsm_log(WSM_ERROR, "cmsCreateContext failed");
 		return NULL;
 	}
 
@@ -136,18 +136,18 @@ struct wlr_color_transform *wlr_color_transform_init_linear_to_icc(
 
 	cmsHPROFILE icc_profile = cmsOpenProfileFromMemTHR(ctx, data, size);
 	if (icc_profile == NULL) {
-		wlr_log(WLR_ERROR, "cmsOpenProfileFromMemTHR failed");
+		wsm_log(WSM_ERROR, "cmsOpenProfileFromMemTHR failed");
 		goto error_ctx;
 	}
 
 	if (cmsGetDeviceClass(icc_profile) != cmsSigDisplayClass) {
-		wlr_log(WLR_ERROR, "ICC profile must have the Display device class");
+		wsm_log(WSM_ERROR, "ICC profile must have the Display device class");
 		goto error_icc_profile;
 	}
 
 	cmsToneCurve *linear_tone_curve = cmsBuildGamma(ctx, 1);
 	if (linear_tone_curve == NULL) {
-		wlr_log(WLR_ERROR, "cmsBuildGamma failed");
+		wsm_log(WSM_ERROR, "cmsBuildGamma failed");
 		goto error_icc_profile;
 	}
 
@@ -160,7 +160,7 @@ struct wlr_color_transform *wlr_color_transform_init_linear_to_icc(
 		&srgb_primaries, linear_tf);
 	cmsFreeToneCurve(linear_tone_curve);
 	if (srgb_profile == NULL) {
-		wlr_log(WLR_ERROR, "cmsCreateRGBProfileTHR failed");
+		wsm_log(WSM_ERROR, "cmsCreateRGBProfileTHR failed");
 		goto error_icc_profile;
 	}
 
@@ -170,7 +170,7 @@ struct wlr_color_transform *wlr_color_transform_init_linear_to_icc(
 	cmsCloseProfile(srgb_profile);
 	cmsCloseProfile(icc_profile);
 	if (lcms_tr == NULL) {
-		wlr_log(WLR_ERROR, "cmsCreateTransformTHR failed");
+		wsm_log(WSM_ERROR, "cmsCreateTransformTHR failed");
 		goto error_ctx;
 	}
 

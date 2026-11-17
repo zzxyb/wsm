@@ -169,7 +169,7 @@ static void subsurface_tree_surface_addon_destroy(struct wlr_addon *addon) {
 }
 
 static const struct wlr_addon_interface subsurface_tree_surface_addon_impl = {
-	.name = "wlr_scene_subsurface_tree",
+	.name = "wsm_scene_subsurface_tree",
 	.destroy = subsurface_tree_surface_addon_destroy,
 };
 
@@ -207,7 +207,7 @@ static void subsurface_tree_handle_surface_new_subsurface(
 }
 
 static const struct wlr_addon_interface subsurface_tree_addon_impl = {
-	.name = "wlr_scene_subsurface_tree",
+	.name = "wsm_scene_subsurface_tree",
 	.destroy = subsurface_tree_addon_destroy,
 };
 

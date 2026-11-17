@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
+
 #include <wlr/render/drm_syncobj.h>
 #include <wlr/util/transform.h>
 

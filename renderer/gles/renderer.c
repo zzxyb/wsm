@@ -29,7 +29,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
-
 #include <drm_fourcc.h>
 
 #include <xf86drm.h>
@@ -41,7 +40,6 @@
 
 #include <wlr/types/wlr_buffer.h>
 #include <wlr/render/interface.h>
-#include <wlr/util/log.h>
 
 static void gles2_destroy(struct wlr_renderer *wlr_renderer) {
 	struct wsm_gles2_renderer *renderer = wsm_gles2_renderer_from_renderer(wlr_renderer);
@@ -208,18 +206,18 @@ static bool check_gl_ext(const char *exts, const char *ext) {
 	return false;
 }
 
-static enum wlr_log_importance gles2_log_importance_to_wlr(GLenum type) {
+static enum wsm_log_importance gles2_log_importance_to_wsm(GLenum type) {
 	switch (type) {
-	case GL_DEBUG_TYPE_ERROR_KHR:               return WLR_ERROR;
-	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_KHR: return WLR_DEBUG;
-	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_KHR:  return WLR_ERROR;
-	case GL_DEBUG_TYPE_PORTABILITY_KHR:         return WLR_DEBUG;
-	case GL_DEBUG_TYPE_PERFORMANCE_KHR:         return WLR_DEBUG;
-	case GL_DEBUG_TYPE_OTHER_KHR:               return WLR_DEBUG;
-	case GL_DEBUG_TYPE_MARKER_KHR:              return WLR_DEBUG;
-	case GL_DEBUG_TYPE_PUSH_GROUP_KHR:          return WLR_DEBUG;
-	case GL_DEBUG_TYPE_POP_GROUP_KHR:           return WLR_DEBUG;
-	default:                                    return WLR_DEBUG;
+	case GL_DEBUG_TYPE_ERROR_KHR:               return WSM_ERROR;
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_KHR: return WSM_DEBUG;
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_KHR:  return WSM_ERROR;
+	case GL_DEBUG_TYPE_PORTABILITY_KHR:         return WSM_DEBUG;
+	case GL_DEBUG_TYPE_PERFORMANCE_KHR:         return WSM_DEBUG;
+	case GL_DEBUG_TYPE_OTHER_KHR:               return WSM_DEBUG;
+	case GL_DEBUG_TYPE_MARKER_KHR:              return WSM_DEBUG;
+	case GL_DEBUG_TYPE_PUSH_GROUP_KHR:          return WSM_DEBUG;
+	case GL_DEBUG_TYPE_POP_GROUP_KHR:           return WSM_DEBUG;
+	default:                                    return WSM_DEBUG;
 	}
 }
 
@@ -234,7 +232,7 @@ static void load_gl_proc(void *proc_ptr, const char *name) {
 
 static void gles2_log(GLenum src, GLenum type, GLuint id, GLenum severity,
 		GLsizei len, const GLchar *msg, const void *user) {
-	_wlr_log(gles2_log_importance_to_wlr(type), "[GLES2] %s", msg);
+	_wsm_log(gles2_log_importance_to_wsm(type), "[GLES2] %s", msg);
 }
 
 static bool init_buffer_shader(struct wsm_gles2_renderer *renderer,
@@ -259,13 +257,13 @@ static bool init_buffer_shader(struct wsm_gles2_renderer *renderer,
 struct wsm_gles2_renderer *wsm_gles2_renderer_create_with_drm_fd(int drm_fd) {
 	struct wsm_egl *egl = wsm_egl_create_with_drm_fd(drm_fd);
 	if (egl == NULL) {
-		wlr_log(WLR_ERROR, "Could not initialize EGL");
+		wsm_log(WSM_ERROR, "Could not initialize EGL");
 		return NULL;
 	}
 
 	struct wsm_gles2_renderer *renderer = wsm_gles2_renderer_create(egl);
 	if (!renderer) {
-		wlr_log(WLR_ERROR, "Failed to create GLES2 renderer");
+		wsm_log(WSM_ERROR, "Failed to create GLES2 renderer");
 		wsm_egl_destroy(egl);
 		return NULL;
 	}

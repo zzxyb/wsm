@@ -9,21 +9,18 @@
 #include "blur_down_external_frag_src.h"
 #include "blur_up_frag_src.h"
 #include "blur_round_frag_src.h"
-
 #include "renderer/gles/egl.h"
-#include <unistd.h>
-#include <wlr/render/drm_syncobj.h>
-#include <wlr/render/gles2.h>
-#include <wlr/util/log.h>
-#include <wlr/util/transform.h>
-
 #include "util/wsm_matrix.h"
 #include "util/wsm_log.h"
 
+#include <unistd.h>
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <wlr/render/drm_syncobj.h>
+#include <wlr/util/transform.h>
 
 #define DEFAULT_ITERATIONS 4
 #define DEFAULT_OFFSET 1.8f
@@ -135,7 +132,7 @@ static bool ensure_level(struct wsm_gles_blur_texture *level, int width, int hei
 	glBindFramebuffer(GL_FRAMEBUFFER, level->fbo);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, level->tex, 0);
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		wlr_log(WLR_ERROR, "Failed to create blur FBO");
+		wsm_log(WSM_ERROR, "Failed to create blur FBO");
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glDeleteFramebuffers(1, &level->fbo);
 		glDeleteTextures(1, &level->tex);
@@ -495,12 +492,12 @@ bool wsm_gles2_blur_init(struct wsm_gles2_renderer *renderer) {
 	struct wsm_gles2_blur *blur = &renderer->blur;
 	if (!init_down_shader(renderer, &blur->down.rgba, blur_down_rgba_frag_src) ||
 		!init_up_shader(renderer, &blur->up) || !init_round_shader(renderer, &blur->round)) {
-		wlr_log(WLR_ERROR, "blur buffer shader lookup failed");
+		wsm_log(WSM_ERROR, "blur buffer shader lookup failed");
 		return false;
 	}
 	if (renderer->exts.OES_egl_image_external &&
 		!init_down_shader(renderer, &blur->down.ext, blur_down_external_frag_src)) {
-		wlr_log(WLR_ERROR, "blur buffer external shader lookup failed");
+		wsm_log(WSM_ERROR, "blur buffer external shader lookup failed");
 		return false;
 	}
 	return true;

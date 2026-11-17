@@ -9,7 +9,6 @@
 #include <assert.h>
 #include <string.h>
 #include <math.h>
-#include <wlr/types/wlr_output.h>
 
 #include <wayland-server-core.h>
 #include <wayland-util.h>
@@ -18,6 +17,7 @@
 #include <wlr/util/region.h>
 #include <wlr/util/transform.h>
 #include <wlr/render/interface.h>
+#include <wlr/types/wlr_output.h>
 
 static void scene_node_visibility(struct wsm_scene_node *node,
 	pixman_region32_t *visible);

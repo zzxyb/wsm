@@ -3,12 +3,15 @@
 #include "pass/texture.h"
 #include "texture/pixman/texture.h"
 #include "util/wsm_matrix.h"
+
 #include <math.h>
 #include <drm_fourcc.h>
-#include <xf86drm.h>
-#include <wlr/render/drm_syncobj.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <xf86drm.h>
+
+#include <wlr/render/drm_syncobj.h>
 #include <wlr/util/transform.h>
 
 struct level {
