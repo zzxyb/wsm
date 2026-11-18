@@ -1,5 +1,5 @@
 /**
- * @file        shadow_cache.h
+ * @file        shadow.h
  * @brief       Pixman shadow cache generation helper.
  * @details     Declares CPU rasterization of a premultiplied shadow texture
  *              with independently rounded corners.
@@ -11,8 +11,8 @@
  *      version: v1.0, YaoBing Xiao, 2026-10-22, initial version\n
  */
 
-#ifndef PASS_PIXMAN_SHADOW_CACHE_H
-#define PASS_PIXMAN_SHADOW_CACHE_H
+#ifndef PASS_PIXMAN_SHADOW_H
+#define PASS_PIXMAN_SHADOW_H
 
 #include "node/wsm_scene_shadow.h"
 
@@ -31,4 +31,4 @@ struct wsm_scene_shadow_cache *wsm_pixman_shadow_cache_create(
 	float corner_extent, const float radii[static 4], float inner_offset,
 	const float color[static 4]);
 
-#endif // PASS_PIXMAN_SHADOW_CACHE_H
+#endif // PASS_PIXMAN_SHADOW_H

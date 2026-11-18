@@ -13,8 +13,8 @@
 #include "rect_vert_src.h"
 #include "rect_frag_src.h"
 #include "border_frag_src.h"
-#include "shadow_cache_vert_src.h"
-#include "shadow_cache_frag_src.h"
+#include "shadow_vert_src.h"
+#include "shadow_frag_src.h"
 #include "tex_rgba_frag_src.h"
 #include "tex_rgbx_frag_src.h"
 #include "tex_external_frag_src.h"
@@ -456,7 +456,7 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 		goto error;
 	}
 	renderer->shaders.shadow_cache.program = prog =
-		wsm_gles2_link_program(renderer, shadow_cache_vert_src, shadow_cache_frag_src);
+		wsm_gles2_link_program(renderer, shadow_vert_src, shadow_frag_src);
 	if (!prog) {
 		goto error;
 	}
