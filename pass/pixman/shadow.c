@@ -1,4 +1,4 @@
-#include "pass/pixman/shadow_cache.h"
+#include "pass/pixman/shadow.h"
 
 #include <drm_fourcc.h>
 #include <limits.h>
