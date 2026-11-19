@@ -1,12 +1,20 @@
+/* SPDX-License-Identifier: MIT */
+
 /**
  * @file        wsm_scene_output_layout.h
  * @brief       Synchronization between scene outputs and output layouts.
  * @details     This file defines the associations and listeners used to keep
  *              scene output positions synchronized with a wlroots layout.
- * @author      YaoBing Xiao
+ *
+ * @par Upstream:
+ *              Derived from wlroots; see LICENSE.wlroots in the project root.
+ *
+ * @author      YaoBing Xiao (wsm adaptations)
  * @date        2026-08-23
  * @version     v1.0
  * @par Copyright(c):
+ *              Upstream copyright notices and MIT license: LICENSE.wlroots
+ *              in the project root. See LICENSE for wsm copyright and license.
  * @par History:
  *      version: v1.0, YaoBing Xiao, 2026-08-23, initial version\n
  */
