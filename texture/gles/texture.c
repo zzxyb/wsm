@@ -2,7 +2,7 @@
 #include "renderer/gles/renderer.h"
 #include "buffer/gles/buffer.h"
 #include "renderer/gles/egl.h"
-#include "texture/wsm_pixel_format_info.h"
+#include "texture/wsm_pixel_format.h"
 #include "util/wsm_log.h"
 #include "renderer/gles/pixel_format.h"
 
@@ -40,16 +40,16 @@ static bool gles2_texture_update_from_buffer(struct wlr_texture *wlr_texture,
 		get_gles2_format_from_drm(texture->drm_format);
 	assert(fmt);
 
-	const struct wsm_pixel_format_info *drm_fmt =
-		drm_get_pixel_format_info(texture->drm_format);
+	const struct wsm_pixel_format *drm_fmt =
+		drm_get_pixel_format(texture->drm_format);
 	assert(drm_fmt);
-	if (pixel_format_info_pixels_per_block(drm_fmt) != 1) {
+	if (pixel_format_pixels_per_block(drm_fmt) != 1) {
 		wlr_buffer_end_data_ptr_access(buffer);
 		wsm_log(WSM_ERROR, "Cannot update texture: block formats are not supported");
 		return false;
 	}
 
-	if (!pixel_format_info_check_stride(drm_fmt, stride, buffer->width)) {
+	if (!pixel_format_check_stride(drm_fmt, stride, buffer->width)) {
 		wlr_buffer_end_data_ptr_access(buffer);
 		return false;
 	}
@@ -145,10 +145,10 @@ static bool gles2_texture_read_pixels(struct wlr_texture *wlr_texture,
 		return false;
 	}
 
-	const struct wsm_pixel_format_info *drm_fmt =
-		drm_get_pixel_format_info(fmt->drm_format);
+	const struct wsm_pixel_format *drm_fmt =
+		drm_get_pixel_format(fmt->drm_format);
 	assert(drm_fmt);
-	if (pixel_format_info_pixels_per_block(drm_fmt) != 1) {
+	if (pixel_format_pixels_per_block(drm_fmt) != 1) {
 		wsm_log(WSM_ERROR, "Cannot read pixels: block formats are not supported");
 		return false;
 	}
@@ -192,7 +192,7 @@ static bool gles2_texture_read_pixels(struct wlr_texture *wlr_texture,
 	unsigned char *p = wlr_texture_read_pixel_options_get_data(options);
 
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	uint32_t pack_stride = pixel_format_info_min_stride(drm_fmt, src.width);
+	uint32_t pack_stride = pixel_format_min_stride(drm_fmt, src.width);
 	if (pack_stride == options->stride && options->dst_x == 0) {
 		// Under these particular conditions, we can read the pixels with only
 		// one glReadPixels call
@@ -318,15 +318,15 @@ struct wsm_gles2_texture *wsm_gles2_texture_from_pixels(
 		return NULL;
 	}
 
-	const struct wsm_pixel_format_info *drm_fmt =
-		drm_get_pixel_format_info(drm_format);
+	const struct wsm_pixel_format *drm_fmt =
+		drm_get_pixel_format(drm_format);
 	assert(drm_fmt);
-	if (pixel_format_info_pixels_per_block(drm_fmt) != 1) {
+	if (pixel_format_pixels_per_block(drm_fmt) != 1) {
 		wsm_log(WSM_ERROR, "Cannot upload texture: block formats are not supported");
 		return NULL;
 	}
 
-	if (!pixel_format_info_check_stride(drm_fmt, stride, width)) {
+	if (!pixel_format_check_stride(drm_fmt, stride, width)) {
 		return NULL;
 	}
 

@@ -1,5 +1,5 @@
 /**
- * @file        wsm_pixel_format_info.h
+ * @file        wsm_pixel_format.h
  * @brief       DRM pixel format metadata and conversion helpers.
  * @details     This file describes pixel block sizes, strides, alpha support,
  *              and conversions between DRM and Wayland shared-memory formats.
@@ -11,8 +11,8 @@
  *      version: v1.0, YaoBing Xiao, 2026-08-23, initial version\n
  */
 
-#ifndef TEXTURE_WSM_PIXEL_FORMAT_INFO_H
-#define TEXTURE_WSM_PIXEL_FORMAT_INFO_H
+#ifndef TEXTURE_WSM_PIXEL_FORMAT_H
+#define TEXTURE_WSM_PIXEL_FORMAT_H
 
 #include <stdint.h>
 
@@ -30,7 +30,7 @@
  * greater than 1×1 pixels. A block is a rectangle of pixels which are stored
  * next to each other in a byte-aligned memory region.
  */
-struct wsm_pixel_format_info {
+struct wsm_pixel_format {
 	uint32_t drm_format; /**< DRM fourcc format identifier. */
 
 	/** Equivalent opaque format, or DRM_FORMAT_INVALID when unavailable. */
@@ -46,14 +46,14 @@ struct wsm_pixel_format_info {
  * @param fmt DRM fourcc format identifier.
  * @return Format metadata, or NULL when the format is unknown.
  */
-const struct wsm_pixel_format_info *drm_get_pixel_format_info(uint32_t fmt);
+const struct wsm_pixel_format *drm_get_pixel_format(uint32_t fmt);
 
 /**
  * @brief Gets the number of pixels per block.
  * @param info Pixel format metadata.
  * @return Number of pixels in one block.
  */
-uint32_t pixel_format_info_pixels_per_block(const struct wsm_pixel_format_info *info);
+uint32_t pixel_format_pixels_per_block(const struct wsm_pixel_format *info);
 
 /**
  * @brief Gets the minimum stride for a pixel format and width.
@@ -61,7 +61,7 @@ uint32_t pixel_format_info_pixels_per_block(const struct wsm_pixel_format_info *
  * @param width Width in pixels.
  * @return Minimum stride in bytes, or a negative value on overflow/error.
  */
-int32_t pixel_format_info_min_stride(const struct wsm_pixel_format_info *info, int32_t width);
+int32_t pixel_format_min_stride(const struct wsm_pixel_format *info, int32_t width);
 
 /**
  * @brief Checks whether a stride is sufficient for a pixel format and width.
@@ -70,7 +70,7 @@ int32_t pixel_format_info_min_stride(const struct wsm_pixel_format_info *info, i
  * @param width Width in pixels.
  * @return true when the stride is sufficient, false otherwise.
  */
-bool pixel_format_info_check_stride(const struct wsm_pixel_format_info *info,
+bool pixel_format_check_stride(const struct wsm_pixel_format *info,
 	int32_t stride, int32_t width);
 
 /**
@@ -94,4 +94,4 @@ enum wl_shm_format convert_drm_format_to_wl_shm(uint32_t fmt);
  */
 bool pixel_format_has_alpha(uint32_t fmt);
 
-#endif // TEXTURE_WSM_PIXEL_FORMAT_INFO_H
+#endif // TEXTURE_WSM_PIXEL_FORMAT_H

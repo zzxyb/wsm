@@ -1,10 +1,10 @@
-#include "texture/wsm_pixel_format_info.h"
+#include "texture/wsm_pixel_format.h"
 #include "util/wsm_log.h"
 
 #include <assert.h>
 #include <drm_fourcc.h>
 
-static const struct wsm_pixel_format_info pixel_format_info[] = {
+static const struct wsm_pixel_format pixel_format[] = {
 	{
 		.drm_format = DRM_FORMAT_XRGB8888,
 		.bytes_per_block = 4,
@@ -186,8 +186,8 @@ static const uint32_t opaque_pixel_formats[] = {
 	DRM_FORMAT_P010,
 };
 
-static const size_t pixel_format_info_size =
-	sizeof(pixel_format_info) / sizeof(pixel_format_info[0]);
+static const size_t pixel_format_size =
+	sizeof(pixel_format) / sizeof(pixel_format[0]);
 
 static const size_t opaque_pixel_formats_size =
 	sizeof(opaque_pixel_formats) / sizeof(opaque_pixel_formats[0]);
@@ -200,23 +200,23 @@ static int32_t div_round_up(int32_t dividend, int32_t divisor) {
 	return quotient;
 }
 
-const struct wsm_pixel_format_info *drm_get_pixel_format_info(uint32_t fmt) {
-	for (size_t i = 0; i < pixel_format_info_size; ++i) {
-		if (pixel_format_info[i].drm_format == fmt) {
-			return &pixel_format_info[i];
+const struct wsm_pixel_format *drm_get_pixel_format(uint32_t fmt) {
+	for (size_t i = 0; i < pixel_format_size; ++i) {
+		if (pixel_format[i].drm_format == fmt) {
+			return &pixel_format[i];
 		}
 	}
 
 	return NULL;
 }
 
-uint32_t pixel_format_info_pixels_per_block(const struct wsm_pixel_format_info *info) {
+uint32_t pixel_format_pixels_per_block(const struct wsm_pixel_format *info) {
 	uint32_t pixels = info->block_width * info->block_height;
 	return pixels > 0 ? pixels : 1;
 }
 
-int32_t pixel_format_info_min_stride(const struct wsm_pixel_format_info *info, int32_t width) {
-	int32_t pixels_per_block = (int32_t)pixel_format_info_pixels_per_block(info);
+int32_t pixel_format_min_stride(const struct wsm_pixel_format *info, int32_t width) {
+	int32_t pixels_per_block = (int32_t)pixel_format_pixels_per_block(info);
 	int32_t bytes_per_block = (int32_t)info->bytes_per_block;
 	if (width > INT32_MAX / bytes_per_block) {
 		wsm_log(WSM_DEBUG, "Invalid width %d (overflow)", width);
@@ -226,7 +226,7 @@ int32_t pixel_format_info_min_stride(const struct wsm_pixel_format_info *info, i
 	return div_round_up(width * bytes_per_block, pixels_per_block);
 }
 
-bool pixel_format_info_check_stride(const struct wsm_pixel_format_info *info,
+bool pixel_format_check_stride(const struct wsm_pixel_format *info,
 		int32_t stride, int32_t width) {
 	int32_t bytes_per_block = (int32_t)info->bytes_per_block;
 	if (stride % bytes_per_block != 0) {
@@ -235,7 +235,7 @@ bool pixel_format_info_check_stride(const struct wsm_pixel_format_info *info,
 		return false;
 	}
 
-	int32_t min_stride = pixel_format_info_min_stride(info, width);
+	int32_t min_stride = pixel_format_min_stride(info, width);
 	if (min_stride <= 0) {
 		return false;
 	} else if (stride < min_stride) {
