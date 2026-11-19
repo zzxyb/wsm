@@ -20,13 +20,12 @@
 #include <GLES2/gl2ext.h>
 
 struct wsm_gles2_renderer;
-struct wlr_gles2_pixel_format;
 struct wlr_drm_format_set;
 
 /**
  * @brief Mapping between a DRM format and GLES2 upload values.
  */
-struct wlr_gles2_pixel_format {
+struct wsm_gles2_pixel_format {
 	uint32_t drm_format; /**< DRM fourcc format identifier. */
 	/** GLES internal format, or zero to use @ref gl_format. */
 	GLint gl_internalformat;
@@ -41,14 +40,14 @@ struct wlr_gles2_pixel_format {
  * @return true when the format is supported, false otherwise.
  */
 bool is_gles2_pixel_format_supported(const struct wsm_gles2_renderer *renderer,
-	const struct wlr_gles2_pixel_format *format);
+	const struct wsm_gles2_pixel_format *format);
 
 /**
  * @brief Gets a GLES2 format description from a DRM format.
  * @param fmt DRM fourcc format identifier.
  * @return Matching format, or NULL when unsupported.
  */
-const struct wlr_gles2_pixel_format *get_gles2_format_from_drm(uint32_t fmt);
+const struct wsm_gles2_pixel_format *get_gles2_format_from_drm(uint32_t fmt);
 
 /**
  * @brief Gets a GLES2 format description from GLES format and type values.
@@ -57,7 +56,7 @@ const struct wlr_gles2_pixel_format *get_gles2_format_from_drm(uint32_t fmt);
  * @param alpha Whether the format includes alpha.
  * @return Matching format, or NULL when unsupported.
  */
-const struct wlr_gles2_pixel_format *get_gles2_format_from_gl(
+const struct wsm_gles2_pixel_format *get_gles2_format_from_gl(
 	GLint gl_format, GLint gl_type, bool alpha);
 
 /**

@@ -36,7 +36,7 @@ static bool gles2_texture_update_from_buffer(struct wlr_texture *wlr_texture,
 		return false;
 	}
 
-	const struct wlr_gles2_pixel_format *fmt =
+	const struct wsm_gles2_pixel_format *fmt =
 		get_gles2_format_from_drm(texture->drm_format);
 	assert(fmt);
 
@@ -133,7 +133,7 @@ static bool gles2_texture_read_pixels(struct wlr_texture *wlr_texture,
 	struct wlr_box src;
 	wlr_texture_read_pixels_options_get_src_box(options, wlr_texture, &src);
 
-	const struct wlr_gles2_pixel_format *fmt =
+	const struct wsm_gles2_pixel_format *fmt =
 		get_gles2_format_from_drm(options->format);
 	if (fmt == NULL || !is_gles2_pixel_format_supported(texture->renderer, fmt)) {
 		wsm_log(WSM_ERROR, "Cannot read pixels: unsupported pixel format 0x%"PRIX32, options->format);
@@ -238,7 +238,7 @@ static uint32_t gles2_texture_preferred_read_format(struct wlr_texture *wlr_text
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	wsm_gles2_pop_debug(texture->renderer);
 
-	const struct wlr_gles2_pixel_format *pix_fmt =
+	const struct wsm_gles2_pixel_format *pix_fmt =
 		get_gles2_format_from_gl(gl_format, gl_type, alpha_size > 0);
 	if (pix_fmt != NULL) {
 		fmt = pix_fmt->drm_format;
@@ -311,7 +311,7 @@ struct wsm_gles2_texture *wsm_gles2_texture_from_pixels(
 		uint32_t height, const void *data) {
 	struct wsm_gles2_renderer *renderer = wsm_gles2_renderer_from_renderer(wlr_renderer);
 
-	const struct wlr_gles2_pixel_format *fmt =
+	const struct wsm_gles2_pixel_format *fmt =
 		get_gles2_format_from_drm(drm_format);
 	if (fmt == NULL) {
 		wsm_log(WSM_ERROR, "Unsupported pixel format 0x%"PRIX32, drm_format);
