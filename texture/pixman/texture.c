@@ -69,7 +69,7 @@ struct wsm_pixman_texture *wsm_pixman_texture_create(
 	wlr_texture_init(&texture->base, &renderer->base,
 		&texture_impl, width, height);
 
-	texture->format_info = drm_get_pixel_format_info(drm_format);
+	texture->format_info = drm_get_pixel_format(drm_format);
 	if (texture->format_info == NULL) {
 		wsm_log(WSM_ERROR, "Unsupported drm format 0x%"PRIX32, drm_format);
 		free(texture);

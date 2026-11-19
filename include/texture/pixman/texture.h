@@ -15,7 +15,7 @@
 #define PIXMAN_TEXTURE_H
 
 #include "renderer/pixman/renderer.h"
-#include "texture/wsm_pixel_format_info.h"
+#include "texture/wsm_pixel_format.h"
 
 #include <stdint.h>
 
@@ -34,7 +34,7 @@ struct wsm_pixman_texture {
 	struct wl_list link; /**< Link in wlr_pixman_renderer.textures. */
 
 	pixman_image_t *image; /**< Pixman image containing the texture data. */
-	const struct wsm_pixel_format_info *format_info; /**< Pixel format metadata. */
+	const struct wsm_pixel_format *format_info; /**< Pixel format metadata. */
 
 	struct wlr_buffer *buffer; /**< Source buffer, when the texture is buffer-backed. */
 	void *user_data; /**< Backend-specific user data. */
