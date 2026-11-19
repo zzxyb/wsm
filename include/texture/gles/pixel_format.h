@@ -11,8 +11,8 @@
  *      version: v1.0, YaoBing Xiao, 2026-08-23, initial version\n
  */
 
-#ifndef RENDERER_GLES_PIXEL_FORMAT_H
-#define RENDERER_GLES_PIXEL_FORMAT_H
+#ifndef TEXTURE_GLES_PIXEL_FORMAT_H
+#define TEXTURE_GLES_PIXEL_FORMAT_H
 
 #include <stdbool.h>
 
@@ -67,4 +67,4 @@ const struct wsm_gles2_pixel_format *get_gles2_format_from_gl(
 void get_gles2_shm_formats(const struct wsm_gles2_renderer *renderer,
 	struct wlr_drm_format_set *out);
 
-#endif // RENDERER_GLES_PIXEL_FORMAT_H
+#endif // TEXTURE_GLES_PIXEL_FORMAT_H

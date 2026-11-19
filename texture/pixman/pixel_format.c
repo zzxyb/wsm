@@ -1,4 +1,4 @@
-#include "renderer/pixman/pixel_format.h"
+#include "texture/pixman/pixel_format.h"
 #include "util/wsm_log.h"
 
 #include <inttypes.h>

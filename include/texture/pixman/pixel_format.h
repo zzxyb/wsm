@@ -11,8 +11,8 @@
  *      version: v1.0, YaoBing Xiao, 2026-08-23, initial version\n
  */
 
-#ifndef RENDERER_PIXMAN_PIXEL_FORMAT_H
-#define RENDERER_PIXMAN_PIXEL_FORMAT_H
+#ifndef TEXTURE_PIXMAN_PIXEL_FORMAT_H
+#define TEXTURE_PIXMAN_PIXEL_FORMAT_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -50,4 +50,4 @@ uint32_t get_drm_format_from_pixman(pixman_format_code_t fmt);
  */
 const uint32_t *get_pixman_drm_formats(size_t *len);
 
-#endif // RENDERER_PIXMAN_PIXEL_FORMAT_H
+#endif // TEXTURE_PIXMAN_PIXEL_FORMAT_H
