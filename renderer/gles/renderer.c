@@ -1,5 +1,5 @@
 #include "renderer/gles/renderer.h"
-#include "renderer/gles/pixel_format.h"
+#include "texture/gles/pixel_format.h"
 #include "renderer/gles/egl.h"
 #include "texture/gles/texture.h"
 #include "buffer/gles/buffer.h"

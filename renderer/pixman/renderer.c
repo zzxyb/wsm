@@ -3,7 +3,7 @@
 #include "texture/pixman/texture.h"
 #include "buffer/pixman/buffer.h"
 #include "pass/pixman/pass.h"
-#include "renderer/pixman/pixel_format.h"
+#include "texture/pixman/pixel_format.h"
 
 #include <stdlib.h>
 #include <drm_fourcc.h>

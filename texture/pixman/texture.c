@@ -1,7 +1,7 @@
 #include "texture/pixman/texture.h"
 #include "util/wsm_log.h"
 #include "renderer/pixman/renderer.h"
-#include "renderer/pixman/pixel_format.h"
+#include "texture/pixman/pixel_format.h"
 
 #include <stdlib.h>
 #include <assert.h>

@@ -1,4 +1,4 @@
-#include "renderer/gles/pixel_format.h"
+#include "texture/gles/pixel_format.h"
 #include "renderer/gles/renderer.h"
 #include "texture/wsm_pixel_format.h"
 

@@ -4,7 +4,7 @@
 #include "renderer/gles/egl.h"
 #include "texture/wsm_pixel_format.h"
 #include "util/wsm_log.h"
-#include "renderer/gles/pixel_format.h"
+#include "texture/gles/pixel_format.h"
 
 #include <assert.h>
 #include <stdlib.h>
