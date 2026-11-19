@@ -8,7 +8,7 @@
  * The DRM formats are little endian while the GL formats are big endian,
  * so DRM_FORMAT_ARGB8888 is actually compatible with GL_BGRA_EXT.
  */
-static const struct wlr_gles2_pixel_format formats[] = {
+static const struct wsm_gles2_pixel_format formats[] = {
 	{
 		.drm_format = DRM_FORMAT_ARGB8888,
 		.gl_format = GL_BGRA_EXT,
@@ -113,7 +113,7 @@ static const struct wlr_gles2_pixel_format formats[] = {
  * reading aren't supported.
  */
 bool is_gles2_pixel_format_supported(const struct wsm_gles2_renderer *renderer,
-		const struct wlr_gles2_pixel_format *format) {
+		const struct wsm_gles2_pixel_format *format) {
 	if (format->gl_type == GL_UNSIGNED_INT_2_10_10_10_REV_EXT
 			&& !renderer->exts.EXT_texture_type_2_10_10_10_REV) {
 		return false;
@@ -135,7 +135,7 @@ bool is_gles2_pixel_format_supported(const struct wsm_gles2_renderer *renderer,
 	return true;
 }
 
-const struct wlr_gles2_pixel_format *get_gles2_format_from_drm(uint32_t fmt) {
+const struct wsm_gles2_pixel_format *get_gles2_format_from_drm(uint32_t fmt) {
 	for (size_t i = 0; i < sizeof(formats) / sizeof(*formats); ++i) {
 		if (formats[i].drm_format == fmt) {
 			return &formats[i];
@@ -144,7 +144,7 @@ const struct wlr_gles2_pixel_format *get_gles2_format_from_drm(uint32_t fmt) {
 	return NULL;
 }
 
-const struct wlr_gles2_pixel_format *get_gles2_format_from_gl(
+const struct wsm_gles2_pixel_format *get_gles2_format_from_gl(
 		GLint gl_format, GLint gl_type, bool alpha) {
 	for (size_t i = 0; i < sizeof(formats) / sizeof(*formats); ++i) {
 		if (formats[i].gl_format != gl_format ||
