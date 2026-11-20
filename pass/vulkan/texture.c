@@ -19,18 +19,6 @@ void wsm_vk_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 	struct wsm_vk_texture *texture = wsm_vk_texture_from_texture(options->texture);
 	assert(texture->renderer == renderer);
 
-	if (texture->dmabuf_imported && !texture->owned) {
-		// Store this texture in the list of textures that need to be
-		// acquired before rendering and released after rendering.
-		// We don't do it here immediately since barriers inside
-		// a renderpass are suboptimal (would require additional renderpass
-		// dependency and potentially multiple barriers) and it's
-		// better to issue one barrier for all used textures anyways.
-		texture->owned = true;
-		assert(texture->foreign_link.prev == NULL);
-		assert(texture->foreign_link.next == NULL);
-		wl_list_insert(&renderer->foreign_textures, &texture->foreign_link);
-	}
 
 	struct wlr_fbox src_box;
 	wlr_render_texture_options_get_src_box(options, &src_box);
@@ -82,7 +70,7 @@ void wsm_vk_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 
 	enum wlr_color_transfer_function tf = options->transfer_function;
 	if (tf == 0) {
-		tf = WLR_COLOR_TRANSFER_FUNCTION_GAMMA22;
+		tf = texture->capture_transfer ? texture->capture_transfer : WLR_COLOR_TRANSFER_FUNCTION_GAMMA22;
 	}
 
 	bool srgb_image_view = false;
@@ -221,28 +209,37 @@ void wsm_vk_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 	vkCmdBindVertexBuffers(cb, 0, 1, &span.buffer->buffer, &vb_offset);
 	vkCmdDraw(cb, 4, clip_rects_len, 0, 0);
 
-	texture->last_used_cb = pass->command_buffer;
-
-	if (texture->dmabuf_imported || (options != NULL && options->wait_timeline != NULL)) {
-		struct wsm_vk_render_pass_texture *pass_texture =
-			wl_array_add(&pass->textures, sizeof(*pass_texture));
-		if (pass_texture == NULL) {
-			pass->failed = true;
-			return;
-		}
-
-		struct wlr_drm_syncobj_timeline *wait_timeline = NULL;
-		uint64_t wait_point = 0;
-		if (options != NULL && options->wait_timeline != NULL) {
-			wait_timeline = wlr_drm_syncobj_timeline_ref(options->wait_timeline);
-			wait_point = options->wait_point;
-		}
-
-		*pass_texture = (struct wsm_vk_render_pass_texture){
-			.texture = texture,
-			.wait_timeline = wait_timeline,
-			.wait_point = wait_point,
-		};
+	if (!wsm_vk_render_pass_use_texture(pass, texture, options->wait_timeline, options->wait_point)) {
+		pass->failed = true;
 	}
 }
 
+bool wsm_vk_render_pass_use_texture(struct wsm_vk_render_pass *pass,
+		struct wsm_vk_texture *texture, struct wlr_drm_syncobj_timeline *timeline, uint64_t point) {
+	struct wsm_vk_renderer *renderer = pass->renderer;
+	if (texture->dmabuf_imported && !texture->owned) {
+		// Store this texture in the list of textures that need to be
+		// acquired before rendering and released after rendering.
+		// We don't do it here immediately since barriers inside
+		// a renderpass are suboptimal (would require additional renderpass
+		// dependency and potentially multiple barriers) and it's
+		// better to issue one barrier for all used textures anyways.
+		texture->owned = true;
+		assert(texture->foreign_link.prev == NULL);
+		assert(texture->foreign_link.next == NULL);
+		wl_list_insert(&renderer->foreign_textures, &texture->foreign_link);
+	}
+
+	texture->last_used_cb = pass->command_buffer;
+	if (texture->dmabuf_imported || timeline) {
+		struct wsm_vk_render_pass_texture *dep = wl_array_add(&pass->textures, sizeof(*dep));
+		if (!dep) {
+			return false;
+		}
+		*dep = (struct wsm_vk_render_pass_texture){
+			.texture = texture, .wait_timeline = timeline ? wlr_drm_syncobj_timeline_ref(timeline) : NULL,
+			.wait_point = point,
+		};
+	}
+	return true;
+}

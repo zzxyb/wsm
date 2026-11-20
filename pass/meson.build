@@ -31,5 +31,6 @@ if have_vulkan
 		'vulkan/texture.c',
 		'vulkan/border.c',
 		'vulkan/shadow.c',
+		'vulkan/blur.c',
 	)
 endif

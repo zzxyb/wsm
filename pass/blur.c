@@ -4,6 +4,11 @@
 #include "pass/pixman/blur.h"
 #include "pass/pixman/pass.h"
 #include "renderer/pixman/renderer.h"
+#if WSM_HAS_VULKAN
+#include "pass/vulkan/blur.h"
+#include "pass/vulkan/pass.h"
+#include "renderer/vulkan/renderer.h"
+#endif
 
 #include <limits.h>
 #include <math.h>
@@ -15,6 +20,11 @@ static struct wlr_renderer *get_renderer(struct wlr_render_pass *target) {
 	if (target && wlr_render_pass_is_wsm_pixman(target)) {
 		return &wsm_pixman_render_pass_from_render_pass(target)->buffer->renderer->base;
 	}
+#if WSM_HAS_VULKAN
+	if (target && wlr_render_pass_is_wsm_vk(target)) {
+		return &wsm_vk_render_pass_from_render_pass(target)->renderer->wlr_renderer;
+	}
+#endif
 	return NULL;
 }
 
@@ -26,6 +36,11 @@ static struct wlr_texture *capture(struct wlr_render_pass *target,
 	if (target && wlr_render_pass_is_wsm_pixman(target)) {
 		return wsm_pixman_render_pass_capture_blur(target, texture, box, damage);
 	}
+#if WSM_HAS_VULKAN
+	if (target && wlr_render_pass_is_wsm_vk(target)) {
+		return wsm_vk_render_pass_capture_blur(target, texture, box, damage);
+	}
+#endif
 	return NULL;
 }
 
@@ -101,5 +116,9 @@ void wsm_render_pass_add_blur(struct wlr_render_pass *target,
 		wsm_gles2_render_pass_add_blur(target, &normalized);
 	} else if (wlr_render_pass_is_wsm_pixman(target)) {
 		wsm_pixman_render_pass_add_blur(target, &normalized);
+#if WSM_HAS_VULKAN
+	} else if (wlr_render_pass_is_wsm_vk(target)) {
+		wsm_vk_render_pass_add_blur(target, &normalized);
+#endif
 	}
 }

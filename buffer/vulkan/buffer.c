@@ -82,7 +82,8 @@ bool wsm_vk_setup_two_pass_framebuffer(struct wsm_vk_render_buffer *buffer,
 		.tiling = VK_IMAGE_TILING_OPTIMAL,
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 		.extent = (VkExtent3D) { dmabuf->width, dmabuf->height, 1 },
-		.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+		.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
+			VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 	};
 
 	res = vkCreateImage(dev, &img_info, NULL, &buffer->two_pass.blend_image);

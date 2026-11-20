@@ -1116,11 +1116,9 @@ bool wlr_texture_has_alpha_wsm(struct wlr_texture *texture) {
 	return vk_texture->has_alpha;
 }
 
-struct wsm_vk_texture *wsm_vk_texture_create_render_target(
-		struct wsm_vk_renderer *renderer, int width, int height) {
-	static const struct wsm_vk_format format = {
-		.drm = DRM_FORMAT_ABGR8888, .vk = VK_FORMAT_R8G8B8A8_UNORM,
-	};
+struct wsm_vk_texture *wsm_vk_texture_create_render_target_format(
+		struct wsm_vk_renderer *renderer, int width, int height,
+		const struct wsm_vk_format *format) {
 	if (width <= 0 || height <= 0) {
 		return NULL;
 	}
@@ -1128,15 +1126,15 @@ struct wsm_vk_texture *wsm_vk_texture_create_render_target(
 	if (!texture) {
 		return NULL;
 	}
-	texture_set_format(texture, &format, false);
-	texture->render_setup = find_or_create_render_setup(renderer, &format, false, false);
+	texture_set_format(texture, format, false);
+	texture->render_setup = find_or_create_render_setup(renderer, format, false, false);
 	if (!texture->render_setup) {
 		goto error;
 	}
 	VkDevice dev = renderer->dev->dev;
 	VkImageCreateInfo image_info = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-		.imageType = VK_IMAGE_TYPE_2D, .format = format.vk,
+		.imageType = VK_IMAGE_TYPE_2D, .format = format->vk,
 		.extent = {width, height, 1}, .mipLevels = 1, .arrayLayers = 1,
 		.samples = VK_SAMPLE_COUNT_1_BIT, .tiling = VK_IMAGE_TILING_OPTIMAL,
 		.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
@@ -1164,7 +1162,7 @@ struct wsm_vk_texture *wsm_vk_texture_create_render_target(
 	}
 	VkImageViewCreateInfo view = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-		.image = texture->image, .viewType = VK_IMAGE_VIEW_TYPE_2D, .format = format.vk,
+		.image = texture->image, .viewType = VK_IMAGE_VIEW_TYPE_2D, .format = format->vk,
 		.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1},
 	};
 	if (vkCreateImageView(dev, &view, NULL, &texture->render_view) != VK_SUCCESS) {
@@ -1183,4 +1181,12 @@ struct wsm_vk_texture *wsm_vk_texture_create_render_target(
 error:
 	wsm_vk_texture_destroy(texture);
 	return NULL;
+}
+
+struct wsm_vk_texture *wsm_vk_texture_create_render_target(
+		struct wsm_vk_renderer *renderer, int width, int height) {
+	static const struct wsm_vk_format format = {
+		.drm = DRM_FORMAT_ABGR8888, .vk = VK_FORMAT_R8G8B8A8_UNORM,
+	};
+	return wsm_vk_texture_create_render_target_format(renderer, width, height, &format);
 }

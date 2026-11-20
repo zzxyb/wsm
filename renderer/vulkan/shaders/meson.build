@@ -6,6 +6,10 @@ vulkan_shaders_src = [
 	'rect.frag',
 	'border.frag',
 	'shadow.frag',
+	'blur_down.frag',
+	'blur_up.frag',
+	'blur_finish.frag',
+
 	'output.frag',
 ]
 
