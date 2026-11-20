@@ -145,6 +145,7 @@ static bool write_pixels(struct wsm_vk_texture *texture,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_ACCESS_SHADER_READ_BIT);
 	texture->last_used_cb = renderer->stage.cb;
+	texture->transitioned = true;
 
 	free(copies);
 
@@ -400,6 +401,7 @@ static struct wsm_vk_texture *vulkan_texture_from_pixels(
 	}
 
 	texture_set_format(texture, &fmt->format, fmt->shm.has_mutable_srgb);
+	texture->usage = vulkan_shm_tex_usage;
 
 	VkFormat view_formats[] = {
 		fmt->format.vk,
@@ -573,7 +575,7 @@ VkImage wsm_vk_import_dmabuf(struct wsm_vk_renderer *renderer,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 		.extent = (VkExtent3D) { attribs->width, attribs->height, 1 },
-		.usage = for_render ? vulkan_render_usage : vulkan_dma_tex_usage,
+		.usage = mod->usage,
 	};
 	if (disjoint) {
 		img_info.flags = VK_IMAGE_CREATE_DISJOINT_BIT;
@@ -762,6 +764,10 @@ struct wsm_vk_texture *wsm_vk_texture_from_dmabuf(
 		goto error;
 	}
 	texture_set_format(texture, &fmt->format, using_mutable_srgb);
+	const struct wsm_vk_format_modifier_props *modifier =
+		vulkan_format_props_find_modifier(fmt, attribs->modifier, false);
+	assert(modifier != NULL);
+	texture->usage = modifier->usage;
 
 	texture->dmabuf_imported = true;
 
@@ -1140,6 +1146,7 @@ struct wsm_vk_texture *wsm_vk_texture_create_render_target_format(
 		.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
 			VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 	};
+	texture->usage = image_info.usage;
 	if (vkCreateImage(dev, &image_info, NULL, &texture->image) != VK_SUCCESS) {
 		goto error;
 	}

@@ -45,6 +45,7 @@ struct wsm_vk_format {
  * @brief Device capabilities for one DRM format modifier.
  */
 struct wsm_vk_format_modifier_props {
+	VkImageUsageFlags usage; /**< Image usage flags validated together for this format and modifier. */
 	VkDrmFormatModifierPropertiesEXT props; /**< DRM format modifier properties reported by Vulkan. */
 	VkExtent2D max_extent; /**< Maximum supported image extent. */
 	bool has_mutable_srgb; /**< Whether an sRGB view can be created for the image. */

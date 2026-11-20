@@ -214,8 +214,8 @@ void wsm_vk_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 	}
 }
 
-bool wsm_vk_render_pass_use_texture(struct wsm_vk_render_pass *pass,
-		struct wsm_vk_texture *texture, struct wlr_drm_syncobj_timeline *timeline, uint64_t point) {
+static bool render_pass_use_texture_access(struct wsm_vk_render_pass *pass,
+		struct wsm_vk_texture *texture, struct wlr_drm_syncobj_timeline *timeline, uint64_t point, bool write) {
 	struct wsm_vk_renderer *renderer = pass->renderer;
 	if (texture->dmabuf_imported && !texture->owned) {
 		// Store this texture in the list of textures that need to be
@@ -232,14 +232,32 @@ bool wsm_vk_render_pass_use_texture(struct wsm_vk_render_pass *pass,
 
 	texture->last_used_cb = pass->command_buffer;
 	if (texture->dmabuf_imported || timeline) {
+		struct wsm_vk_render_pass_texture *existing;
+		wl_array_for_each(existing, &pass->textures) {
+			if (existing->texture == texture && existing->wait_timeline == timeline &&
+					(!timeline || existing->wait_point == point)) {
+				existing->write |= write;
+				return true;
+			}
+		}
 		struct wsm_vk_render_pass_texture *dep = wl_array_add(&pass->textures, sizeof(*dep));
 		if (!dep) {
 			return false;
 		}
 		*dep = (struct wsm_vk_render_pass_texture){
 			.texture = texture, .wait_timeline = timeline ? wlr_drm_syncobj_timeline_ref(timeline) : NULL,
-			.wait_point = point,
+			.wait_point = point, .write = write,
 		};
 	}
 	return true;
+}
+
+bool wsm_vk_render_pass_use_texture(struct wsm_vk_render_pass *pass,
+		struct wsm_vk_texture *texture, struct wlr_drm_syncobj_timeline *timeline, uint64_t point) {
+	return render_pass_use_texture_access(pass, texture, timeline, point, false);
+}
+
+bool wsm_vk_render_pass_use_texture_write(struct wsm_vk_render_pass *pass,
+		struct wsm_vk_texture *texture) {
+	return render_pass_use_texture_access(pass, texture, NULL, 0, true);
 }
