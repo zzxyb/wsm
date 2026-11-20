@@ -93,6 +93,7 @@ enum wsm_vk_texture_transform {
 enum wsm_vk_shader_source {
 	WLR_VK_SHADER_SOURCE_TEXTURE, /**< Samples a texture in the fragment shader. */
 	WLR_VK_SHADER_SOURCE_ROUNDED_RECT, /**< Computes rounded rectangle coverage in the fragment shader. */
+	WSM_VK_SHADER_SOURCE_ROUNDED_TEXTURE, /**< Samples a texture and clips it to rounded destination corners. */
 	WLR_VK_SHADER_SOURCE_SINGLE_COLOR, /**< Uses a uniform solid color in the fragment shader. */
 };
 
@@ -191,6 +192,7 @@ struct wsm_vk_renderer {
 	VkCommandPool command_pool; /**< Pool allocating rendering and staging command buffers. */
 
 	VkShaderModule vert_module; /**< Common vertex shader module. */
+	VkShaderModule round_tex_frag_module; /**< Rounded texture fragment shader module. */
 	VkShaderModule tex_frag_module; /**< Texture fragment shader module. */
 	VkShaderModule rect_frag_module; /**< Rounded rectangle fragment shader module. */
 	VkShaderModule quad_frag_module; /**< Solid-color fragment shader module. */
@@ -262,6 +264,18 @@ struct wsm_vk_frag_texture_pcr_data {
 	float matrix[4][4]; /**< Color conversion matrix; only a 3 by 3 subset is used. */
 	float alpha; /**< Opacity multiplier applied to the sampled color. */
 	float luminance_multiplier; /**< Luminance scale applied during texture color conversion. */
+};
+
+/**
+ * @brief Rounded texture color conversion and destination-space corner constants.
+ */
+struct wsm_vk_frag_round_texture_pcr_data {
+	float matrix[9]; /**< Packed row-major color conversion matrix. */
+	float alpha; /**< Opacity multiplier applied to the sampled color. */
+	float luminance_multiplier; /**< Luminance scale applied during texture color conversion. */
+	float padding; /**< Aligns the corner radii with the shader push constant layout. */
+	float radii[4]; /**< Destination-space corner radii. */
+	float box[4]; /**< Destination x, y, width, and height in target pixels. */
 };
 
 /**

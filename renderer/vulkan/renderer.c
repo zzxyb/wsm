@@ -3,6 +3,7 @@
 #include "buffer/vulkan/buffer.h"
 #include "pass/vulkan/pass.h"
 #include "renderer/vulkan/shaders/common.vert.h"
+#include "renderer/vulkan/shaders/round_texture.frag.h"
 #include "renderer/vulkan/shaders/texture.frag.h"
 #include "renderer/vulkan/shaders/quad.frag.h"
 #include "renderer/vulkan/shaders/rect.frag.h"
@@ -850,6 +851,7 @@ static void vulkan_destroy(struct wlr_renderer *wlr_renderer) {
 
 	vkDestroyShaderModule(dev->dev, renderer->vert_module, NULL);
 	vkDestroyShaderModule(dev->dev, renderer->tex_frag_module, NULL);
+	vkDestroyShaderModule(dev->dev, renderer->round_tex_frag_module, NULL);
 	vkDestroyShaderModule(dev->dev, renderer->quad_frag_module, NULL);
 	vkDestroyShaderModule(dev->dev, renderer->rect_frag_module, NULL);
 	vkDestroyShaderModule(dev->dev, renderer->output_module, NULL);
@@ -962,7 +964,7 @@ static bool init_tex_layouts(struct wsm_vk_renderer *renderer,
 	}
 
 	static_assert(sizeof(struct wsm_vk_vert_pcr_data) +
-		sizeof(struct wsm_vk_frag_texture_pcr_data) < 128,
+		sizeof(struct wsm_vk_frag_round_texture_pcr_data) <= 128,
 		"Expected to need <= 128 bytes of push constants");
 
 	VkPushConstantRange pc_ranges[] = {
@@ -972,7 +974,7 @@ static bool init_tex_layouts(struct wsm_vk_renderer *renderer,
 		},
 		{
 			.offset = pc_ranges[0].size,
-			.size = sizeof(struct wsm_vk_frag_texture_pcr_data),
+			.size = sizeof(struct wsm_vk_frag_round_texture_pcr_data),
 			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
 		},
 	};
@@ -1131,7 +1133,7 @@ static bool pipeline_key_equals(const struct wsm_vk_pipeline_key *a,
 		return false;
 	}
 
-	if (a->source == WLR_VK_SHADER_SOURCE_TEXTURE &&
+	if ((a->source == WLR_VK_SHADER_SOURCE_TEXTURE || a->source == WSM_VK_SHADER_SOURCE_ROUNDED_TEXTURE) &&
 			a->texture_transform != b->texture_transform) {
 		return false;
 	}
@@ -1228,6 +1230,15 @@ struct wsm_vk_pipeline *setup_get_or_create_pipeline(
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
 			.module = renderer->quad_frag_module,
 			.pName = "main",
+		};
+		break;
+	case WSM_VK_SHADER_SOURCE_ROUNDED_TEXTURE:
+		stages[1] = (VkPipelineShaderStageCreateInfo) {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.module = renderer->round_tex_frag_module,
+			.pName = "main",
+			.pSpecializationInfo = &specialization,
 		};
 		break;
 	case WLR_VK_SHADER_SOURCE_TEXTURE:
@@ -1674,6 +1685,17 @@ static bool init_static_render_data(struct wsm_vk_renderer *renderer) {
 	res = vkCreateShaderModule(dev, &sinfo, NULL, &renderer->vert_module);
 	if (res != VK_SUCCESS) {
 		wsm_vk_error("Failed to create vertex shader module", res);
+		return false;
+	}
+
+	sinfo = (VkShaderModuleCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = sizeof(round_texture_frag_data),
+		.pCode = round_texture_frag_data,
+	};
+	res = vkCreateShaderModule(dev, &sinfo, NULL, &renderer->round_tex_frag_module);
+	if (res != VK_SUCCESS) {
+		wsm_vk_error("Failed to create rounded texture fragment shader", res);
 		return false;
 	}
 
