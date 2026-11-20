@@ -4,6 +4,10 @@
 #include "pass/pixman/shadow.h"
 #include "renderer/gles/renderer.h"
 #include "renderer/pixman/renderer.h"
+#if WSM_HAS_VULKAN
+#include "pass/vulkan/shadow.h"
+#include "renderer/vulkan/renderer.h"
+#endif
 
 #include <limits.h>
 #include <math.h>
@@ -157,5 +161,11 @@ struct wsm_scene_shadow_cache *wsm_scene_shadow_cache_create_rounded_corners(
 		return wsm_pixman_shadow_cache_create(renderer, margins,
 			corner_extent, radii, inner_offset, color);
 	}
+#if WSM_HAS_VULKAN
+	if (wlr_renderer_is_wsm_vk(renderer)) {
+		return wsm_vk_shadow_cache_create(renderer, margins,
+			corner_extent, radii, inner_offset, color);
+	}
+#endif
 	return NULL;
 }
