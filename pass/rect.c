@@ -3,6 +3,10 @@
 #include "pass/pixman/pass.h"
 #include "pass/gles/rect.h"
 #include "pass/pixman/rect.h"
+#if WSM_HAS_VULKAN
+#include "pass/vulkan/pass.h"
+#include "pass/vulkan/rect.h"
+#endif
 
 #include <math.h>
 
@@ -39,5 +43,11 @@ bool wsm_render_pass_add_rect(struct wlr_render_pass *pass,
 		wsm_pixman_render_pass_add_rect(pass, &normalized);
 		return true;
 	}
+#if WSM_HAS_VULKAN
+	if (wlr_render_pass_is_wsm_vk(pass)) {
+		wsm_vk_render_pass_add_rect(pass, &normalized);
+		return true;
+	}
+#endif
 	return false;
 }

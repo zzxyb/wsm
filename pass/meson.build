@@ -25,5 +25,8 @@ wsm_sources += files(
 )
 
 if have_vulkan
-	wsm_sources += files('vulkan/pass.c')
+	wsm_sources += files(
+		'vulkan/pass.c',
+		'vulkan/rect.c'
+	)
 endif

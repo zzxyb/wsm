@@ -20,10 +20,14 @@
 static const struct wlr_render_pass_impl render_pass_impl;
 static const struct wlr_addon_interface vk_color_transform_impl;
 
-static struct wsm_vk_render_pass *get_render_pass(struct wlr_render_pass *wlr_pass) {
+struct wsm_vk_render_pass *wsm_vk_render_pass_from_render_pass(struct wlr_render_pass *wlr_pass) {
 	assert(wlr_pass->impl == &render_pass_impl);
 	struct wsm_vk_render_pass *pass = wl_container_of(wlr_pass, pass, base);
 	return pass;
+}
+
+bool wlr_render_pass_is_wsm_vk(const struct wlr_render_pass *pass) {
+	return pass->impl == &render_pass_impl;
 }
 
 static struct wsm_vk_color_transform *get_color_transform(
@@ -169,7 +173,7 @@ static bool unwrap_color_transform(struct wlr_color_transform *transform,
 }
 
 static bool render_pass_submit(struct wlr_render_pass *wlr_pass) {
-	struct wsm_vk_render_pass *pass = get_render_pass(wlr_pass);
+	struct wsm_vk_render_pass *pass = wsm_vk_render_pass_from_render_pass(wlr_pass);
 	struct wsm_vk_renderer *renderer = pass->renderer;
 	struct wsm_vk_command_buffer *render_cb = pass->command_buffer;
 	struct wsm_vk_render_buffer *render_buffer = pass->render_buffer;
@@ -641,7 +645,7 @@ static void render_pass_mark_box_updated(struct wsm_vk_render_pass *pass,
 
 static void render_pass_add_rect(struct wlr_render_pass *wlr_pass,
 		const struct wlr_render_rect_options *options) {
-	struct wsm_vk_render_pass *pass = get_render_pass(wlr_pass);
+	struct wsm_vk_render_pass *pass = wsm_vk_render_pass_from_render_pass(wlr_pass);
 	VkCommandBuffer cb = pass->command_buffer->vk;
 
 	// Input color values are given in sRGB space, shader expects
@@ -756,7 +760,7 @@ static void render_pass_add_rect(struct wlr_render_pass *wlr_pass,
 
 static void render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 		const struct wlr_render_texture_options *options) {
-	struct wsm_vk_render_pass *pass = get_render_pass(wlr_pass);
+	struct wsm_vk_render_pass *pass = wsm_vk_render_pass_from_render_pass(wlr_pass);
 	struct wsm_vk_renderer *renderer = pass->renderer;
 	VkCommandBuffer cb = pass->command_buffer->vk;
 
