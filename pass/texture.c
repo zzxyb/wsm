@@ -5,6 +5,10 @@
 #include "pass/pixman/texture.h"
 
 #include <math.h>
+#if WSM_HAS_VULKAN
+#include "pass/vulkan/pass.h"
+#include "pass/vulkan/texture.h"
+#endif
 
 bool wsm_render_pass_add_texture(struct wlr_render_pass *pass,
 	const struct wlr_render_texture_options *options, const float radii[static 4]) {
@@ -14,6 +18,10 @@ bool wsm_render_pass_add_texture(struct wlr_render_pass *pass,
 		wsm_gles2_render_pass_add_texture(pass, options, radii);
 	} else if (wlr_render_pass_is_wsm_pixman(pass)) {
 		wsm_pixman_render_pass_add_texture(pass, options, radii);
+#if WSM_HAS_VULKAN
+	} else if (wlr_render_pass_is_wsm_vk(pass)) {
+		wsm_vk_render_pass_add_texture(pass, options, radii);
+#endif
 	} else {
 		return false;
 	}
