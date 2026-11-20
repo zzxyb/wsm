@@ -5,6 +5,10 @@
 #include "pass/pixman/pass.h"
 
 #include <math.h>
+#if WSM_HAS_VULKAN
+#include "pass/vulkan/pass.h"
+#include "pass/vulkan/border.h"
+#endif
 
 bool wsm_render_pass_add_border(struct wlr_render_pass *pass,
 		const struct wsm_render_border_options *options) {
@@ -13,7 +17,11 @@ bool wsm_render_pass_add_border(struct wlr_render_pass *pass,
 	}
 	bool gles = wlr_render_pass_is_wsm_gles2(pass);
 	bool pixman = wlr_render_pass_is_wsm_pixman(pass);
-	if (!gles && !pixman) {
+	bool vulkan = false;
+#if WSM_HAS_VULKAN
+	vulkan = wlr_render_pass_is_wsm_vk(pass);
+#endif
+	if (!gles && !pixman && !vulkan) {
 		return false;
 	}
 	if (options->box.width <= 0 || options->box.height <= 0 ||
@@ -40,5 +48,11 @@ bool wsm_render_pass_add_border(struct wlr_render_pass *pass,
 		wsm_pixman_render_pass_add_border(pass, &normalized);
 		return true;
 	}
+#if WSM_HAS_VULKAN
+	if (vulkan) {
+		wsm_vk_render_pass_add_border(pass, &normalized);
+		return true;
+	}
+#endif
 	return false;
 }
