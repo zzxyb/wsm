@@ -206,6 +206,8 @@ void wsm_vk_texture_destroy(struct wsm_vk_texture *texture) {
 		free(view);
 	}
 
+	vkDestroyFramebuffer(dev, texture->framebuffer, NULL);
+	vkDestroyImageView(dev, texture->render_view, NULL);
 	vkDestroyImage(dev, texture->image, NULL);
 
 	for (unsigned i = 0u; i < texture->mem_count; ++i) {
@@ -1112,4 +1114,73 @@ void wlr_texture_get_image_attribs_wsm(struct wlr_texture *texture,
 bool wlr_texture_has_alpha_wsm(struct wlr_texture *texture) {
 	struct wsm_vk_texture *vk_texture = wsm_vk_texture_from_texture(texture);
 	return vk_texture->has_alpha;
+}
+
+struct wsm_vk_texture *wsm_vk_texture_create_render_target(
+		struct wsm_vk_renderer *renderer, int width, int height) {
+	static const struct wsm_vk_format format = {
+		.drm = DRM_FORMAT_ABGR8888, .vk = VK_FORMAT_R8G8B8A8_UNORM,
+	};
+	if (width <= 0 || height <= 0) {
+		return NULL;
+	}
+	struct wsm_vk_texture *texture = vulkan_texture_create(renderer, width, height);
+	if (!texture) {
+		return NULL;
+	}
+	texture_set_format(texture, &format, false);
+	texture->render_setup = find_or_create_render_setup(renderer, &format, false, false);
+	if (!texture->render_setup) {
+		goto error;
+	}
+	VkDevice dev = renderer->dev->dev;
+	VkImageCreateInfo image_info = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.imageType = VK_IMAGE_TYPE_2D, .format = format.vk,
+		.extent = {width, height, 1}, .mipLevels = 1, .arrayLayers = 1,
+		.samples = VK_SAMPLE_COUNT_1_BIT, .tiling = VK_IMAGE_TILING_OPTIMAL,
+		.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+			VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+	};
+	if (vkCreateImage(dev, &image_info, NULL, &texture->image) != VK_SUCCESS) {
+		goto error;
+	}
+	VkMemoryRequirements req;
+	vkGetImageMemoryRequirements(dev, texture->image, &req);
+	int type = wsm_vk_find_mem_type(renderer->dev, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, req.memoryTypeBits);
+	if (type < 0) {
+		goto error;
+	}
+	VkMemoryAllocateInfo alloc = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = req.size, .memoryTypeIndex = type,
+	};
+	if (vkAllocateMemory(dev, &alloc, NULL, &texture->memories[0]) != VK_SUCCESS) {
+		goto error;
+	}
+	texture->mem_count = 1;
+	if (vkBindImageMemory(dev, texture->image, texture->memories[0], 0) != VK_SUCCESS) {
+		goto error;
+	}
+	VkImageViewCreateInfo view = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.image = texture->image, .viewType = VK_IMAGE_VIEW_TYPE_2D, .format = format.vk,
+		.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1},
+	};
+	if (vkCreateImageView(dev, &view, NULL, &texture->render_view) != VK_SUCCESS) {
+		goto error;
+	}
+	VkFramebufferCreateInfo fb = {
+		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+		.renderPass = texture->render_setup->render_pass,
+		.attachmentCount = 1, .pAttachments = &texture->render_view,
+		.width = width, .height = height, .layers = 1,
+	};
+	if (vkCreateFramebuffer(dev, &fb, NULL, &texture->framebuffer) != VK_SUCCESS) {
+		goto error;
+	}
+	return texture;
+error:
+	wsm_vk_texture_destroy(texture);
+	return NULL;
 }

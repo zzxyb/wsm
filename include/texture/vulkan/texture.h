@@ -42,6 +42,9 @@ struct wsm_vk_texture {
 	uint32_t mem_count; /**< Number of valid image memory allocations. */
 	VkDeviceMemory memories[WLR_DMABUF_MAX_PLANES]; /**< Memory allocations backing the imported image planes. */
 	VkImage image; /**< Vulkan image handle. */
+	VkImageView render_view; /**< View for renderer-owned effect targets. */
+	VkFramebuffer framebuffer; /**< Effect target framebuffer, if renderable. */
+	struct wsm_vk_render_format_setup *render_setup; /**< Render pass setup for the effect framebuffer, if present. */
 	const struct wsm_vk_format *format; /**< Pixel format mapping used by the image. */
 	struct wsm_vk_command_buffer *last_used_cb; /**< Last command buffer using the texture; may be NULL. */
 	bool dmabuf_imported; /**< Whether the image was imported from a DMA-BUF. */
@@ -165,4 +168,13 @@ void wlr_texture_get_image_attribs_wsm(struct wlr_texture *texture,
  */
 bool wlr_texture_has_alpha_wsm(struct wlr_texture *texture);
 
+/**
+ * @brief Creates a sampled, renderable RGBA8 effect texture with undefined initial contents.
+ * @param renderer Vulkan renderer that will use the texture.
+ * @param width Texture width in pixels.
+ * @param height Texture height in pixels.
+ * @return Caller-owned texture, or NULL on failure.
+ */
+struct wsm_vk_texture *wsm_vk_texture_create_render_target(
+	struct wsm_vk_renderer *renderer, int width, int height);
 #endif

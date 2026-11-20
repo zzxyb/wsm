@@ -5,6 +5,7 @@ vulkan_shaders_src = [
 	'quad.frag',
 	'rect.frag',
 	'border.frag',
+	'shadow.frag',
 	'output.frag',
 ]
 
