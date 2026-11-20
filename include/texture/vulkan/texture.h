@@ -42,6 +42,7 @@ struct wsm_vk_texture {
 	uint32_t mem_count; /**< Number of valid image memory allocations. */
 	VkDeviceMemory memories[WLR_DMABUF_MAX_PLANES]; /**< Memory allocations backing the imported image planes. */
 	VkImage image; /**< Vulkan image handle. */
+	VkImageUsageFlags usage; /**< Image usage negotiated at creation/import. */
 	VkImageView render_view; /**< View for renderer-owned effect targets. */
 	VkFramebuffer framebuffer; /**< Effect target framebuffer, if renderable. */
 	struct wsm_vk_render_format_setup *render_setup; /**< Render pass setup for the effect framebuffer, if present. */

@@ -47,6 +47,7 @@ struct wsm_vk_render_pass_texture {
 
 	struct wlr_drm_syncobj_timeline *wait_timeline; /**< Optional explicit synchronization timeline; may be NULL. */
 	uint64_t wait_point; /**< Timeline point required before texture access. */
+	bool write; /**< Whether this dependency includes a DMA-BUF write. */
 };
 
 /**
@@ -120,5 +121,14 @@ void wsm_vk_render_pass_resume(struct wsm_vk_render_pass *pass);
  */
 bool wsm_vk_render_pass_use_texture(struct wsm_vk_render_pass *pass,
 	struct wsm_vk_texture *texture, struct wlr_drm_syncobj_timeline *timeline, uint64_t point);
+
+/**
+ * @brief Tracks a texture write and registers implicit synchronization for DMA-BUF imports.
+ * @param pass Vulkan render pass recording the write.
+ * @param texture Destination texture.
+ * @return true if usage was tracked, false on allocation failure.
+ */
+bool wsm_vk_render_pass_use_texture_write(struct wsm_vk_render_pass *pass,
+	struct wsm_vk_texture *texture);
 
 #endif // PASS_VULKAN_PASS_H

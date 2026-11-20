@@ -41,7 +41,11 @@ struct wsm_copy_texture_options {
  *          Source and destination storage must not alias each other or the pass target.
  *          GLES2 requires GL_TEXTURE_2D textures and EXT_copy_image or OES_copy_image.
  *          Pixman requires a writable destination mapping or owned image and does
- *          not support explicit timelines. Only mipmap level zero is supported.
+ *          not support explicit timelines. Vulkan uses ordered image transfers into
+ *          textures created or imported with transfer-destination usage. Submission
+ *          synchronizes DMA-BUF destinations for write access and publishes
+ *          completion through implicit fencing when supported.
+ *          Only mipmap level zero is supported.
  * @param target Active render pass.
  * @param options Borrowed textures, geometry, and optional acquire synchronization.
  * @return true on success, false for invalid options, an unsupported backend, or copy failure.

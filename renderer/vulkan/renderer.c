@@ -727,6 +727,20 @@ bool vulkan_sync_render_pass_release(struct wsm_vk_renderer *renderer,
 		return vulkan_wait_command_buffer(cb, renderer);
 	}
 
+	if (!renderer->dev->implicit_sync_interop) {
+		struct wsm_vk_render_pass_texture *dep;
+		wl_array_for_each(dep, &pass->textures) {
+			if (dep->write && dep->texture->buffer) {
+				/* An explicit timeline for the pass target does not cover
+				 * separate implicit-sync transfer destinations. */
+				if (!vulkan_wait_command_buffer(cb, renderer)) {
+					return false;
+				}
+				break;
+			}
+		}
+	}
+
 	assert(cb->binary_semaphore != VK_NULL_HANDLE);
 
 	// Note: vkGetSemaphoreFdKHR implicitly resets the semaphore
@@ -753,12 +767,19 @@ bool vulkan_sync_render_pass_release(struct wsm_vk_renderer *renderer,
 		if (!buffer_import_sync_file(pass->render_buffer->wlr_buffer, DMA_BUF_SYNC_WRITE, sync_file_fd)) {
 			goto out;
 		}
+	}
 
-		struct wsm_vk_render_pass_texture *pass_texture;
-		wl_array_for_each(pass_texture, &pass->textures) {
-			if (!buffer_import_sync_file(pass_texture->texture->buffer, DMA_BUF_SYNC_READ, sync_file_fd)) {
-				goto out;
-			}
+	/* Destinations are separate buffers from the pass target. Publish their
+	 * writes even when the target itself uses an explicit signal timeline. */
+	struct wsm_vk_render_pass_texture *pass_texture;
+	wl_array_for_each(pass_texture, &pass->textures) {
+		if (!renderer->dev->implicit_sync_interop || !pass_texture->texture->buffer ||
+				(pass->signal_timeline && !pass_texture->write)) {
+			continue;
+		}
+		uint32_t flags = pass_texture->write ? DMA_BUF_SYNC_WRITE : DMA_BUF_SYNC_READ;
+		if (!buffer_import_sync_file(pass_texture->texture->buffer, flags, sync_file_fd)) {
+			goto out;
 		}
 	}
 

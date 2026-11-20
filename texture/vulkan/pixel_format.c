@@ -1094,11 +1094,38 @@ static bool query_modifier_usage_support(struct wsm_vk_device *dev, VkFormat vk_
 
 	VkExtent3D me = ifmtp.imageFormatProperties.maxExtent;
 	*out = (struct wsm_vk_format_modifier_props){
+		.usage = usage,
 		.props = *m,
 		.max_extent.width = me.width,
 		.max_extent.height = me.height,
 	};
 	return true;
+}
+
+/* Negotiate writable imports when possible without dropping read-only formats. */
+static bool query_texture_modifier_support(struct wsm_vk_device *dev,
+		const struct wsm_vk_format *format, const VkDrmFormatModifierPropertiesEXT *modifier,
+		struct wsm_vk_format_modifier_props *out, const char **errmsg) {
+	VkImageUsageFlags usage = vulkan_dma_tex_usage;
+	if (!vulkan_format_is_ycbcr(format) &&
+			(modifier->drmFormatModifierTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT)) {
+		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	}
+	for (;;) {
+		if (query_modifier_usage_support(dev, format->vk, format->vk_srgb,
+				usage, modifier, out, errmsg)) {
+			out->has_mutable_srgb = format->vk_srgb != VK_FORMAT_UNDEFINED;
+			return true;
+		}
+		if (format->vk_srgb && query_modifier_usage_support(dev, format->vk,
+				VK_FORMAT_UNDEFINED, usage, modifier, out, errmsg)) {
+			return true;
+		}
+		if (!(usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
+			return false;
+		}
+		usage &= ~VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	}
 }
 
 static bool query_shm_support(struct wsm_vk_device *dev, VkFormat vk_format,
@@ -1223,16 +1250,7 @@ static bool query_modifier_support(struct wsm_vk_device *dev,
 		}
 		if ((m.drmFormatModifierTilingFeatures & features) == features) {
 			struct wsm_vk_format_modifier_props p = {0};
-			bool supported = false;
-			if (query_modifier_usage_support(dev, props->format.vk,
-					props->format.vk_srgb, vulkan_dma_tex_usage, &m, &p, &errmsg)) {
-				supported = true;
-				p.has_mutable_srgb = props->format.vk_srgb != 0;
-			}
-			if (!supported && props->format.vk_srgb) {
-				supported = query_modifier_usage_support(dev, props->format.vk,
-						0, vulkan_dma_tex_usage, &m, &p, &errmsg);
-			}
+			bool supported = query_texture_modifier_support(dev, &props->format, &m, &p, &errmsg);
 
 			if (supported) {
 				props->dmabuf.texture_mods[props->dmabuf.texture_mod_count++] = p;

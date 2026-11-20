@@ -1,5 +1,6 @@
 #include "pass/vulkan/pass.h"
 #include "renderer/vulkan/renderer.h"
+#include "renderer/vulkan/dmabuf.h"
 #include "util/wsm_matrix.h"
 #include "buffer/vulkan/buffer.h"
 #include "texture/vulkan/texture.h"
@@ -351,7 +352,7 @@ static bool render_pass_submit(struct wlr_render_pass *wlr_pass) {
 			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
 			.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			.srcAccessMask = 0, // ignored anyways
-			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
 			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.subresourceRange.layerCount = 1,
 			.subresourceRange.levelCount = 1,
@@ -365,7 +366,7 @@ static bool render_pass_submit(struct wlr_render_pass *wlr_pass) {
 			.image = texture->image,
 			.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
+			.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
 			.dstAccessMask = 0, // ignored anyways
 			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.subresourceRange.layerCount = 1,
@@ -396,7 +397,8 @@ static bool render_pass_submit(struct wlr_render_pass *wlr_pass) {
 			sync_file_fds[0] = sync_file_fd;
 		} else {
 			struct wsm_vk_texture *texture = pass_texture->texture;
-			if (!wsm_vk_sync_foreign_texture_acquire(texture, sync_file_fds)) {
+			uint32_t flags = pass_texture->write ? DMA_BUF_SYNC_WRITE : DMA_BUF_SYNC_READ;
+			if (!wsm_buffer_export_sync_file(renderer, texture->buffer, flags, sync_file_fds)) {
 				wsm_log(WSM_ERROR, "Failed to wait for foreign texture DMA-BUF fence");
 				continue;
 			}
@@ -499,10 +501,12 @@ static bool render_pass_submit(struct wlr_render_pass *wlr_pass) {
 	++idx;
 
 	vkCmdPipelineBarrier(stage_cb->vk, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
 		0, 0, NULL, 0, NULL, barrier_count, acquire_barriers);
 
-	vkCmdPipelineBarrier(render_cb->vk, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+	vkCmdPipelineBarrier(render_cb->vk,
+		VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL,
 		barrier_count, release_barriers);
 
@@ -959,28 +963,8 @@ static void render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 	vkCmdBindVertexBuffers(cb, 0, 1, &span.buffer->buffer, &vb_offset);
 	vkCmdDraw(cb, 4, clip_rects_len, 0, 0);
 
-	texture->last_used_cb = pass->command_buffer;
-
-	if (texture->dmabuf_imported || (options != NULL && options->wait_timeline != NULL)) {
-		struct wsm_vk_render_pass_texture *pass_texture =
-			wl_array_add(&pass->textures, sizeof(*pass_texture));
-		if (pass_texture == NULL) {
-			pass->failed = true;
-			return;
-		}
-
-		struct wlr_drm_syncobj_timeline *wait_timeline = NULL;
-		uint64_t wait_point = 0;
-		if (options != NULL && options->wait_timeline != NULL) {
-			wait_timeline = wlr_drm_syncobj_timeline_ref(options->wait_timeline);
-			wait_point = options->wait_point;
-		}
-
-		*pass_texture = (struct wsm_vk_render_pass_texture){
-			.texture = texture,
-			.wait_timeline = wait_timeline,
-			.wait_point = wait_point,
-		};
+	if (!wsm_vk_render_pass_use_texture(pass, texture, options->wait_timeline, options->wait_point)) {
+		pass->failed = true;
 	}
 }
 
