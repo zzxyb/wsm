@@ -279,6 +279,7 @@ struct wsm_vk_render_buffer *wsm_vk_render_buffer_create(
 		wsm_log_errno(WSM_ERROR, "Allocation failed");
 		return NULL;
 	}
+
 	buffer->wlr_buffer = wlr_buffer;
 	buffer->renderer = renderer;
 	wlr_addon_init(&buffer->addon, &wlr_buffer->addons, renderer,
@@ -333,19 +334,19 @@ error:
 void wsm_vk_render_buffer_destroy(struct wsm_vk_render_buffer *buffer) {
 	wl_list_remove(&buffer->link);
 	wlr_addon_finish(&buffer->addon);
-	
+
 	VkDevice dev = buffer->renderer->dev->dev;
-	
+
 	// TODO: asynchronously wait for the command buffers using this render
 	// buffer to complete (just like we do for textures)
 	VkResult res = vkQueueWaitIdle(buffer->renderer->dev->queue);
 	if (res != VK_SUCCESS) {
 		wsm_vk_error("vkQueueWaitIdle", res);
 	}
-	
+
 	finish_render_buffer_out(&buffer->linear.out, dev);
 	finish_render_buffer_out(&buffer->srgb.out, dev);
-	
+
 	finish_render_buffer_out(&buffer->two_pass.out, dev);
 	vkDestroyImage(dev, buffer->two_pass.blend_image, NULL);
 	vkFreeMemory(dev, buffer->two_pass.blend_memory, NULL);
@@ -354,12 +355,12 @@ void wsm_vk_render_buffer_destroy(struct wsm_vk_render_buffer *buffer) {
 		vulkan_free_ds(buffer->renderer, buffer->two_pass.blend_attachment_pool,
 				buffer->two_pass.blend_descriptor_set);
 	}
-	
+
 	vkDestroyImage(dev, buffer->image, NULL);
 	for (size_t i = 0u; i < buffer->mem_count; ++i) {
 		vkFreeMemory(dev, buffer->memories[i], NULL);
 	}
-	
+
 	free(buffer);
 }
 
@@ -378,7 +379,7 @@ struct wsm_vk_render_buffer *wsm_get_vk_render_buffer(
 bool wsm_vk_sync_render_buffer_acquire(struct wsm_vk_render_buffer *render_buffer,
 		int sync_file_fds[static WLR_DMABUF_MAX_PLANES]) {
 	return wsm_buffer_export_sync_file(render_buffer->renderer, render_buffer->wlr_buffer,
-			DMA_BUF_SYNC_WRITE, sync_file_fds);
+		DMA_BUF_SYNC_WRITE, sync_file_fds);
 }
 
 
@@ -392,11 +393,10 @@ bool wsm_buffer_export_sync_file(struct wsm_vk_renderer *renderer, struct wlr_bu
 
 	if (!renderer->dev->implicit_sync_interop) {
 		// We have no choice but to block here sadly
-
 		for (int i = 0; i < dmabuf.n_planes; i++) {
 			struct pollfd pollfd = {
-					.fd = dmabuf.fd[i],
-					.events = (flags & DMA_BUF_SYNC_WRITE) ? POLLOUT : POLLIN,
+				.fd = dmabuf.fd[i],
+				.events = (flags & DMA_BUF_SYNC_WRITE) ? POLLOUT : POLLIN,
 			};
 			int timeout_ms = 1000;
 			int ret = poll(&pollfd, 1, timeout_ms);
@@ -408,7 +408,7 @@ bool wsm_buffer_export_sync_file(struct wsm_vk_renderer *renderer, struct wlr_bu
 				return false;
 			}
 		}
-		
+
 		return true;
 	}
 
@@ -418,7 +418,7 @@ bool wsm_buffer_export_sync_file(struct wsm_vk_renderer *renderer, struct wlr_bu
 			wsm_log(WSM_ERROR, "Failed to extract DMA-BUF fence");
 			return false;
 		}
-		
+
 		sync_file_fds[i] = sync_file_fd;
 	}
 
