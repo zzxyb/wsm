@@ -49,6 +49,10 @@ struct wsm_blit_texture_options {
  *          GLES never creates framebuffers for source or destination textures.
  *          Other format conversions depend on backend framebuffer support.
  *          Pixman requires writable destination storage and rejects explicit timelines.
+ *          Vulkan requires blit-capable image formats and a destination created or
+ *          imported with transfer-destination usage. A source aliasing the current
+ *          target requires a single-pass Vulkan render target.
+ *          The source format must support the requested filter.
  *          Borrowed textures must remain alive until pass submission. The caller
  *          must arrange destination synchronization before reusing its storage.
  * @param target Active render pass.
