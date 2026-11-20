@@ -78,7 +78,7 @@ struct wsm_vk_device {
  * @return Device state, or NULL on failure.
  */
 struct wsm_vk_device *wsm_vk_device_create(struct wsm_vk_instance *ini,
-		VkPhysicalDevice phdev);
+	VkPhysicalDevice phdev);
 
 /**
  * @brief Destroys a logical device and releases its format resources.

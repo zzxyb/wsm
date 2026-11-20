@@ -121,7 +121,6 @@ static bool write_pixels(struct wsm_vk_texture *texture,
 			.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 		};
 
-
 		buf_off += height * packed_stride;
 	}
 
@@ -851,36 +850,36 @@ bool wsm_vk_read_pixels(struct wsm_vk_renderer *vk_renderer,
 		uint32_t dst_x, uint32_t dst_y, void *data,
 		struct wlr_drm_syncobj_timeline *wait_timeline, uint64_t wait_point) {
 	VkDevice dev = vk_renderer->dev->dev;
-	
+
 	const struct wsm_pixel_format *vulkan_pixel_format_info = wsm_vk_drm_get_pixel_format(drm_format);
 	if (!vulkan_pixel_format_info) {
 		wsm_log(WSM_ERROR, "vulkan_read_pixels: could not find pixel format info "
-						   "for DRM format 0x%08x", drm_format);
+			"for DRM format 0x%08x", drm_format);
 		return false;
 	} else if (wsm_vk_pixel_format_pixels_per_block(vulkan_pixel_format_info) != 1) {
 		wsm_log(WSM_ERROR, "vulkan_read_pixels: block formats are not supported");
 		return false;
 	}
-	
+
 	const struct wsm_vk_format *wlr_vk_format = vulkan_get_format_from_drm(drm_format);
 	if (!wlr_vk_format) {
 		wsm_log(WSM_ERROR, "vulkan_read_pixels: no vulkan format "
-						   "matching drm format 0x%08x available", drm_format);
+			"matching drm format 0x%08x available", drm_format);
 		return false;
 	}
 	VkFormat dst_format = wlr_vk_format->vk;
 	VkFormatProperties dst_format_props = {0}, src_format_props = {0};
 	vkGetPhysicalDeviceFormatProperties(vk_renderer->dev->phdev, dst_format, &dst_format_props);
 	vkGetPhysicalDeviceFormatProperties(vk_renderer->dev->phdev, src_format, &src_format_props);
-	
+
 	bool blit_supported = src_format_props.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT &&
 			dst_format_props.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT;
 	if (!blit_supported && src_format != dst_format) {
 		wsm_log(WSM_ERROR, "vulkan_read_pixels: blit unsupported and no manual "
-						   "conversion available from src to dst format.");
+			"conversion available from src to dst format.");
 		return false;
 	}
-	
+
 	VkResult res;
 	VkImage dst_image;
 	VkDeviceMemory dst_img_memory;
@@ -888,49 +887,49 @@ bool wsm_vk_read_pixels(struct wsm_vk_renderer *vk_renderer,
 			vk_renderer->read_pixels_cache.drm_format == drm_format &&
 			vk_renderer->read_pixels_cache.width == width &&
 			vk_renderer->read_pixels_cache.height == height;
-	
+
 	if (use_cached) {
 		dst_image = vk_renderer->read_pixels_cache.dst_image;
 		dst_img_memory = vk_renderer->read_pixels_cache.dst_img_memory;
 	} else {
 		VkImageCreateInfo image_create_info = {
-				.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-				.imageType = VK_IMAGE_TYPE_2D,
-				.format = dst_format,
-				.extent.width = width,
-				.extent.height = height,
-				.extent.depth = 1,
-				.arrayLayers = 1,
-				.mipLevels = 1,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.tiling = VK_IMAGE_TILING_LINEAR,
-				.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT
+			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			.imageType = VK_IMAGE_TYPE_2D,
+			.format = dst_format,
+			.extent.width = width,
+			.extent.height = height,
+			.extent.depth = 1,
+			.arrayLayers = 1,
+			.mipLevels = 1,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.tiling = VK_IMAGE_TILING_LINEAR,
+			.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT
 		};
 		res = vkCreateImage(dev, &image_create_info, NULL, &dst_image);
 		if (res != VK_SUCCESS) {
 			wsm_vk_error("vkCreateImage", res);
 			return false;
 		}
-		
+
 		VkMemoryRequirements mem_reqs;
 		vkGetImageMemoryRequirements(dev, dst_image, &mem_reqs);
-		
+
 		int mem_type = wsm_vk_find_mem_type(vk_renderer->dev,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-						VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
-				mem_reqs.memoryTypeBits);
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+			VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
+			mem_reqs.memoryTypeBits);
 		if (mem_type < 0) {
 			wsm_log(WSM_ERROR, "vulkan_read_pixels: could not find adequate memory type");
 			goto destroy_image;
 		}
-		
+
 		VkMemoryAllocateInfo mem_alloc_info = {
-				.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		};
 		mem_alloc_info.allocationSize = mem_reqs.size;
 		mem_alloc_info.memoryTypeIndex = mem_type;
-		
+
 		res = vkAllocateMemory(dev, &mem_alloc_info, NULL, &dst_img_memory);
 		if (res != VK_SUCCESS) {
 			wsm_vk_error("vkAllocateMemory", res);
@@ -941,7 +940,7 @@ bool wsm_vk_read_pixels(struct wsm_vk_renderer *vk_renderer,
 			wsm_vk_error("vkBindImageMemory", res);
 			goto free_memory;
 		}
-		
+
 		if (vk_renderer->read_pixels_cache.initialized) {
 			vkFreeMemory(dev, vk_renderer->read_pixels_cache.dst_img_memory, NULL);
 			vkDestroyImage(dev, vk_renderer->read_pixels_cache.dst_image, NULL);
@@ -953,88 +952,88 @@ bool wsm_vk_read_pixels(struct wsm_vk_renderer *vk_renderer,
 		vk_renderer->read_pixels_cache.width = width;
 		vk_renderer->read_pixels_cache.height = height;
 	}
-	
+
 	VkCommandBuffer cb = vulkan_record_stage_cb(vk_renderer);
 	if (cb == VK_NULL_HANDLE) {
 		return false;
 	}
-	
+
 	wsm_vk_change_layout(cb, dst_image,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_ACCESS_TRANSFER_WRITE_BIT);
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT);
 	wsm_vk_change_layout(cb, src_image,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_ACCESS_MEMORY_READ_BIT,
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT);
-	
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_TRANSFER_READ_BIT);
+
 	if (blit_supported) {
 		VkImageBlit image_blit_region = {
-				.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.srcSubresource.layerCount = 1,
-				.srcOffsets[0] = {
-						.x = src_x,
-						.y = src_y,
-						.z = 0,
-				},
-				.srcOffsets[1] = {
-						.x = src_x + width,
-						.y = src_y + height,
-						.z = 1,
-				},
-				.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.dstSubresource.layerCount = 1,
-				.dstOffsets[1] = {
-						.x = width,
-						.y = height,
-						.z = 1,
-				}
+			.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.srcSubresource.layerCount = 1,
+			.srcOffsets[0] = {
+				.x = src_x,
+				.y = src_y,
+				.z = 0,
+			},
+			.srcOffsets[1] = {
+				.x = src_x + width,
+				.y = src_y + height,
+				.z = 1,
+			},
+			.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.dstSubresource.layerCount = 1,
+			.dstOffsets[1] = {
+				.x = width,
+				.y = height,
+				.z = 1,
+			}
 		};
 		vkCmdBlitImage(cb, src_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				dst_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				1, &image_blit_region, VK_FILTER_NEAREST);
+			dst_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &image_blit_region, VK_FILTER_NEAREST);
 	} else {
 		wsm_log(WSM_DEBUG, "vulkan_read_pixels: blit unsupported, falling back to vkCmdCopyImage.");
 		VkImageCopy image_region = {
-				.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.srcSubresource.layerCount = 1,
-				.srcOffset = {
-						.x = src_x,
-						.y = src_y,
-				},
-				.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.dstSubresource.layerCount = 1,
-				.extent = {
-						.width = width,
-						.height = height,
-						.depth = 1,
-				}
+			.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.srcSubresource.layerCount = 1,
+			.srcOffset = {
+				.x = src_x,
+				.y = src_y,
+			},
+			.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.dstSubresource.layerCount = 1,
+			.extent = {
+				.width = width,
+				.height = height,
+				.depth = 1,
+			}
 		};
 		vkCmdCopyImage(cb, src_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				dst_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &image_region);
+			dst_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &image_region);
 	}
-	
+
 	wsm_vk_change_layout(cb, dst_image,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0);
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0);
 	wsm_vk_change_layout(cb, src_image,
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_ACCESS_MEMORY_READ_BIT);
-	
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_TRANSFER_READ_BIT,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_MEMORY_READ_BIT);
+
 	int wait_sync_file_fd = -1;
 	if (wait_timeline != NULL) {
 		wait_sync_file_fd = wlr_drm_syncobj_timeline_export_sync_file(wait_timeline, wait_point);
@@ -1043,32 +1042,32 @@ bool wsm_vk_read_pixels(struct wsm_vk_renderer *vk_renderer,
 			return false;
 		}
 	}
-	
+
 	if (!vulkan_submit_stage_wait(vk_renderer, wait_sync_file_fd)) {
 		close(wait_sync_file_fd);
 		return false;
 	}
-	
+
 	VkImageSubresource img_sub_res = {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.arrayLayer = 0,
-			.mipLevel = 0
+		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.arrayLayer = 0,
+		.mipLevel = 0
 	};
 	VkSubresourceLayout img_sub_layout;
 	vkGetImageSubresourceLayout(dev, dst_image, &img_sub_res, &img_sub_layout);
-	
+
 	void *v;
 	res = vkMapMemory(dev, dst_img_memory, 0, VK_WHOLE_SIZE, 0, &v);
 	if (res != VK_SUCCESS) {
 		wsm_vk_error("vkMapMemory", res);
 		return false;
 	}
-	
+
 	VkMappedMemoryRange mem_range = {
-			.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-			.memory = dst_img_memory,
-			.offset = 0,
-			.size = VK_WHOLE_SIZE,
+		.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+		.memory = dst_img_memory,
+		.offset = 0,
+		.size = VK_WHOLE_SIZE,
 	};
 	res = vkInvalidateMappedMemoryRanges(dev, 1, &mem_range);
 	if (res != VK_SUCCESS) {
@@ -1076,7 +1075,7 @@ bool wsm_vk_read_pixels(struct wsm_vk_renderer *vk_renderer,
 		vkUnmapMemory(dev, dst_img_memory);
 		return false;
 	}
-	
+
 	const char *d = (const char *)v + img_sub_layout.offset;
 	unsigned char *p = (unsigned char *)data + dst_y * stride;
 	uint32_t bytes_per_pixel = vulkan_pixel_format_info->bytes_per_block;
@@ -1088,7 +1087,7 @@ bool wsm_vk_read_pixels(struct wsm_vk_renderer *vk_renderer,
 			memcpy(p + i * stride + dst_x * bytes_per_pixel, d + i * pack_stride, width * bytes_per_pixel);
 		}
 	}
-	
+
 	vkUnmapMemory(dev, dst_img_memory);
 	// Don't need to free anything else, since memory and image are cached
 	return true;
@@ -1097,7 +1096,7 @@ free_memory:
 	vkFreeMemory(dev, dst_img_memory, NULL);
 destroy_image:
 	vkDestroyImage(dev, dst_image, NULL);
-	
+
 	return false;
 }
 
@@ -1107,7 +1106,7 @@ void wlr_texture_get_image_attribs_wsm(struct wlr_texture *texture,
 	attribs->image = vk_texture->image;
 	attribs->format = vk_texture->format->vk;
 	attribs->layout = vk_texture->transitioned ?
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
 }
 
 bool wlr_texture_has_alpha_wsm(struct wlr_texture *texture) {

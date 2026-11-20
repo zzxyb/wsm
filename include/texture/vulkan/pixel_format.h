@@ -184,7 +184,7 @@ const struct wsm_vk_format *vulkan_get_format_from_drm(uint32_t drm_format);
  * @param format Format mapping to query.
  */
 void vulkan_format_props_query(struct wsm_vk_device *dev,
-		const struct wsm_vk_format *format);
+	const struct wsm_vk_format *format);
 
 /**
  * @brief Finds a supported modifier for rendering or texturing.
@@ -194,7 +194,7 @@ void vulkan_format_props_query(struct wsm_vk_device *dev,
  * @return Matching modifier properties, or NULL when unsupported.
  */
 const struct wsm_vk_format_modifier_props *vulkan_format_props_find_modifier(
-		const struct wsm_vk_format_props *props, uint64_t mod, bool render);
+	const struct wsm_vk_format_props *props, uint64_t mod, bool render);
 
 /**
  * @brief Releases modifier arrays owned by queried format properties.
@@ -216,6 +216,6 @@ bool vulkan_format_is_ycbcr(const struct wsm_vk_format *format);
  * @return Device-owned format properties, or NULL when unavailable.
  */
 struct wsm_vk_format_props *vulkan_format_props_from_drm(
-		struct wsm_vk_device *dev, uint32_t drm_format);
+	struct wsm_vk_device *dev, uint32_t drm_format);
 
 #endif

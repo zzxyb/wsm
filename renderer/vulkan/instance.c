@@ -61,7 +61,6 @@ static VKAPI_ATTR VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT
 }
 
 struct wsm_vk_instance *wsm_vk_instance_create(bool debug) {
-
 	uint32_t avail_extc = 0;
 	VkResult res;
 	res = vkEnumerateInstanceExtensionProperties(NULL, &avail_extc, NULL);

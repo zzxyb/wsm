@@ -75,7 +75,7 @@ struct wsm_vk_render_buffer {
  * @return Render buffer, or NULL on failure.
  */
 struct wsm_vk_render_buffer *wsm_vk_render_buffer_create(
-		struct wsm_vk_renderer *renderer, struct wlr_buffer *buffer);
+	struct wsm_vk_renderer *renderer, struct wlr_buffer *buffer);
 
 /**
  * @brief Destroys an imported render buffer and its Vulkan resources.
@@ -100,7 +100,7 @@ struct wsm_vk_render_buffer *wsm_get_vk_render_buffer(
  * @return true on success, false on failure.
  */
 bool wsm_vk_setup_one_pass_framebuffer(struct wsm_vk_render_buffer *buffer,
-		const struct wlr_dmabuf_attributes *dmabuf, bool srgb);
+	const struct wlr_dmabuf_attributes *dmabuf, bool srgb);
 
 /**
  * @brief Creates blending and output resources for two-pass rendering.
@@ -109,7 +109,7 @@ bool wsm_vk_setup_one_pass_framebuffer(struct wsm_vk_render_buffer *buffer,
  * @return true on success, false on failure.
  */
 bool wsm_vk_setup_two_pass_framebuffer(struct wsm_vk_render_buffer *buffer,
-		const struct wlr_dmabuf_attributes *dmabuf);
+	const struct wlr_dmabuf_attributes *dmabuf);
 
 /**
  * @brief Acquires implicit synchronization fences before rendering into a buffer.
@@ -120,7 +120,7 @@ bool wsm_vk_setup_two_pass_framebuffer(struct wsm_vk_render_buffer *buffer,
  * @return true when fences are exported or the fallback wait succeeds, false on failure.
  */
 bool wsm_vk_sync_render_buffer_acquire(struct wsm_vk_render_buffer *render_buffer,
-		int sync_file_fds[static WLR_DMABUF_MAX_PLANES]);
+	int sync_file_fds[static WLR_DMABUF_MAX_PLANES]);
 
 /**
  * @brief Exports per-plane DMA-BUF fences or waits for buffer access.
@@ -133,6 +133,6 @@ bool wsm_vk_sync_render_buffer_acquire(struct wsm_vk_render_buffer *render_buffe
  * @return true on successful export or fallback wait, false on failure.
  */
 bool wsm_buffer_export_sync_file(struct wsm_vk_renderer *renderer, struct wlr_buffer *buffer,
-		uint32_t flags, int sync_file_fds[static WLR_DMABUF_MAX_PLANES]);
+	uint32_t flags, int sync_file_fds[static WLR_DMABUF_MAX_PLANES]);
 
 #endif

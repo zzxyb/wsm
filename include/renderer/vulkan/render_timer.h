@@ -57,6 +57,6 @@ bool wlr_render_timer_is_wsm_vk(const struct wlr_render_timer *wlr_timer);
  * @return Enclosing Vulkan timer.
  */
 struct wsm_vk_render_timer *wlr_vk_render_timer_from_timer(
-		struct wlr_render_timer *wlr_timer);
+	struct wlr_render_timer *wlr_timer);
 
 #endif // RENDERER_VULKAN_RENDER_TIMER_H
