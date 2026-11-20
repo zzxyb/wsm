@@ -8,6 +8,10 @@
 #include "renderer/vulkan/shaders/quad.frag.h"
 #include "renderer/vulkan/shaders/rect.frag.h"
 #include "renderer/vulkan/shaders/border.frag.h"
+#include "renderer/vulkan/shaders/blur_down.frag.h"
+#include "renderer/vulkan/shaders/blur_up.frag.h"
+#include "renderer/vulkan/shaders/blur_finish.frag.h"
+#include "pass/vulkan/blur.h"
 #include "renderer/vulkan/shaders/shadow.frag.h"
 #include "renderer/vulkan/shaders/output.frag.h"
 #include "util/wsm_common.h"
@@ -796,6 +800,7 @@ static void vulkan_destroy(struct wlr_renderer *wlr_renderer) {
 		wsm_vk_error("vkDeviceWaitIdle", res);
 	}
 
+	wsm_vk_blur_finish(renderer);
 	for (size_t i = 0; i < VULKAN_COMMAND_BUFFERS_CAP; i++) {
 		struct wsm_vk_command_buffer *cb = &renderer->command_buffers[i];
 		if (cb->vk == VK_NULL_HANDLE) {
@@ -858,6 +863,10 @@ static void vulkan_destroy(struct wlr_renderer *wlr_renderer) {
 	vkDestroyShaderModule(dev->dev, renderer->rect_frag_module, NULL);
 	vkDestroyShaderModule(dev->dev, renderer->border_frag_module, NULL);
 	vkDestroyShaderModule(dev->dev, renderer->shadow_frag_module, NULL);
+	vkDestroyShaderModule(dev->dev, renderer->blur_down_frag_module, NULL);
+	vkDestroyShaderModule(dev->dev, renderer->blur_up_frag_module, NULL);
+	vkDestroyShaderModule(dev->dev, renderer->blur_finish_frag_module, NULL);
+
 	vkDestroyShaderModule(dev->dev, renderer->output_module, NULL);
 
 	struct wsm_vk_pipeline_layout *pipeline_layout, *pipeline_layout_tmp;
@@ -1220,6 +1229,27 @@ struct wsm_vk_pipeline *setup_get_or_create_pipeline(
 	};
 
 	switch (key->source) {
+	case WSM_VK_SHADER_SOURCE_BLUR_DOWN:
+		stages[1] = (VkPipelineShaderStageCreateInfo){
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.module = renderer->blur_down_frag_module, .pName = "main",
+		};
+		break;
+	case WSM_VK_SHADER_SOURCE_BLUR_UP:
+		stages[1] = (VkPipelineShaderStageCreateInfo){
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.module = renderer->blur_up_frag_module, .pName = "main",
+		};
+		break;
+	case WSM_VK_SHADER_SOURCE_BLUR_FINISH:
+		stages[1] = (VkPipelineShaderStageCreateInfo){
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.module = renderer->blur_finish_frag_module, .pName = "main",
+		};
+		break;
 	case WSM_VK_SHADER_SOURCE_SHADOW:
 		stages[1] = (VkPipelineShaderStageCreateInfo) {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -1715,6 +1745,36 @@ static bool init_static_render_data(struct wsm_vk_renderer *renderer) {
 	res = vkCreateShaderModule(dev, &sinfo, NULL, &renderer->round_tex_frag_module);
 	if (res != VK_SUCCESS) {
 		wsm_vk_error("Failed to create rounded texture fragment shader", res);
+		return false;
+	}
+
+	sinfo = (VkShaderModuleCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = sizeof(blur_down_frag_data), .pCode = blur_down_frag_data,
+	};
+	res = vkCreateShaderModule(dev, &sinfo, NULL, &renderer->blur_down_frag_module);
+	if (res != VK_SUCCESS) {
+		wsm_vk_error("Failed to create blur_down shader", res);
+		return false;
+	}
+
+	sinfo = (VkShaderModuleCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = sizeof(blur_up_frag_data), .pCode = blur_up_frag_data,
+	};
+	res = vkCreateShaderModule(dev, &sinfo, NULL, &renderer->blur_up_frag_module);
+	if (res != VK_SUCCESS) {
+		wsm_vk_error("Failed to create blur_up shader", res);
+		return false;
+	}
+
+	sinfo = (VkShaderModuleCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = sizeof(blur_finish_frag_data), .pCode = blur_finish_frag_data,
+	};
+	res = vkCreateShaderModule(dev, &sinfo, NULL, &renderer->blur_finish_frag_module);
+	if (res != VK_SUCCESS) {
+		wsm_vk_error("Failed to create blur_finish shader", res);
 		return false;
 	}
 

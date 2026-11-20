@@ -830,7 +830,7 @@ static void render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 
 	enum wlr_color_transfer_function tf = options->transfer_function;
 	if (tf == 0) {
-		tf = WLR_COLOR_TRANSFER_FUNCTION_GAMMA22;
+		tf = texture->capture_transfer ? texture->capture_transfer : WLR_COLOR_TRANSFER_FUNCTION_GAMMA22;
 	}
 
 	bool srgb_image_view = false;
@@ -1371,4 +1371,39 @@ struct wsm_vk_render_pass *wsm_vk_begin_render_pass(struct wsm_vk_renderer *rend
 	pass->command_buffer = cb;
 	pass->timer = timer;
 	return pass;
+}
+
+void wsm_vk_render_pass_suspend(struct wsm_vk_render_pass *pass) {
+	VkCommandBuffer cb = pass->command_buffer->vk;
+	if (pass->two_pass) {
+		/* Complete the output subpass without drawing. Preserve the blend
+		 * attachment and defer the output transform until final submission. */
+		vkCmdNextSubpass(cb, VK_SUBPASS_CONTENTS_INLINE);
+	}
+	vkCmdEndRenderPass(cb);
+	pass->bound_pipeline = VK_NULL_HANDLE;
+}
+
+void wsm_vk_render_pass_resume(struct wsm_vk_render_pass *pass) {
+	VkCommandBuffer cb = pass->command_buffer->vk;
+	if (pass->two_pass) {
+		wsm_vk_change_layout(cb, pass->render_buffer->two_pass.blend_image,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+	}
+	VkRect2D rect = {.extent = {
+		pass->render_buffer->wlr_buffer->width, pass->render_buffer->wlr_buffer->height}};
+	VkRenderPassBeginInfo begin = {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = pass->render_setup->render_pass,
+		.framebuffer = pass->render_buffer_out->framebuffer, .renderArea = rect,
+	};
+	vkCmdBeginRenderPass(cb, &begin, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdSetViewport(cb, 0, 1, &(VkViewport){
+		.width = rect.extent.width, .height = rect.extent.height, .maxDepth = 1});
+	vkCmdSetScissor(cb, 0, 1, &rect);
+	pass->bound_pipeline = VK_NULL_HANDLE;
 }

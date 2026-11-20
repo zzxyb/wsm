@@ -98,4 +98,27 @@ bool wlr_render_pass_is_wsm_vk(const struct wlr_render_pass *pass);
  */
 struct wsm_vk_render_pass *wsm_vk_render_pass_from_render_pass(struct wlr_render_pass *pass);
 
+/**
+ * @brief Ends the active attachment render pass to record ordered effects or transfers.
+ * @param pass Active Vulkan render pass.
+ */
+void wsm_vk_render_pass_suspend(struct wsm_vk_render_pass *pass);
+
+/**
+ * @brief Restarts attachment rendering after an ordered effect or transfer.
+ * @param pass Suspended Vulkan render pass.
+ */
+void wsm_vk_render_pass_resume(struct wsm_vk_render_pass *pass);
+
+/**
+ * @brief Tracks a texture read and its acquire dependency.
+ * @param pass Vulkan render pass recording the read.
+ * @param texture Texture used by the draw or transfer.
+ * @param timeline Explicit acquire timeline, or NULL to use implicit DMA-BUF synchronization.
+ * @param point Point to wait on when a timeline is supplied.
+ * @return true if usage was tracked, false on allocation failure.
+ */
+bool wsm_vk_render_pass_use_texture(struct wsm_vk_render_pass *pass,
+	struct wsm_vk_texture *texture, struct wlr_drm_syncobj_timeline *timeline, uint64_t point);
+
 #endif // PASS_VULKAN_PASS_H

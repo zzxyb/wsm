@@ -60,6 +60,7 @@ struct wsm_vk_texture {
 	struct wlr_addon buffer_addon; /**< Addon associating the texture with its source buffer. */
 
 	struct wl_list views; /**< List of wsm_vk_texture_view.link entries. */
+	enum wlr_color_transfer_function capture_transfer; /**< Transfer function of captured pixels, or zero for ordinary textures. */
 };
 
 /**
@@ -177,4 +178,16 @@ bool wlr_texture_has_alpha_wsm(struct wlr_texture *texture);
  */
 struct wsm_vk_texture *wsm_vk_texture_create_render_target(
 	struct wsm_vk_renderer *renderer, int width, int height);
+
+/**
+ * @brief Creates a sampled, renderable effect texture in the specified format.
+ * @param renderer Vulkan renderer that will use the texture.
+ * @param width Texture width in pixels.
+ * @param height Texture height in pixels.
+ * @param format Format descriptor that must remain valid for the texture's lifetime.
+ * @return Caller-owned texture with undefined initial contents, or NULL on failure.
+ */
+struct wsm_vk_texture *wsm_vk_texture_create_render_target_format(
+	struct wsm_vk_renderer *renderer, int width, int height,
+	const struct wsm_vk_format *format);
 #endif

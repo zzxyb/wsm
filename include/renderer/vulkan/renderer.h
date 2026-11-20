@@ -96,6 +96,9 @@ enum wsm_vk_shader_source {
 	WSM_VK_SHADER_SOURCE_ROUNDED_TEXTURE, /**< Samples a texture and clips it to rounded destination corners. */
 	WSM_VK_SHADER_SOURCE_BORDER, /**< Computes superellipse border coverage in the fragment shader. */
 	WSM_VK_SHADER_SOURCE_SHADOW, /**< Computes shadow coverage in the fragment shader. */
+	WSM_VK_SHADER_SOURCE_BLUR_DOWN, /**< Downsamples a Dual Kawase blur level. */
+	WSM_VK_SHADER_SOURCE_BLUR_UP, /**< Upsamples a Dual Kawase blur level. */
+	WSM_VK_SHADER_SOURCE_BLUR_FINISH, /**< Draws the final blur result. */
 	WLR_VK_SHADER_SOURCE_SINGLE_COLOR, /**< Uses a uniform solid color in the fragment shader. */
 };
 
@@ -196,6 +199,9 @@ struct wsm_vk_renderer {
 	VkShaderModule vert_module; /**< Common vertex shader module. */
 	VkShaderModule round_tex_frag_module; /**< Rounded texture fragment shader module. */
 	VkShaderModule tex_frag_module; /**< Texture fragment shader module. */
+	VkShaderModule blur_down_frag_module; /**< Blur downsampling fragment shader module. */
+	VkShaderModule blur_up_frag_module; /**< Blur upsampling fragment shader module. */
+	VkShaderModule blur_finish_frag_module; /**< Final blur fragment shader module. */
 	VkShaderModule shadow_frag_module; /**< Shadow fragment shader module. */
 	VkShaderModule rect_frag_module; /**< Rounded rectangle fragment shader module. */
 	VkShaderModule border_frag_module; /**< Superellipse border fragment shader module. */
@@ -233,6 +239,11 @@ struct wsm_vk_renderer {
 	struct wl_list render_buffers; /**< List of wsm_vk_render_buffer.link entries. */
 
 	struct wl_list color_transforms; /**< List of wsm_vk_color_transform.link entries. */
+
+	struct {
+		struct wsm_vk_texture *levels[9]; /**< Cached Dual Kawase pyramid. */
+		struct wsm_vk_texture *filtered; /**< Appearance-adjusted texture. */
+	} blur; /**< Cached render targets for Dual Kawase blur and appearance adjustment. */
 
 	struct wsm_vk_command_buffer command_buffers[VULKAN_COMMAND_BUFFERS_CAP]; /**< Reusable command buffers retained by the renderer. */
 
