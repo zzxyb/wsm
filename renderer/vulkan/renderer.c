@@ -5,6 +5,7 @@
 #include "renderer/vulkan/shaders/common.vert.h"
 #include "renderer/vulkan/shaders/texture.frag.h"
 #include "renderer/vulkan/shaders/quad.frag.h"
+#include "renderer/vulkan/shaders/rect.frag.h"
 #include "renderer/vulkan/shaders/output.frag.h"
 #include "util/wsm_common.h"
 #include "texture/vulkan/texture.h"
@@ -850,6 +851,7 @@ static void vulkan_destroy(struct wlr_renderer *wlr_renderer) {
 	vkDestroyShaderModule(dev->dev, renderer->vert_module, NULL);
 	vkDestroyShaderModule(dev->dev, renderer->tex_frag_module, NULL);
 	vkDestroyShaderModule(dev->dev, renderer->quad_frag_module, NULL);
+	vkDestroyShaderModule(dev->dev, renderer->rect_frag_module, NULL);
 	vkDestroyShaderModule(dev->dev, renderer->output_module, NULL);
 
 	struct wsm_vk_pipeline_layout *pipeline_layout, *pipeline_layout_tmp;
@@ -1212,6 +1214,14 @@ struct wsm_vk_pipeline *setup_get_or_create_pipeline(
 	};
 
 	switch (key->source) {
+	case WLR_VK_SHADER_SOURCE_ROUNDED_RECT:
+		stages[1] = (VkPipelineShaderStageCreateInfo) {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.module = renderer->rect_frag_module,
+			.pName = "main",
+		};
+		break;
 	case WLR_VK_SHADER_SOURCE_SINGLE_COLOR:
 		stages[1] = (VkPipelineShaderStageCreateInfo) {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -1664,6 +1674,17 @@ static bool init_static_render_data(struct wsm_vk_renderer *renderer) {
 	res = vkCreateShaderModule(dev, &sinfo, NULL, &renderer->vert_module);
 	if (res != VK_SUCCESS) {
 		wsm_vk_error("Failed to create vertex shader module", res);
+		return false;
+	}
+
+	sinfo = (VkShaderModuleCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = sizeof(rect_frag_data),
+		.pCode = rect_frag_data,
+	};
+	res = vkCreateShaderModule(dev, &sinfo, NULL, &renderer->rect_frag_module);
+	if (res != VK_SUCCESS) {
+		wsm_vk_error("Failed to create rounded rectangle shader", res);
 		return false;
 	}
 

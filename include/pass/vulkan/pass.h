@@ -84,4 +84,18 @@ struct wsm_vk_render_pass {
 struct wsm_vk_render_pass *wsm_vk_begin_render_pass(struct wsm_vk_renderer *renderer,
 	struct wsm_vk_render_buffer *buffer, const struct wlr_buffer_pass_options *options);
 
+/**
+ * @brief Checks whether a render pass uses the wsm Vulkan implementation.
+ * @param pass Render pass to check.
+ * @return true if the pass uses the wsm Vulkan implementation, false otherwise.
+ */
+bool wlr_render_pass_is_wsm_vk(const struct wlr_render_pass *pass);
+
+/**
+ * @brief Gets the Vulkan state containing a render pass.
+ * @param pass Render pass using the wsm Vulkan implementation.
+ * @return Borrowed pointer to the containing Vulkan render pass.
+ */
+struct wsm_vk_render_pass *wsm_vk_render_pass_from_render_pass(struct wlr_render_pass *pass);
+
 #endif // PASS_VULKAN_PASS_H
