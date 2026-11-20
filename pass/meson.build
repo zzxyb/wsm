@@ -29,5 +29,6 @@ if have_vulkan
 		'vulkan/pass.c',
 		'vulkan/rect.c',
 		'vulkan/texture.c',
+		'vulkan/border.c',
 	)
 endif

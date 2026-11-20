@@ -4,6 +4,7 @@ vulkan_shaders_src = [
 	'round_texture.frag',
 	'quad.frag',
 	'rect.frag',
+	'border.frag',
 	'output.frag',
 ]
 

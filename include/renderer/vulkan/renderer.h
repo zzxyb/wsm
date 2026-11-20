@@ -94,6 +94,7 @@ enum wsm_vk_shader_source {
 	WLR_VK_SHADER_SOURCE_TEXTURE, /**< Samples a texture in the fragment shader. */
 	WLR_VK_SHADER_SOURCE_ROUNDED_RECT, /**< Computes rounded rectangle coverage in the fragment shader. */
 	WSM_VK_SHADER_SOURCE_ROUNDED_TEXTURE, /**< Samples a texture and clips it to rounded destination corners. */
+	WSM_VK_SHADER_SOURCE_BORDER, /**< Computes superellipse border coverage in the fragment shader. */
 	WLR_VK_SHADER_SOURCE_SINGLE_COLOR, /**< Uses a uniform solid color in the fragment shader. */
 };
 
@@ -195,6 +196,7 @@ struct wsm_vk_renderer {
 	VkShaderModule round_tex_frag_module; /**< Rounded texture fragment shader module. */
 	VkShaderModule tex_frag_module; /**< Texture fragment shader module. */
 	VkShaderModule rect_frag_module; /**< Rounded rectangle fragment shader module. */
+	VkShaderModule border_frag_module; /**< Superellipse border fragment shader module. */
 	VkShaderModule quad_frag_module; /**< Solid-color fragment shader module. */
 	VkShaderModule output_module; /**< Blending-to-output fragment shader module. */
 
