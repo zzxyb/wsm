@@ -33,27 +33,14 @@ void wsm_vk_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 	wlr_matrix_project_box(matrix, &dst_box, options->transform, proj);
 	wlr_matrix_multiply(matrix, pass->projection, matrix);
 
-	pixman_region32_t clip;
-	if (options->clip) {
-		pixman_region32_init(&clip);
-		pixman_region32_intersect_rect(&clip, options->clip,
-			dst_box.x, dst_box.y, dst_box.width, dst_box.height);
-	} else {
-		pixman_region32_init_rect(&clip,
-			dst_box.x, dst_box.y, dst_box.width, dst_box.height);
-	}
 	int clip_rects_len;
-	const pixman_box32_t *clip_rects = pixman_region32_rectangles(&clip, &clip_rects_len);
-	if (clip_rects_len == 0) {
-		pixman_region32_fini(&clip);
-		return;
-	}
+	const pixman_box32_t *clip_rects =
+		pixman_region32_rectangles(options->clip, &clip_rects_len);
 
 	const VkDeviceSize instance_size = 4 * sizeof(float);
 	struct wsm_vk_buffer_span span = vulkan_get_stage_span(renderer,
 		clip_rects_len * instance_size, 16);
 	if (!span.buffer) {
-		pixman_region32_fini(&clip);
 		pass->failed = true;
 		return;
 	}
@@ -130,7 +117,6 @@ void wsm_vk_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 				!texture->has_alpha && alpha == 1.0 ? WLR_RENDER_BLEND_MODE_NONE : options->blend_mode,
 		});
 	if (!pipe) {
-		pixman_region32_fini(&clip);
 		pass->failed = true;
 		return;
 	}
@@ -138,7 +124,6 @@ void wsm_vk_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 	struct wsm_vk_texture_view *view =
 		vulkan_texture_get_or_create_view(texture, pipe->layout, srgb_image_view);
 	if (!view) {
-		pixman_region32_fini(&clip);
 		pass->failed = true;
 		return;
 	}
@@ -170,8 +155,10 @@ void wsm_vk_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 	frag_pcr_data.box[2] = dst_box.width;
 	frag_pcr_data.box[3] = dst_box.height;
 
-	vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->vk);
-	pass->bound_pipeline = pipe->vk;
+	if (pass->bound_pipeline != pipe->vk) {
+		vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->vk);
+		pass->bound_pipeline = pipe->vk;
+	}
 
 	vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS,
 		pipe->layout->vk, 0, 1, &view->ds, 0, NULL);
@@ -205,7 +192,6 @@ void wsm_vk_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 		instance_data[i * 4 + 2] = (float)norm.width;
 		instance_data[i * 4 + 3] = (float)norm.height;
 	}
-	pixman_region32_fini(&clip);
 
 	VkDeviceSize vb_offset = span.offset;
 	vkCmdBindVertexBuffers(cb, 0, 1, &span.buffer->buffer, &vb_offset);

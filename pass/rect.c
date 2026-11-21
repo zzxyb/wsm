@@ -1,5 +1,6 @@
 #include "pass/rect.h"
 #include "pass/pass.h"
+#include "rounded.h"
 
 #include <math.h>
 
@@ -32,6 +33,21 @@ bool wsm_render_pass_add_rect(struct wlr_render_pass *pass,
 	if (!impl || !impl->add_rect) {
 		return false;
 	}
-	impl->add_rect(pass, &normalized);
+
+	pixman_region32_t solid, corners;
+	split_rounded_region(&options->box, normalized.radii, options->clip, &solid, &corners);
+	if (pixman_region32_not_empty(&solid)) {
+		wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
+			.box = options->box,
+			.color = options->color,
+			.clip = &solid,
+		});
+	}
+	if (pixman_region32_not_empty(&corners)) {
+		normalized.clip = &corners;
+		impl->add_rect(pass, &normalized);
+	}
+	pixman_region32_fini(&corners);
+	pixman_region32_fini(&solid);
 	return true;
 }

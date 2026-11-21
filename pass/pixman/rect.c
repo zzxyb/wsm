@@ -1,4 +1,5 @@
 #include "pass/pixman/rect.h"
+#include "../rounded.h"
 
 #include <math.h>
 
@@ -39,67 +40,38 @@ static float corner_coverage(int x, int y, int width, int height, float radius, 
 static void render_rect(struct wlr_render_pass *pass,
 		const pixman_region32_t *clip, const struct wlr_box *box,
 		const float color[static 4], const float radii[static 4], float exponent) {
-	if (box->width <= 0 || box->height <= 0) {
-		return;
-	}
-	pixman_region32_t solid;
-	pixman_region32_init_rect(&solid, box->x, box->y, box->width, box->height);
-	for (int corner = 0; corner < 4; corner++) {
-		float radius = radii[corner];
-		if (radius <= 0) {
+	for (int i = 0; i < 4; i++) {
+		float radius = radii[i];
+		struct wlr_box corner = rounded_corner_box(box, i, radius);
+		if (corner.width == 0 || corner.height == 0) {
 			continue;
 		}
-		bool right = corner & 1, bottom = corner & 2;
-		int width = fminf(ceilf(radius), right ? box->width / 2 : (box->width + 1) / 2);
-		int height = fminf(ceilf(radius), bottom ? box->height / 2 : (box->height + 1) / 2);
-		int ox = box->x + (right ? box->width - width : 0);
-		int oy = box->y + (bottom ? box->height - height : 0);
-		pixman_region32_t corner_region;
-		pixman_region32_init_rect(&corner_region, ox, oy, width, height);
-		pixman_region32_subtract(&solid, &solid, &corner_region);
-		pixman_region32_fini(&corner_region);
-	}
-	int count;
-	const pixman_box32_t *rects = pixman_region32_rectangles(&solid, &count);
-	for (int i = 0; i < count; i++) {
-		struct wlr_box span = {
-			.x = rects[i].x1, .y = rects[i].y1,
-			.width = rects[i].x2 - rects[i].x1,
-			.height = rects[i].y2 - rects[i].y1,
-		};
-		add_colored_rect(pass, clip, &span, color, 1);
-	}
-	pixman_region32_fini(&solid);
-
-	for (int corner = 0; corner < 4; corner++) {
-		float radius = radii[corner];
-		if (radius <= 0) {
-			continue;
-		}
-		bool right = corner & 1, bottom = corner & 2;
-		int width = fminf(ceilf(radius), right ? box->width / 2 : (box->width + 1) / 2);
-		int height = fminf(ceilf(radius), bottom ? box->height / 2 : (box->height + 1) / 2);
-		int ox = box->x + (right ? box->width - width : 0);
-		int oy = box->y + (bottom ? box->height - height : 0);
-		for (int y = 0; y < height; y++) {
-			for (int step = 0; step < width; step++) {
-				int x = right ? width - 1 - step : step;
-				float coverage = corner_coverage(x, y, width, height, radius,
-					exponent, right, bottom);
-				if (coverage == 1.f) {
-					struct wlr_box span = {
-						.x = ox + (right ? 0 : x), .y = oy + y,
-						.width = width - step, .height = 1,
-					};
-					add_colored_rect(pass, clip, &span, color, 1);
-					break;
-				}
-				if (coverage > 0 && coverage < 1) {
-					struct wlr_box pixel = { ox + x, oy + y, 1, 1 };
-					add_colored_rect(pass, clip, &pixel, color, coverage);
+		bool right = i & 1, bottom = i & 2;
+		pixman_region32_t visible;
+		pixman_region32_init(&visible);
+		pixman_region32_intersect_rect(&visible, clip,
+			corner.x, corner.y, corner.width, corner.height);
+		int count;
+		const pixman_box32_t *rects = pixman_region32_rectangles(&visible, &count);
+		for (int j = 0; j < count; j++) {
+			const pixman_box32_t *rect = &rects[j];
+			int width = rect->x2 - rect->x1;
+			for (int y = rect->y1; y < rect->y2; y++) {
+				for (int step = 0; step < width; step++) {
+					int x = right ? rect->x2 - 1 - step : rect->x1 + step;
+					float coverage = corner_coverage(x - corner.x, y - corner.y,
+						corner.width, corner.height, radius, exponent, right, bottom);
+					if (coverage == 1.f) {
+						struct wlr_box span = {right ? rect->x1 : x, y, width - step, 1};
+						add_colored_rect(pass, NULL, &span, color, 1);
+						break;
+					}
+					struct wlr_box pixel = {x, y, 1, 1};
+					add_colored_rect(pass, NULL, &pixel, color, coverage);
 				}
 			}
 		}
+		pixman_region32_fini(&visible);
 	}
 }
 

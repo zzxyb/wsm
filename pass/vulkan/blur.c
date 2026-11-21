@@ -1,6 +1,6 @@
 #include "pass/vulkan/blur.h"
 #include "pass/vulkan/pass.h"
-#include "pass/vulkan/texture.h"
+#include "pass/texture.h"
 #include "buffer/vulkan/buffer.h"
 #include "texture/vulkan/pixel_format.h"
 #include "texture/vulkan/texture.h"
@@ -210,7 +210,7 @@ void wsm_vk_render_pass_add_blur(struct wlr_render_pass *target,
 	if (ok) {
 		float radii[4] = {options->top_left_radius, options->top_right_radius,
 			options->bottom_left_radius, options->bottom_right_radius};
-		wsm_vk_render_pass_add_texture(target, &(struct wlr_render_texture_options){
+		wsm_render_pass_add_texture(target, &(struct wlr_render_texture_options){
 			.texture = &filtered->wlr_texture, .dst_box = options->dst_box,
 			.alpha = options->alpha, .clip = &clip,
 			.filter_mode = WLR_SCALE_FILTER_NEAREST, .blend_mode = options->blend_mode,

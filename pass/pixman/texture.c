@@ -2,6 +2,7 @@
 #include "pass/pixman/pass.h"
 #include "pass/texture.h"
 #include "texture/pixman/texture.h"
+#include <assert.h>
 
 #include <math.h>
 #include <stdint.h>
@@ -17,9 +18,6 @@ void wsm_pixman_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 		return;
 	}
 
-	pixman_op_t op = PIXMAN_OP_OVER;
-	pixman_image_set_clip_region32(buffer->image, options->clip);
-
 	struct wlr_fbox src_fbox;
 	wlr_render_texture_options_get_src_box(options, &src_fbox);
 	struct wlr_box src_box = {
@@ -32,33 +30,15 @@ void wsm_pixman_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 	struct wlr_box dst_box;
 	wlr_render_texture_options_get_dst_box(options, &dst_box);
 
-	pixman_image_t *mask = NULL;
-	float alpha = wlr_render_texture_options_get_alpha(options);
-	mask = pixman_image_create_bits(PIXMAN_a8, dst_box.width, dst_box.height, NULL, 0);
-	if (!mask) {
-		if (texture->buffer) {
-			wlr_buffer_end_data_ptr_access(texture->buffer);
-		}
-		return;
-	}
-	uint8_t *pixels = (uint8_t *)pixman_image_get_data(mask);
-	int stride = pixman_image_get_stride(mask);
-	for (int y = 0; y < dst_box.height; y++) {
-		for (int x = 0; x < dst_box.width; x++) {
-			pixels[y * stride + x] = roundf(255 * alpha *
-				wsm_render_texture_corner_coverage(dst_box.width, dst_box.height,
-					radii, x + .5f, y + .5f));
-		}
-	}
-
 	// Rotate the source size into destination coordinates
 	struct wlr_box src_box_transformed;
 	wlr_box_transform(&src_box_transformed, &src_box, options->transform,
 		buffer->base->width, buffer->base->height);
 
-	if (options->transform != WL_OUTPUT_TRANSFORM_NORMAL ||
-			src_box_transformed.width != dst_box.width ||
-			src_box_transformed.height != dst_box.height) {
+	bool transformed = options->transform != WL_OUTPUT_TRANSFORM_NORMAL ||
+		src_box_transformed.width != dst_box.width ||
+		src_box_transformed.height != dst_box.height;
+	if (transformed) {
 		// Cosinus/sinus values are exact integers for enum wl_output_transform entries
 		int tr_cos = 1, tr_sin = 0, tr_x = 0, tr_y = 0;
 		switch (options->transform) {
@@ -148,34 +128,51 @@ void wsm_pixman_render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 			break;
 		}
 
-		// Now composite the result onto the pass buffer.  We specify a source origin of 0,0
-		// because the x,y part of source crop is already done using the transform. The
-		// width,height part of source crop is done here by the width and height we pass:
-		// because of the scaling, cropping at the end by dst_box.{width,height} is
-		// equivalent to if we cropped at the start by src_box.{width,height}.
-		pixman_image_composite32(op, texture->image, mask, buffer->image,
-			0, 0, // source x,y
-			0, 0, // mask x,y
-			dst_box.x, dst_box.y, // dest x,y
-			dst_box.width, dst_box.height // composite width,height
-		);
-
-		pixman_image_set_transform(texture->image, NULL);
 	} else {
-		// No transforms or crop needed, just a straight blit from the source
 		pixman_image_set_transform(texture->image, NULL);
-		pixman_image_composite32(op, texture->image, mask, buffer->image,
-			src_box.x, src_box.y, 0, 0, dst_box.x, dst_box.y,
-			src_box.width, src_box.height);
 	}
 
-	pixman_image_set_clip_region32(buffer->image, NULL);
-
+	assert(options->clip);
+	pixman_region32_t clip;
+	pixman_region32_init(&clip);
+	pixman_region32_intersect_rect(&clip, options->clip, 0, 0,
+		buffer->base->width, buffer->base->height);
+	float alpha = wlr_render_texture_options_get_alpha(options);
+	int count;
+	const pixman_box32_t *rects = pixman_region32_rectangles(&clip, &count);
+	int mask_width = 0, mask_height = 0;
+	for (int i = 0; i < count; i++) {
+		int width = rects[i].x2 - rects[i].x1;
+		int height = rects[i].y2 - rects[i].y1;
+		mask_width = width > mask_width ? width : mask_width;
+		mask_height = height > mask_height ? height : mask_height;
+	}
+	pixman_image_t *mask = count > 0 ?
+		pixman_image_create_bits(PIXMAN_a8, mask_width, mask_height, NULL, 0) : NULL;
+	for (int i = 0; mask && i < count; i++) {
+		const pixman_box32_t *rect = &rects[i];
+		int width = rect->x2 - rect->x1, height = rect->y2 - rect->y1;
+		int dx = rect->x1 - dst_box.x, dy = rect->y1 - dst_box.y;
+		uint8_t *pixels = (uint8_t *)pixman_image_get_data(mask);
+		int stride = pixman_image_get_stride(mask);
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				pixels[(size_t)y * stride + x] = roundf(255 * alpha *
+					wsm_render_texture_corner_coverage(dst_box.width, dst_box.height,
+						radii, dx + x + .5f, dy + y + .5f));
+			}
+		}
+		// A transformed source already includes the source-box origin.
+		pixman_image_composite32(PIXMAN_OP_OVER, texture->image, mask, buffer->image,
+			dx + (transformed ? 0 : src_box.x), dy + (transformed ? 0 : src_box.y),
+			0, 0, rect->x1, rect->y1, width, height);
+	}
+	if (mask) {
+		pixman_image_unref(mask);
+	}
+	pixman_region32_fini(&clip);
+	pixman_image_set_transform(texture->image, NULL);
 	if (texture->buffer != NULL) {
 		wlr_buffer_end_data_ptr_access(texture->buffer);
-	}
-
-	if (mask != NULL) {
-		pixman_image_unref(mask);
 	}
 }

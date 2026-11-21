@@ -13,20 +13,8 @@
 #define MAX_QUADS 86
 
 static void render(const struct wlr_box *box, const pixman_region32_t *clip, GLint attrib) {
-	pixman_region32_t region;
-	pixman_region32_init_rect(&region, box->x, box->y, box->width, box->height);
-
-	if (clip) {
-		pixman_region32_intersect(&region, &region, clip);
-	}
-
 	int rects_len;
-	const pixman_box32_t *rects = pixman_region32_rectangles(&region, &rects_len);
-	if (rects_len == 0) {
-		pixman_region32_fini(&region);
-		return;
-	}
-
+	const pixman_box32_t *rects = pixman_region32_rectangles(clip, &rects_len);
 	glEnableVertexAttribArray(attrib);
 
 	for (int i = 0; i < rects_len;) {
@@ -58,7 +46,6 @@ static void render(const struct wlr_box *box, const pixman_region32_t *clip, GLi
 
 	glDisableVertexAttribArray(attrib);
 
-	pixman_region32_fini(&region);
 }
 
 static void set_proj_matrix(GLint loc, float proj[9], const struct wlr_box *box) {

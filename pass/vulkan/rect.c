@@ -12,12 +12,8 @@ void wsm_vk_render_pass_add_rect(struct wlr_render_pass *target,
 	struct wsm_vk_render_pass *pass = wsm_vk_render_pass_from_render_pass(target);
 	const struct wlr_box *box = &options->box;
 	pixman_region32_t clip;
-	pixman_region32_init_rect(&clip, box->x, box->y, box->width, box->height);
-	if (options->clip) {
-		pixman_region32_intersect(&clip, &clip, options->clip);
-	}
-
-	pixman_region32_intersect_rect(&clip, &clip, 0, 0,
+	pixman_region32_init(&clip);
+	pixman_region32_intersect_rect(&clip, options->clip, 0, 0,
 		pass->render_buffer->wlr_buffer->width, pass->render_buffer->wlr_buffer->height);
 	int count;
 	pixman_box32_t *rects = pixman_region32_rectangles(&clip, &count);
@@ -66,8 +62,10 @@ void wsm_vk_render_pass_add_rect(struct wlr_render_pass *target,
 	frag.color[2] = a == 0 ? 0 : powf(options->color.b / a, 2.2f) * a;
 	frag.color[3] = a;
 	VkCommandBuffer cb = pass->command_buffer->vk;
-	vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->vk);
-	pass->bound_pipeline = pipe->vk;
+	if (pass->bound_pipeline != pipe->vk) {
+		vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->vk);
+		pass->bound_pipeline = pipe->vk;
+	}
 	vkCmdPushConstants(cb, pipe->layout->vk, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(vert), &vert);
 	vkCmdPushConstants(cb, pipe->layout->vk, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(vert), sizeof(frag), &frag);
 	vkCmdBindVertexBuffers(cb, 0, 1, &span.buffer->buffer, &span.offset);
