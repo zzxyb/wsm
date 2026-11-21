@@ -963,8 +963,28 @@ static void render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 	vkCmdBindVertexBuffers(cb, 0, 1, &span.buffer->buffer, &vb_offset);
 	vkCmdDraw(cb, 4, clip_rects_len, 0, 0);
 
-	if (!wsm_vk_render_pass_use_texture(pass, texture, options->wait_timeline, options->wait_point)) {
-		pass->failed = true;
+	texture->last_used_cb = pass->command_buffer;
+
+	if (texture->dmabuf_imported || (options != NULL && options->wait_timeline != NULL)) {
+		struct wsm_vk_render_pass_texture *pass_texture =
+			wl_array_add(&pass->textures, sizeof(*pass_texture));
+		if (pass_texture == NULL) {
+			pass->failed = true;
+			return;
+		}
+
+		struct wlr_drm_syncobj_timeline *wait_timeline = NULL;
+		uint64_t wait_point = 0;
+		if (options != NULL && options->wait_timeline != NULL) {
+			wait_timeline = wlr_drm_syncobj_timeline_ref(options->wait_timeline);
+			wait_point = options->wait_point;
+		}
+
+		*pass_texture = (struct wsm_vk_render_pass_texture){
+			.texture = texture,
+			.wait_timeline = wait_timeline,
+			.wait_point = wait_point,
+		};
 	}
 }
 
