@@ -1,13 +1,6 @@
 #include "pass/blit.h"
-#include "pass/gles/blit.h"
-#include "pass/pixman/blit.h"
-#include "pass/gles/pass.h"
-#include "pass/pixman/pass.h"
+#include "pass/pass.h"
 
-#if WSM_HAS_VULKAN
-#include "pass/vulkan/pass.h"
-#include "pass/vulkan/blit.h"
-#endif
 
 static bool region_valid(struct wlr_texture *texture, const struct wlr_box *box) {
 	int64_t x2 = (int64_t)box->x + box->width;
@@ -29,16 +22,6 @@ bool wsm_render_pass_blit(struct wlr_render_pass *target,
 			!region_valid(options->dst_texture, &options->dst_box)) {
 		return false;
 	}
-	if (wlr_render_pass_is_wsm_gles2(target)) {
-		return wsm_gles2_render_pass_blit(target, options);
-	}
-	if (wlr_render_pass_is_wsm_pixman(target)) {
-		return wsm_pixman_render_pass_blit(target, options);
-	}
-#if WSM_HAS_VULKAN
-	if (wlr_render_pass_is_wsm_vk(target)) {
-		return wsm_vk_render_pass_blit(target, options);
-	}
-#endif
-	return false;
+	const struct wsm_render_pass_impl *impl = wsm_render_pass_get_impl(target);
+	return impl && impl->blit && impl->blit(target, options);
 }

@@ -1,3 +1,5 @@
+#include "renderer/wsm_renderer.h"
+#include "pass/gles/shadow.h"
 #include "renderer/gles/renderer.h"
 #include "texture/gles/pixel_format.h"
 #include "renderer/gles/egl.h"
@@ -150,7 +152,7 @@ static struct wlr_render_pass *gles2_begin_buffer_pass(struct wlr_renderer *wlr_
 	if (!pass) {
 		return NULL;
 	}
-	return &pass->base;
+	return &pass->base.base;
 }
 
 static struct wlr_render_timer *gles2_render_timer_create(struct wlr_renderer *wlr_renderer) {
@@ -158,14 +160,17 @@ static struct wlr_render_timer *gles2_render_timer_create(struct wlr_renderer *w
 	return &timer->base;
 }
 
-static const struct wlr_renderer_impl renderer_impl = {
-	.destroy = gles2_destroy,
-	.get_texture_formats = gles2_get_texture_formats,
-	.get_render_formats = gles2_get_render_formats,
-	.get_drm_fd = gles2_get_drm_fd,
-	.texture_from_buffer = gles2_texture_from_buffer,
-	.begin_buffer_pass = gles2_begin_buffer_pass,
-	.render_timer_create = gles2_render_timer_create,
+static const struct wsm_renderer_impl renderer_impl = {
+	.base = {
+		.destroy = gles2_destroy,
+		.get_texture_formats = gles2_get_texture_formats,
+		.get_render_formats = gles2_get_render_formats,
+		.get_drm_fd = gles2_get_drm_fd,
+		.texture_from_buffer = gles2_texture_from_buffer,
+		.begin_buffer_pass = gles2_begin_buffer_pass,
+		.render_timer_create = gles2_render_timer_create,
+	},
+	.shadow_cache_create = wsm_gles2_shadow_cache_create,
 };
 
 static GLuint compile_shader(struct wsm_gles2_renderer *renderer,
@@ -286,7 +291,7 @@ struct wsm_gles2_renderer *wsm_gles2_renderer_create(struct wsm_egl *egl) {
 	if (renderer == NULL) {
 		return NULL;
 	}
-	wlr_renderer_init(&renderer->base, &renderer_impl, WLR_BUFFER_CAP_DMABUF);
+	wlr_renderer_init(&renderer->base, &renderer_impl.base, WLR_BUFFER_CAP_DMABUF);
 	renderer->base.features.output_color_transform = false;
 
 	wl_list_init(&renderer->buffers);
@@ -572,12 +577,12 @@ error:
 }
 
 bool wlr_renderer_is_wsm_gles2(const struct wlr_renderer *wlr_renderer) {
-	return wlr_renderer != NULL && wlr_renderer->impl == &renderer_impl;
+	return wlr_renderer != NULL && wlr_renderer->impl == &renderer_impl.base;
 }
 
 struct wsm_gles2_renderer *wsm_gles2_renderer_from_renderer(
 		struct wlr_renderer *wlr_renderer) {
-	assert(wlr_renderer->impl == &renderer_impl);
+	assert(wlr_renderer->impl == &renderer_impl.base);
 
 	struct wsm_gles2_renderer *renderer = wl_container_of(wlr_renderer, renderer, base);
 	return renderer;

@@ -31,4 +31,16 @@ void wsm_render_pass_add_shadow(struct wsm_scene_shadow *shadow,
 	const struct wsm_render_data *data, const pixman_region32_t *clip,
 	int x, int y);
 
+/**
+ * @brief Draws the visible slices of a cached shadow texture.
+ * @details Shared implementation used by the backend add_shadow callbacks.
+ * @param shadow Shadow node with a populated cache.
+ * @param data Current output rendering state and destination render pass.
+ * @param clip Clip region in output buffer coordinates, or NULL for no extra clip.
+ * @param x Shadow node x coordinate relative to the output.
+ * @param y Shadow node y coordinate relative to the output.
+ */
+void wsm_render_pass_add_cached_shadow(struct wsm_scene_shadow *shadow,
+	const struct wsm_render_data *data, const pixman_region32_t *clip, int x, int y);
+
 #endif // PASS_SHADOW_H

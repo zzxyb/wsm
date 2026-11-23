@@ -1,3 +1,9 @@
+#include "pass/vulkan/blit.h"
+#include "pass/vulkan/copy.h"
+#include "pass/vulkan/blur.h"
+#include "pass/vulkan/border.h"
+#include "pass/vulkan/rect.h"
+#include "pass/vulkan/texture.h"
 #include "pass/vulkan/pass.h"
 #include "renderer/vulkan/renderer.h"
 #include "renderer/vulkan/dmabuf.h"
@@ -18,17 +24,18 @@
 #include <wlr/render/color.h>
 #include <wlr/render/drm_syncobj.h>
 
-static const struct wlr_render_pass_impl render_pass_impl;
+static const struct wsm_render_pass_impl render_pass_impl;
 static const struct wlr_addon_interface vk_color_transform_impl;
 
 struct wsm_vk_render_pass *wsm_vk_render_pass_from_render_pass(struct wlr_render_pass *wlr_pass) {
-	assert(wlr_pass->impl == &render_pass_impl);
-	struct wsm_vk_render_pass *pass = wl_container_of(wlr_pass, pass, base);
+	struct wsm_render_pass *base = wsm_render_pass_from_base(wlr_pass);
+	assert(wlr_pass && wlr_pass->impl == &render_pass_impl.base);
+	struct wsm_vk_render_pass *pass = wl_container_of(base, pass, base);
 	return pass;
 }
 
 bool wlr_render_pass_is_wsm_vk(const struct wlr_render_pass *pass) {
-	return pass->impl == &render_pass_impl;
+	return pass != NULL && pass->impl == &render_pass_impl.base;
 }
 
 static struct wsm_vk_color_transform *get_color_transform(
@@ -988,10 +995,20 @@ static void render_pass_add_texture(struct wlr_render_pass *wlr_pass,
 	}
 }
 
-static const struct wlr_render_pass_impl render_pass_impl = {
-	.submit = render_pass_submit,
-	.add_rect = render_pass_add_rect,
-	.add_texture = render_pass_add_texture,
+static const struct wsm_render_pass_impl render_pass_impl = {
+	.base = {
+		.submit = render_pass_submit,
+		.add_rect = render_pass_add_rect,
+		.add_texture = render_pass_add_texture,
+	},
+	.blit = wsm_vk_render_pass_blit,
+	.copy = wsm_vk_render_pass_copy,
+	.add_blur = wsm_vk_render_pass_add_blur,
+	.capture = wsm_vk_render_pass_capture_blur,
+	.add_border = wsm_vk_render_pass_add_border,
+	.add_rect = wsm_vk_render_pass_add_rect,
+	.add_texture = wsm_vk_render_pass_add_texture,
+	.add_shadow = wsm_render_pass_add_cached_shadow,
 };
 
 
@@ -1294,7 +1311,7 @@ struct wsm_vk_render_pass *wsm_vk_begin_render_pass(struct wsm_vk_renderer *rend
 		return NULL;
 	}
 
-	wlr_render_pass_init(&pass->base, &render_pass_impl);
+	wsm_render_pass_init(&pass->base, &render_pass_impl);
 	pass->renderer = renderer;
 	pass->two_pass = using_two_pass_pathway;
 	if (options != NULL && options->color_transform != NULL) {

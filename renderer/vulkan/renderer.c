@@ -1,3 +1,5 @@
+#include "renderer/wsm_renderer.h"
+#include "pass/vulkan/shadow.h"
 #include "renderer/vulkan/dmabuf.h"
 #include "renderer/vulkan/renderer.h"
 #include "buffer/vulkan/buffer.h"
@@ -950,7 +952,7 @@ static struct wlr_render_pass *vulkan_begin_buffer_pass(struct wlr_renderer *wlr
 	if (render_pass == NULL) {
 		return NULL;
 	}
-	return &render_pass->base;
+	return &render_pass->base.base;
 }
 
 static struct wlr_render_timer *vulkan_render_timer_create(
@@ -959,14 +961,17 @@ static struct wlr_render_timer *vulkan_render_timer_create(
 	return &timer->base;
 }
 
-static const struct wlr_renderer_impl renderer_impl = {
-	.get_texture_formats = vulkan_get_texture_formats,
-	.get_render_formats = vulkan_get_render_formats,
-	.destroy = vulkan_destroy,
-	.get_drm_fd = vulkan_get_drm_fd,
-	.texture_from_buffer = vulkan_texture_from_buffer,
-	.begin_buffer_pass = vulkan_begin_buffer_pass,
-	.render_timer_create = vulkan_render_timer_create,
+static const struct wsm_renderer_impl renderer_impl = {
+	.base = {
+		.get_texture_formats = vulkan_get_texture_formats,
+		.get_render_formats = vulkan_get_render_formats,
+		.destroy = vulkan_destroy,
+		.get_drm_fd = vulkan_get_drm_fd,
+		.texture_from_buffer = vulkan_texture_from_buffer,
+		.begin_buffer_pass = vulkan_begin_buffer_pass,
+		.render_timer_create = vulkan_render_timer_create,
+	},
+	.shadow_cache_create = wsm_vk_shadow_cache_create,
 };
 
 // Initializes the VkDescriptorSetLayout and VkPipelineLayout needed
@@ -2159,7 +2164,7 @@ struct wlr_renderer *vulkan_renderer_create_for_device(struct wsm_vk_device *dev
 	}
 
 	renderer->dev = dev;
-	wlr_renderer_init(&renderer->wlr_renderer, &renderer_impl, WLR_BUFFER_CAP_DMABUF);
+	wlr_renderer_init(&renderer->wlr_renderer, &renderer_impl.base, WLR_BUFFER_CAP_DMABUF);
 	renderer->wlr_renderer.features.input_color_transform = true;
 	renderer->wlr_renderer.features.output_color_transform = true;
 	wl_list_init(&renderer->stage.buffers);
@@ -2263,11 +2268,11 @@ uint32_t wsm_vk_renderer_get_queue_family(struct wlr_renderer *renderer) {
 }
 
 bool wlr_renderer_is_wsm_vk(const struct wlr_renderer *wlr_renderer) {
-	return wlr_renderer!= NULL && wlr_renderer->impl == &renderer_impl;
+	return wlr_renderer!= NULL && wlr_renderer->impl == &renderer_impl.base;
 }
 
 struct wsm_vk_renderer *wsm_vk_renderer_from_renderer(struct wlr_renderer *wlr_renderer) {
-	assert(wlr_renderer->impl == &renderer_impl);
+	assert(wlr_renderer->impl == &renderer_impl.base);
 
 	struct wsm_vk_renderer *renderer = wl_container_of(wlr_renderer, renderer, wlr_renderer);
 	return renderer;

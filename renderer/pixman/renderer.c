@@ -1,3 +1,5 @@
+#include "renderer/wsm_renderer.h"
+#include "pass/pixman/shadow.h"
 #include "renderer/pixman/renderer.h"
 #include "util/wsm_log.h"
 #include "texture/pixman/texture.h"
@@ -79,17 +81,20 @@ static struct wlr_render_pass *pixman_begin_buffer_pass(struct wlr_renderer *wlr
 	if (pass == NULL) {
 		return NULL;
 	}
-	return &pass->base;
+	return &pass->base.base;
 }
 
-static const struct wlr_renderer_impl renderer_impl = {
-	.get_texture_formats = pixman_get_texture_formats,
-	.get_render_formats = pixman_get_render_formats,
-	.destroy = pixman_destroy,
-	.get_drm_fd = NULL,
-	.texture_from_buffer = pixman_texture_from_buffer,
-	.begin_buffer_pass = pixman_begin_buffer_pass,
-	.render_timer_create = NULL,
+static const struct wsm_renderer_impl renderer_impl = {
+	.base = {
+		.get_texture_formats = pixman_get_texture_formats,
+		.get_render_formats = pixman_get_render_formats,
+		.destroy = pixman_destroy,
+		.get_drm_fd = NULL,
+		.texture_from_buffer = pixman_texture_from_buffer,
+		.begin_buffer_pass = pixman_begin_buffer_pass,
+		.render_timer_create = NULL,
+	},
+	.shadow_cache_create = wsm_pixman_shadow_cache_create,
 };
 
 struct wsm_pixman_renderer *wsm_pixman_renderer_create(void) {
@@ -100,7 +105,7 @@ struct wsm_pixman_renderer *wsm_pixman_renderer_create(void) {
 	}
 
 	wsm_log(WSM_INFO, "Creating pixman renderer");
-	wlr_renderer_init(&renderer->base, &renderer_impl, WLR_BUFFER_CAP_DATA_PTR);
+	wlr_renderer_init(&renderer->base, &renderer_impl.base, WLR_BUFFER_CAP_DATA_PTR);
 	renderer->base.features.output_color_transform = false;
 	wl_list_init(&renderer->buffers);
 	wl_list_init(&renderer->textures);
@@ -119,12 +124,12 @@ struct wsm_pixman_renderer *wsm_pixman_renderer_create(void) {
 }
 
 bool wlr_renderer_is_wsm_pixman(const struct wlr_renderer *renderer) {
-	return renderer != NULL && renderer->impl == &renderer_impl;
+	return renderer != NULL && renderer->impl == &renderer_impl.base;
 }
 
 struct wsm_pixman_renderer *wsm_pixman_renderer_from_renderer(
 		struct wlr_renderer *renderer) {
-	assert(renderer->impl == &renderer_impl);
+	assert(renderer->impl == &renderer_impl.base);
 	struct wsm_pixman_renderer *pixman_renderer =
 		wl_container_of(renderer, pixman_renderer, base);
 

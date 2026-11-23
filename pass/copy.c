@@ -1,12 +1,5 @@
 #include "pass/copy.h"
-#include "pass/gles/copy.h"
-#include "pass/pixman/copy.h"
-#include "pass/gles/pass.h"
-#include "pass/pixman/pass.h"
-#if WSM_HAS_VULKAN
-#include "pass/vulkan/pass.h"
-#include "pass/vulkan/copy.h"
-#endif
+#include "pass/pass.h"
 
 static bool region_valid(struct wlr_texture *texture, int x, int y, int width, int height) {
 	return x >= 0 && y >= 0 && width > 0 && height > 0 &&
@@ -26,16 +19,6 @@ bool wsm_render_pass_copy(struct wlr_render_pass *target,
 				options->width, options->height)) {
 		return false;
 	}
-	if (wlr_render_pass_is_wsm_gles2(target)) {
-		return wsm_gles2_render_pass_copy(target, options);
-	}
-	if (wlr_render_pass_is_wsm_pixman(target)) {
-		return wsm_pixman_render_pass_copy(target, options);
-	}
-#if WSM_HAS_VULKAN
-	if (wlr_render_pass_is_wsm_vk(target)) {
-		return wsm_vk_render_pass_copy(target, options);
-	}
-#endif
-	return false;
+	const struct wsm_render_pass_impl *impl = wsm_render_pass_get_impl(target);
+	return impl && impl->copy && impl->copy(target, options);
 }

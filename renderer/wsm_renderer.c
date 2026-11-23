@@ -212,3 +212,8 @@ struct wlr_renderer *renderer_autocreate_with_drm_fd(int drm_fd) {
 
 	return renderer_autocreate(NULL, drm_fd);
 }
+
+const struct wsm_renderer_impl *wsm_renderer_get_impl(struct wlr_renderer *renderer) {
+	const struct wsm_renderer_impl *impl = wl_container_of(renderer->impl, impl, base);
+	return impl;
+}
