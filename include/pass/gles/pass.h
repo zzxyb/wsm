@@ -20,8 +20,8 @@
  *      version: v1.0, YaoBing Xiao, 2026-08-23, initial version\n
  */
 
-#ifndef PASS_GLES_RENDERPASS_H
-#define PASS_GLES_RENDERPASS_H
+#ifndef PASS_GLES_PASS_H
+#define PASS_GLES_PASS_H
 
 #include "renderer/gles/egl.h"
 #include "buffer/gles/buffer.h"
@@ -76,4 +76,4 @@ bool wlr_render_pass_is_wsm_gles2(const struct wlr_render_pass *wlr_pass);
 struct wsm_gles2_render_pass *wlr_gles2_render_pass_from_render_pass(
 	struct wlr_render_pass *wlr_pass);
 
-#endif // PASS_GLES_RENDERPASS_H
+#endif // PASS_GLES_PASS_H

@@ -24,7 +24,6 @@
 #include "pass/copy.h"
 #include "pass/rect.h"
 #include "pass/shadow.h"
-#include "pass/texture.h"
 
 /**
  * @brief Virtual operations implemented by a render pass backend.

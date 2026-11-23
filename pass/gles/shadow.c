@@ -2,12 +2,10 @@
 #include "renderer/gles/egl.h"
 #include "renderer/gles/renderer.h"
 #include "texture/gles/texture.h"
-#include "util/wsm_log.h"
 
 #include <limits.h>
 #include <math.h>
 #include <stdint.h>
-#include <stdlib.h>
 
 #include <GLES2/gl2.h>
 

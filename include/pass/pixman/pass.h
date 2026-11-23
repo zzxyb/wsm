@@ -19,8 +19,8 @@
  *      version: v1.0, YaoBing Xiao, 2026-08-23, initial version\n
  */
 
-#ifndef PASS_PIXMAN_RENDER_PASS_H
-#define PASS_PIXMAN_RENDER_PASS_H
+#ifndef PASS_PIXMAN_PASS_H
+#define PASS_PIXMAN_PASS_H
 
 #include "buffer/pixman/buffer.h"
 
@@ -62,4 +62,4 @@ struct wsm_pixman_render_pass *wsm_pixman_render_pass_from_render_pass(
 struct wsm_pixman_render_pass *wsm_render_pass_begin_pixman_render_pass(
 	struct wsm_pixman_buffer *buffer);
 
-#endif // PASS_PIXMAN_RENDER_PASS_H
+#endif // PASS_PIXMAN_PASS_H
