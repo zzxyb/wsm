@@ -4,8 +4,10 @@
 #include "texture/vulkan/texture.h"
 #include "texture/vulkan/pixel_format.h"
 #include "util/wsm_matrix.h"
+
 #include <assert.h>
 #include <string.h>
+
 #include <wlr/render/color.h>
 #include <wlr/render/drm_syncobj.h>
 #include <wlr/util/transform.h>

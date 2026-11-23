@@ -1,7 +1,6 @@
 #include "pass/gles/copy.h"
 #include "pass/gles/pass.h"
 #include "texture/gles/texture.h"
-#include "util/wsm_log.h"
 
 #include <unistd.h>
 #include <drm_fourcc.h>

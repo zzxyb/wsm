@@ -2,7 +2,6 @@
 #include "pass/gles/pass.h"
 #include "texture/gles/texture.h"
 #include "util/wsm_matrix.h"
-#include "util/wsm_log.h"
 
 #include <assert.h>
 #include <stdlib.h>

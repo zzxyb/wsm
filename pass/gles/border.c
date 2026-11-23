@@ -1,7 +1,6 @@
 #include "pass/gles/border.h"
 #include "pass/gles/pass.h"
 #include "renderer/gles/renderer.h"
-#include "util/wsm_log.h"
 
 #include <math.h>
 
