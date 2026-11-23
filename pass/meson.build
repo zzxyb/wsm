@@ -1,4 +1,5 @@
 wsm_sources += files(
+	'pass.c',
 	'blit.c',
 	'gles/blit.c',
 	'pixman/blit.c',

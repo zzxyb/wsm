@@ -1,12 +1,5 @@
 #include "pass/rect.h"
-#include "pass/gles/pass.h"
-#include "pass/pixman/pass.h"
-#include "pass/gles/rect.h"
-#include "pass/pixman/rect.h"
-#if WSM_HAS_VULKAN
-#include "pass/vulkan/pass.h"
-#include "pass/vulkan/rect.h"
-#endif
+#include "pass/pass.h"
 
 #include <math.h>
 
@@ -35,19 +28,10 @@ bool wsm_render_pass_add_rect(struct wlr_render_pass *pass,
 		});
 		return true;
 	}
-	if (wlr_render_pass_is_wsm_gles2(pass)) {
-		wsm_gles2_render_pass_add_rect(pass, &normalized);
-		return true;
+	const struct wsm_render_pass_impl *impl = wsm_render_pass_get_impl(pass);
+	if (!impl || !impl->add_rect) {
+		return false;
 	}
-	if (wlr_render_pass_is_wsm_pixman(pass)) {
-		wsm_pixman_render_pass_add_rect(pass, &normalized);
-		return true;
-	}
-#if WSM_HAS_VULKAN
-	if (wlr_render_pass_is_wsm_vk(pass)) {
-		wsm_vk_render_pass_add_rect(pass, &normalized);
-		return true;
-	}
-#endif
-	return false;
+	impl->add_rect(pass, &normalized);
+	return true;
 }

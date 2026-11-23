@@ -1,13 +1,7 @@
 #include "pass/shadow.h"
+#include "pass/pass.h"
+#include "renderer/wsm_renderer.h"
 #include "node/wsm_scene_shadow.h"
-#include "pass/gles/shadow.h"
-#include "pass/pixman/shadow.h"
-#include "renderer/gles/renderer.h"
-#include "renderer/pixman/renderer.h"
-#if WSM_HAS_VULKAN
-#include "pass/vulkan/shadow.h"
-#include "renderer/vulkan/renderer.h"
-#endif
 
 #include <limits.h>
 #include <math.h>
@@ -63,7 +57,7 @@ static void render_shadow_part(struct wsm_scene_shadow *shadow,
 		});
 }
 
-void wsm_render_pass_add_shadow(struct wsm_scene_shadow *shadow,
+void wsm_render_pass_add_cached_shadow(struct wsm_scene_shadow *shadow,
 		const struct wsm_render_data *data, const pixman_region32_t *clip,
 		int x, int y) {
 	struct wsm_scene_shadow_cache *cache = shadow->cache;
@@ -153,19 +147,15 @@ struct wsm_scene_shadow_cache *wsm_scene_shadow_cache_create_rounded_corners(
 			return NULL;
 		}
 	}
-	if (wlr_renderer_is_wsm_gles2(renderer)) {
-		return wsm_gles2_shadow_cache_create(renderer, margins,
-			corner_extent, radii, inner_offset, color);
+	const struct wsm_renderer_impl *impl = wsm_renderer_get_impl(renderer);
+	return impl && impl->shadow_cache_create ?
+		impl->shadow_cache_create(renderer, margins, corner_extent, radii, inner_offset, color) : NULL;
+}
+
+void wsm_render_pass_add_shadow(struct wsm_scene_shadow *shadow,
+		const struct wsm_render_data *data, const pixman_region32_t *clip, int x, int y) {
+	const struct wsm_render_pass_impl *impl = wsm_render_pass_get_impl(data->render_pass);
+	if (impl && impl->add_shadow) {
+		impl->add_shadow(shadow, data, clip, x, y);
 	}
-	if (wlr_renderer_is_wsm_pixman(renderer)) {
-		return wsm_pixman_shadow_cache_create(renderer, margins,
-			corner_extent, radii, inner_offset, color);
-	}
-#if WSM_HAS_VULKAN
-	if (wlr_renderer_is_wsm_vk(renderer)) {
-		return wsm_vk_shadow_cache_create(renderer, margins,
-			corner_extent, radii, inner_offset, color);
-	}
-#endif
-	return NULL;
 }

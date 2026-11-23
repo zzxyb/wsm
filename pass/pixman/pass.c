@@ -1,3 +1,9 @@
+#include "pass/pixman/blit.h"
+#include "pass/pixman/copy.h"
+#include "pass/pixman/blur.h"
+#include "pass/pixman/border.h"
+#include "pass/pixman/rect.h"
+#include "pass/pixman/texture.h"
 #include "pass/pixman/pass.h"
 #include "texture/pixman/texture.h"
 
@@ -216,19 +222,30 @@ static void render_pass_add_rect(struct wlr_render_pass *wlr_pass,
 	pixman_image_unref(fill);
 }
 
-static const struct wlr_render_pass_impl render_pass_impl = {
-	.submit = render_pass_submit,
-	.add_texture = render_pass_add_texture,
-	.add_rect = render_pass_add_rect,
+static const struct wsm_render_pass_impl render_pass_impl = {
+	.base = {
+		.submit = render_pass_submit,
+		.add_texture = render_pass_add_texture,
+		.add_rect = render_pass_add_rect,
+	},
+	.blit = wsm_pixman_render_pass_blit,
+	.copy = wsm_pixman_render_pass_copy,
+	.add_blur = wsm_pixman_render_pass_add_blur,
+	.capture = wsm_pixman_render_pass_capture_blur,
+	.add_border = wsm_pixman_render_pass_add_border,
+	.add_rect = wsm_pixman_render_pass_add_rect,
+	.add_texture = wsm_pixman_render_pass_add_texture,
+	.add_shadow = wsm_render_pass_add_cached_shadow,
 };
 
 bool wlr_render_pass_is_wsm_pixman(const struct wlr_render_pass *wlr_pass) {
-	return wlr_pass != NULL && wlr_pass->impl == &render_pass_impl;
+	return wlr_pass != NULL && wlr_pass->impl == &render_pass_impl.base;
 }
 
 struct wsm_pixman_render_pass *wsm_pixman_render_pass_from_render_pass(struct wlr_render_pass *wlr_pass) {
-	assert(wlr_pass->impl == &render_pass_impl);
-	struct wsm_pixman_render_pass *pass = wl_container_of(wlr_pass, pass, base);
+	struct wsm_render_pass *base = wsm_render_pass_from_base(wlr_pass);
+	assert(wlr_pass && wlr_pass->impl == &render_pass_impl.base);
+	struct wsm_pixman_render_pass *pass = wl_container_of(base, pass, base);
 	return pass;
 }
 
@@ -239,7 +256,7 @@ struct wsm_pixman_render_pass *wsm_render_pass_begin_pixman_render_pass(
 		return NULL;
 	}
 
-	wlr_render_pass_init(&pass->base, &render_pass_impl);
+	wsm_render_pass_init(&pass->base, &render_pass_impl);
 
 	if (!wsm_renderer_begin_pixman_data_ptr_access(buffer->base, &buffer->image,
 			WLR_BUFFER_DATA_PTR_ACCESS_READ | WLR_BUFFER_DATA_PTR_ACCESS_WRITE)) {

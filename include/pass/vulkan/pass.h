@@ -4,7 +4,7 @@
  * @file        pass.h
  * @brief       Vulkan render pass state and creation.
  * @details     Defines render pass resources, texture dependencies, and output synchronization
- *              state.
+ *              state through the shared wsm render pass interface.
  *
  * @par Upstream:
  *              Derived from wlroots; see LICENSE.wlroots in the project root.
@@ -21,6 +21,8 @@
 
 #ifndef PASS_VULKAN_PASS_H
 #define PASS_VULKAN_PASS_H
+
+#include "pass/pass.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -54,7 +56,7 @@ struct wsm_vk_render_pass_texture {
  * @brief Recorded Vulkan render pass and its synchronization dependencies.
  */
 struct wsm_vk_render_pass {
-	struct wlr_render_pass base; /**< Generic wlroots interface. */
+	struct wsm_render_pass base; /**< Embedded wsm base exposing wlroots and extended render operations. */
 	struct wsm_vk_renderer *renderer; /**< Renderer owning these resources. */
 	struct wsm_vk_render_buffer *render_buffer; /**< Destination render buffer. */
 	struct wsm_vk_render_buffer_out *render_buffer_out; /**< Selected output framebuffer and view. */
@@ -96,6 +98,7 @@ bool wlr_render_pass_is_wsm_vk(const struct wlr_render_pass *pass);
  * @brief Gets the Vulkan state containing a render pass.
  * @param pass Render pass using the wsm Vulkan implementation.
  * @return Borrowed pointer to the containing Vulkan render pass.
+ * @pre The pass must be non-NULL and use the wsm Vulkan backend.
  */
 struct wsm_vk_render_pass *wsm_vk_render_pass_from_render_pass(struct wlr_render_pass *pass);
 

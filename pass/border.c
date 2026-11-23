@@ -1,27 +1,15 @@
 #include "pass/border.h"
-#include "pass/gles/border.h"
-#include "pass/gles/pass.h"
-#include "pass/pixman/border.h"
-#include "pass/pixman/pass.h"
+#include "pass/pass.h"
 
 #include <math.h>
-#if WSM_HAS_VULKAN
-#include "pass/vulkan/pass.h"
-#include "pass/vulkan/border.h"
-#endif
 
 bool wsm_render_pass_add_border(struct wlr_render_pass *pass,
 		const struct wsm_render_border_options *options) {
 	if (pass == NULL || options == NULL) {
 		return false;
 	}
-	bool gles = wlr_render_pass_is_wsm_gles2(pass);
-	bool pixman = wlr_render_pass_is_wsm_pixman(pass);
-	bool vulkan = false;
-#if WSM_HAS_VULKAN
-	vulkan = wlr_render_pass_is_wsm_vk(pass);
-#endif
-	if (!gles && !pixman && !vulkan) {
+	const struct wsm_render_pass_impl *impl = wsm_render_pass_get_impl(pass);
+	if (!impl || !impl->add_border) {
 		return false;
 	}
 	if (options->box.width <= 0 || options->box.height <= 0 ||
@@ -40,19 +28,6 @@ bool wsm_render_pass_add_border(struct wlr_render_pass *pass,
 	normalized.corner_smoothness = isfinite(options->corner_smoothness) &&
 		options->corner_smoothness > 0 ?
 		fmaxf(1.f, options->corner_smoothness) : 4.f;
-	if (gles) {
-		wsm_gles2_render_pass_add_border(pass, &normalized);
-		return true;
-	}
-	if (pixman) {
-		wsm_pixman_render_pass_add_border(pass, &normalized);
-		return true;
-	}
-#if WSM_HAS_VULKAN
-	if (vulkan) {
-		wsm_vk_render_pass_add_border(pass, &normalized);
-		return true;
-	}
-#endif
-	return false;
+	impl->add_border(pass, &normalized);
+	return true;
 }

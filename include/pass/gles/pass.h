@@ -5,6 +5,7 @@
  * @brief       GLES2 render pass state and creation helpers.
  * @details     This file defines the render pass used to render into a GLES2
  *              buffer and optionally signal a DRM synchronization timeline.
+ *              The backend embeds the shared wsm render pass interface.
  *
  * @par Upstream:
  *              Derived from wlroots; see LICENSE.wlroots in the project root.
@@ -26,6 +27,8 @@
 #include "buffer/gles/buffer.h"
 #include "renderer/gles/render_timer.h"
 
+#include "pass/pass.h"
+
 #include <stdbool.h>
 
 #include <wlr/render/interface.h>
@@ -35,7 +38,7 @@
  * @brief GLES2 render pass state.
  */
 struct wsm_gles2_render_pass {
-	struct wlr_render_pass base; /**< Generic wlroots render pass interface. */
+	struct wsm_render_pass base; /**< Embedded wsm base exposing wlroots and extended render operations. */
 	struct wsm_gles2_buffer *buffer; /**< Destination buffer. */
 	float projection_matrix[9]; /**< Projection matrix for the destination. */
 	struct wsm_egl_context prev_ctx; /**< EGL context saved before the pass. */
